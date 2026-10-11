@@ -706,6 +706,67 @@ def test_dynamic_tenant_urlconf_resolution(monkeypatch):
     assert route == "/test/sample/"
 
 
+def test_django_integration_does_not_import_drf_at_init():
+    """Regression: importing rest_framework eagerly during tp_trace.init()
+    (which runs inside Django settings) makes DRF cache its default renderers
+    -- including BrowsableAPIRenderer -- and turn JSON endpoints into HTML.
+
+    The DRF patch must be registered as a deferred import hook, never forced.
+    """
+    import sys
+
+    for name in [m for m in list(sys.modules) if m == "rest_framework" or m.startswith("rest_framework.")]:
+        del sys.modules[name]
+
+    integration = DjangoIntegration()
+    integration.instrument()
+    try:
+        assert "rest_framework" not in sys.modules
+        assert "rest_framework.views" not in sys.modules
+    finally:
+        integration.uninstrument()
+
+
+def test_drf_dispatch_is_wrapped_when_drf_becomes_available(monkeypatch):
+    """The deferred DRF hook must wrap APIView.dispatch once rest_framework is
+    actually imported (simulated here with a stand-in module)."""
+    import importlib.util
+    import sys
+    from types import ModuleType
+
+    for name in [m for m in list(sys.modules) if m == "rest_framework" or m.startswith("rest_framework.")]:
+        del sys.modules[name]
+
+    drf_pkg = ModuleType("rest_framework")
+    views_mod = ModuleType("rest_framework.views")
+
+    class FakeAPIView:
+        def dispatch(self, request, *args, **kwargs):
+            return "app-dispatch"
+
+    views_mod.APIView = FakeAPIView
+    sys.modules["rest_framework"] = drf_pkg
+    sys.modules["rest_framework.views"] = views_mod
+
+    real_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *a, **k: object() if name == "rest_framework" else real_find_spec(name, *a, **k),
+    )
+
+    integration = DjangoIntegration()
+    integration.instrument()
+    try:
+        assert hasattr(FakeAPIView.dispatch, "__wrapped__"), (
+            "rest_framework.views.APIView.dispatch was not wrapped by the deferred hook"
+        )
+    finally:
+        integration.uninstrument()
+        for name in [m for m in list(sys.modules) if m == "rest_framework" or m.startswith("rest_framework.")]:
+            del sys.modules[name]
+
+
 
 
 

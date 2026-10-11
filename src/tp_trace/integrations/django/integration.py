@@ -70,11 +70,7 @@ class DjangoIntegration(BaseIntegration):
         except Exception as exc:
             logger.debug("Django View instrumentation skipped: %s", exc)
 
-        try:
-            import rest_framework.views  # noqa: F401
-            self.wrap("rest_framework.views.APIView", "dispatch", traced_view_dispatch)
-        except Exception:
-            pass
+        self._patch_rest_framework(traced_view_dispatch)
 
         # 3. Template & TemplateResponse
         self.wrap("django.template.base.Template", "render", traced_template_render)
@@ -131,6 +127,19 @@ class DjangoIntegration(BaseIntegration):
             self.wrap("django.core.management.base.BaseCommand", "execute", _traced_command)
         except Exception as exc:
             logger.debug("Django command instrumentation skipped: %s", exc)
+
+    def _patch_rest_framework(self, wrapper) -> None:
+        def _patch(_module) -> None:
+            self.wrap("rest_framework.views.APIView", "dispatch", wrapper)
+
+        try:
+            from importlib.util import find_spec
+
+            if find_spec("rest_framework") is None:
+                return
+            self.when_imported("rest_framework.views", _patch)
+        except Exception as exc:
+            logger.debug("Django REST Framework instrumentation skipped: %s", exc)
 
     def _remove_patch(self) -> None:
         try:
