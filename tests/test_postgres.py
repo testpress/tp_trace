@@ -577,8 +577,8 @@ def test_db_span_carries_alias_and_physical_db_name():
     assert span.kind == SpanKind.CLIENT
 
 
-def test_pgbouncer_nested_spans():
-    """Verify queries routed through PgBouncer produce an outer pool-wait span and an inner DB execution span."""
+def test_pgbouncer_single_query_span():
+    """Verify queries routed through PgBouncer produce exactly one DB execution span tagged with pgbouncer pool."""
     tp_trace._reset_for_testing()
     exporter = InMemorySpanExporter()
     tp_trace.init(
@@ -604,42 +604,71 @@ def test_pgbouncer_nested_spans():
     wrapper.execute("SELECT * FROM auth_user WHERE id = 1")
 
     spans = exporter.get_finished_spans()
-    assert len(spans) == 2
+    # Exactly one query span -- no synthetic outer pool-wait wrapper
+    assert len(spans) == 1
+    span = spans[0]
 
-    # Inner span finishes first, outer pool-wait span finishes second
-    inner_span = spans[0]
-    outer_span = spans[1]
-
-    # Verify outer PgBouncer pool-wait span
-    assert outer_span.name == "🔹 pgbouncer.pool_wait"
-    assert outer_span.kind == SpanKind.CLIENT
-    assert outer_span.attributes["db.system"] == "pgbouncer"
-    assert outer_span.attributes["db.system.name"] == "pgbouncer"
-    assert outer_span.attributes["db.connection.pool"] == "pgbouncer"
-    assert outer_span.attributes["server.address"] == "pgbouncer"
-    assert outer_span.attributes["server.port"] == 6432
-    assert "peer.service" not in outer_span.attributes
-
-    # Verify inner PostgreSQL query execution span
-    assert inner_span.name == "🟢 SELECT * FROM auth_user WHERE id = ?"
-    assert inner_span.kind == SpanKind.CLIENT
-    assert inner_span.parent.span_id == outer_span.context.span_id
-    assert inner_span.context.trace_id == outer_span.context.trace_id
-    assert inner_span.attributes["db.system"] == "postgresql"
-    assert inner_span.attributes["db.system.name"] == "postgresql"
-    assert "peer.service" not in inner_span.attributes
-    assert "db.connection.pool" not in inner_span.attributes
-    assert inner_span.attributes["server.address"] == "pgbouncer"
-    assert inner_span.attributes["server.port"] == 6432
-    assert inner_span.attributes["db.name"] == "django_otel"
-    assert inner_span.attributes["db.namespace"] == "django_otel"
-    assert inner_span.attributes["db.operation.name"] == "SELECT"
-    assert inner_span.attributes["db.query.summary"] == "SELECT auth_user"
-    assert inner_span.attributes["db.response.returned_rows"] == 5
+    assert span.name == "🟢 SELECT * FROM auth_user WHERE id = ?"
+    assert span.kind == SpanKind.CLIENT
+    assert span.attributes["db.system"] == "postgresql"
+    assert span.attributes["db.system.name"] == "postgresql"
+    assert span.attributes["db.connection.pool"] == "pgbouncer"
+    assert span.attributes["server.address"] == "pgbouncer"
+    assert span.attributes["server.port"] == 6432
+    assert span.attributes["net.peer.name"] == "pgbouncer"
+    assert span.attributes["net.peer.port"] == 6432
+    assert span.attributes["db.name"] == "django_otel"
+    assert span.attributes["db.namespace"] == "django_otel"
+    assert span.attributes["db.operation.name"] == "SELECT"
+    assert span.attributes["db.query.summary"] == "SELECT auth_user"
+    assert span.attributes["db.response.returned_rows"] == 5
 
 
-def test_pgbouncer_execute_wrapper_nested_spans():
-    """Verify execute_wrapper produces nested pool-wait and DB execute spans for PgBouncer."""
+def test_pgbouncer_connect_span_on_get_new_connection():
+    """Verify get_new_connection emits pgbouncer.connect measuring client-to-PgBouncer connection establishment."""
+    tp_trace._reset_for_testing()
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="pgbouncer-connect-svc",
+        exporter=exporter,
+        export_batch=False,
+    )
+    from tp_trace.integrations import get_integration_manager
+    mgr = get_integration_manager()
+    mgr.apply_integrations()
+
+    from django.db import connections
+
+    conn = connections["default"]
+    orig_host = conn.settings_dict.get("HOST", "")
+    orig_port = conn.settings_dict.get("PORT", "")
+    try:
+        conn.settings_dict["HOST"] = "pgbouncer"
+        conn.settings_dict["PORT"] = 6432
+        conn.close()
+        conn.connect()
+        assert conn.connection is not None
+    finally:
+        conn.settings_dict["HOST"] = orig_host
+        conn.settings_dict["PORT"] = orig_port
+        conn.close()
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    connect_span = spans[0]
+
+    assert connect_span.name == "🔹 pgbouncer.connect"
+    assert connect_span.kind == SpanKind.CLIENT
+    assert connect_span.attributes["normalized.service"] == "pgbouncer"
+    assert connect_span.attributes["normalized.operation"] == "pgbouncer.connect"
+    assert connect_span.attributes["db.connection.pool"] == "pgbouncer"
+    assert connect_span.attributes["server.address"] == "pgbouncer"
+    assert connect_span.attributes["server.port"] == 6432
+    assert connect_span.attributes["net.peer.port"] == 6432
+
+
+def test_pgbouncer_execute_wrapper_single_span():
+    """Verify execute_wrapper produces exactly one query span for PgBouncer without outer pool-wait."""
     tp_trace._reset_for_testing()
     exporter = InMemorySpanExporter()
     tp_trace.init(
@@ -674,18 +703,14 @@ def test_pgbouncer_execute_wrapper_nested_spans():
     assert res == "ok"
 
     spans = exporter.get_finished_spans()
-    assert len(spans) == 2
+    assert len(spans) == 1
+    span = spans[0]
 
-    inner_span = spans[0]
-    outer_span = spans[1]
-
-    assert outer_span.name == "🔹 pgbouncer.pool_wait"
-    assert outer_span.attributes["db.system"] == "pgbouncer"
-
-    assert inner_span.name == "🟢 SELECT id FROM auth_user WHERE is_staff = ?"
-    assert inner_span.parent.span_id == outer_span.context.span_id
-    assert inner_span.attributes["db.system"] == "postgresql"
-    assert inner_span.attributes["db.response.returned_rows"] == 3
+    assert span.name == "🟢 SELECT id FROM auth_user WHERE is_staff = ?"
+    assert span.attributes["db.system"] == "postgresql"
+    assert span.attributes["db.connection.pool"] == "pgbouncer"
+    assert span.attributes["server.port"] == 6432
+    assert span.attributes["db.response.returned_rows"] == 3
 
 
 def test_suppress_driver_instrumentation_prevents_duplicate_spans():

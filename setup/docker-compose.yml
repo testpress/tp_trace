@@ -3,10 +3,14 @@ services:
   tempo:
     image: grafana/tempo:2.4.1
     container_name: obs-tempo
-    restart: unless-stopped
+    restart: on-failure:5
 
     command:
       - "-config.file=/etc/tempo/tempo.yaml"
+
+    environment:
+      # ~80% of the 2G container limit so Go's GC backs off before the kernel OOM-kills it
+      - GOMEMLIMIT=1600MiB
 
     security_opt:
       - no-new-privileges:true

@@ -59,6 +59,52 @@ def test_extract_request_meta():
     assert scheme == "http"
 
 
+def test_outbound_query_string_exposed_by_default():
+    """Default (expose) mode: outbound url.full keeps the raw query string (dd-trace client parity)."""
+    req = PreparedRequest()
+    req.method = "GET"
+    req.url = "https://httpbin.org/get?token=secret123&page=2"
+
+    method, sanitized_url, scheme, hostname, port, peer_service = _extract_request_meta(req)
+    assert sanitized_url == "https://httpbin.org/get?token=secret123&page=2"
+
+
+def test_outbound_query_string_redacted_in_redact_mode():
+    """Redact mode: outbound sensitive query values are REDACTED."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="test-http-service",
+        exporter=exporter,
+        export_batch=False,
+        query_mode="redact",
+    )
+
+    req = PreparedRequest()
+    req.method = "GET"
+    req.url = "https://httpbin.org/get?token=secret123&page=2"
+
+    method, sanitized_url, scheme, hostname, port, peer_service = _extract_request_meta(req)
+    assert sanitized_url == "https://httpbin.org/get?token=REDACTED&page=2"
+
+
+def test_outbound_query_string_stripped_in_strip_mode():
+    """Strip mode: outbound url.full carries no query string."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="test-http-service",
+        exporter=exporter,
+        export_batch=False,
+        query_mode="strip",
+    )
+
+    req = PreparedRequest()
+    req.method = "GET"
+    req.url = "https://httpbin.org/get?token=secret123&page=2"
+
+    method, sanitized_url, scheme, hostname, port, peer_service = _extract_request_meta(req)
+    assert sanitized_url == "https://httpbin.org/get"
+
+
 def test_tp_trace_request_hook(memory_exporter):
     tracer = get_tracer("test-tracer")
     req = PreparedRequest()
@@ -80,6 +126,24 @@ def test_tp_trace_request_hook(memory_exporter):
     assert attrs["server.port"] == 443
     assert attrs["peer.service"] == "httpbin.org"
     assert attrs["resource.name"] == "GET https://httpbin.org/get"
+    assert attrs["http.target"] == "/get"
+
+
+def test_tp_trace_request_hook_query_params(memory_exporter):
+    tracer = get_tracer("test-tracer")
+    req = PreparedRequest()
+    req.method = "GET"
+    req.url = "https://httpbin.org/search?q=open+telemetry&page=1"
+
+    with tracer.start_as_current_span("initial_name") as span:
+        tp_trace_request_hook(span, req)
+
+    spans = memory_exporter.get_finished_spans()
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs["url.query"] == "q=open+telemetry&page=1"
+    assert attrs["http.target"] == "/search?q=open+telemetry&page=1"
+    assert attrs["url.full"] == "https://httpbin.org/search?q=open+telemetry&page=1"
 
 
 def test_tp_trace_response_hook_error(memory_exporter):

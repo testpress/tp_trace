@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tp_trace"
-version = "0.1.0"
+version = "0.1.1"
 description = "tp_trace: High-performance Python Observability SDK for OpenTelemetry"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -21,9 +21,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+django = [
+    "django>=4.2",
+]
 dev = [
     "pytest>=7.0.0",
     "requests>=2.25.0",
+    # Redis client for the Redis integration tests: the wiring tests need the
+    # package, and the end-to-end tests additionally run against a local
+    # redis server (they skip when no server is reachable).
+    "redis>=3.5.0",
     # tests/conftest.py configures Django, so the documented
     # `pip install -e '.[dev]'` + `pytest` flow needs it here. Unpinned above
     # 4.2 so the resolver follows the interpreter: on Python 3.8 (the

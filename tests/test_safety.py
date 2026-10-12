@@ -597,6 +597,22 @@ def test_sanitize_url_fail_closed():
         urllib.parse.urlparse = orig
 
 
+def test_sanitize_url_query_modes():
+    """Query-mode matrix: expose keeps raw, redact masks credential keys, strip drops query."""
+    from tp_trace.sanitize import sanitize_url
+
+    url = "https://user:pass@api.example.com/v1?token=secret&page=2"
+    # Userinfo is stripped in every mode
+    assert sanitize_url(url, mode="expose") == "https://api.example.com/v1?token=secret&page=2"
+    assert sanitize_url(url, mode="redact") == "https://api.example.com/v1?token=REDACTED&page=2"
+    assert sanitize_url(url, mode="strip") == "https://api.example.com/v1"
+    # Unknown modes fail closed to redaction
+    assert sanitize_url(url, mode="bogus") == "https://api.example.com/v1?token=REDACTED&page=2"
+    # Backwards compatible defaults (mode=None): strip_query still honored
+    assert sanitize_url(url) == "https://api.example.com/v1?token=REDACTED&page=2"
+    assert sanitize_url(url, strip_query=True) == "https://api.example.com/v1"
+
+
 def test_normalize_sql_for_metric_collapses_in_clauses():
     from tp_trace.sanitize import normalize_sql_for_metric
 

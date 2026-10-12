@@ -324,7 +324,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true,
             "stacking": {
               "group": "A",
@@ -336,6 +336,7 @@
           },
           "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -430,7 +431,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true,
             "stacking": {
               "group": "A",
@@ -442,6 +443,7 @@
           },
           "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -616,12 +618,28 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "span.url.full"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "FULL URL"
+              },
+              {
+                "id": "custom.width",
+                "value": 420
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "traceName"
             },
             "properties": [
               {
                 "id": "displayName",
-                "value": "RESOURCE"
+                "value": "ROUTE"
               }
             ]
           },
@@ -633,7 +651,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "RESOURCE"
+                "value": "ROUTE"
               }
             ]
           },
@@ -764,10 +782,10 @@
             "uid": "tempo"
           },
           "limit": 50,
-          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && (status = error || span.error = true) }",
+          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && (status = error || span.error = true) && kind = server } | select(span.url.full, span.http.method, span.http.status_code)",
           "queryType": "traceql",
           "refId": "A",
-          "tableType": "traces"
+          "tableType": "spans"
         }
       ],
       "title": "Error Trace Explorer",
@@ -791,10 +809,11 @@
               "startTime": 1,
               "traceService": 2,
               "serviceName": 2,
-              "traceName": 3,
-              "name": 3,
-              "traceDuration": 4,
-              "duration": 4
+              "span.url.full": 3,
+              "traceName": 4,
+              "name": 4,
+              "traceDuration": 5,
+              "duration": 5
             },
             "renameByName": {
               "TraceID": "TRACE ID"

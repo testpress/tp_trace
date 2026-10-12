@@ -1,33 +1,18 @@
 """Outgoing HTTP request tracing wrapper for the `requests` library."""
 
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any, Tuple
 from urllib.parse import urlparse
 
 from opentelemetry.trace import StatusCode
 
-from tp_trace.config import SDKConfig
+from tp_trace.config_access import get_config as _get_config
+from tp_trace.config_access import set_config
 from tp_trace.sanitize import sanitize_url
 from tp_trace.route_context import get_current_route
 from tp_trace.safety import attempt
-import tp_trace
 
 logger = logging.getLogger("tp_trace.integrations.requests")
-
-_config: Optional[SDKConfig] = None
-
-
-def set_config(config: Optional[SDKConfig]) -> None:
-    """Set the active SDKConfig for this module via the integration seam."""
-    global _config
-    _config = config
-
-
-def _get_config() -> Optional[SDKConfig]:
-    """Return the config received through the integration seam, or active config."""
-    if _config is not None:
-        return _config
-    return getattr(tp_trace, "_ACTIVE_CONFIG", None)
 
 
 def _extract_request_meta(request: Any) -> Tuple[str, str, str, str, int, str]:
@@ -41,7 +26,12 @@ def _extract_request_meta(request: Any) -> Tuple[str, str, str, str, int, str]:
     method = str(raw_method).upper()
 
     raw_url = getattr(request, "url", "") or ""
-    sanitized = sanitize_url(raw_url, strip_query=False)
+    # expose (default) keeps the raw query string, matching dd-trace's client
+    # default (DD_TRACE_HTTP_CLIENT_TAG_QUERY_STRING=true). Userinfo is always
+    # stripped regardless of mode.
+    cfg = _get_config()
+    query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
+    sanitized = sanitize_url(raw_url, mode=query_mode)
 
     try:
         parsed = urlparse(sanitized)
@@ -72,6 +62,10 @@ def _apply_request_attributes(span: Any, request: Any) -> None:
     span.set_attribute("url.full", sanitized_url)
     span.set_attribute("http.url", sanitized_url)
     span.set_attribute("url.scheme", scheme)
+    target = f"{parsed.path or '/'}{'?' + parsed.query if parsed.query else ''}"
+    span.set_attribute("http.target", target)
+    if parsed.query:
+        span.set_attribute("url.query", parsed.query)
     span.set_attribute("server.address", hostname)
     span.set_attribute("server.port", port)
     span.set_attribute("net.peer.name", hostname)

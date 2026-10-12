@@ -393,15 +393,18 @@ def traced_get_response(wrapped, instance, args, kwargs):
         except Exception:
             pass
 
+        target_url = f"{url_path}?{url_query}" if url_query else url_path
         ua = carrier.get("user-agent", "")
         span_attrs: Dict[str, Any] = {
             "span.type": "web",
             "component": "django",
             "http.request.method": method,
             "http.method": method,
+            "http.route": sanitized or target_url or url_path,
             "url.full": sanitized,
+            "http.url": sanitized,
             "url.path": url_path,
-            "http.target": url_path,
+            "http.target": target_url,
             "url.scheme": scheme,
             "user_agent.original": ua,
             "http.user_agent": ua,
@@ -440,7 +443,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
             resolve_path, getattr(request, "urlconf", None), request=request
         )
         if preresolved_route and preresolved_route != "__unmatched__":
-            span_attrs["http.route"] = preresolved_route
+            span_attrs["http.route_template"] = preresolved_route
 
         start = time.monotonic()
         final_route = preresolved_route if (preresolved_route and preresolved_route != "__unmatched__") else path
@@ -504,7 +507,10 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     )
                     final_route = str(status_code) if (not route_for_metrics or route_for_metrics == "__unmatched__") else route_for_metrics
                     attempt(span.update_name, final_span_name, _label="update_span_name")
-                    safe_set_attribute(span, "http.route", final_route)
+                    safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
+                    safe_set_attribute(span, "http.route_template", final_route)
+                    if route_for_metrics and route_for_metrics != "__unmatched__":
+                        safe_set_attribute(span, "django.route", route_for_metrics)
                     safe_set_attribute(span, "resource.name", final_span_name)
                     safe_set_attribute(span, "normalized.service", "django")
                     safe_set_attribute(span, "normalized.operation", final_span_name)
@@ -541,7 +547,10 @@ def traced_get_response(wrapped, instance, args, kwargs):
                         _resolve_view_name, request, method, default="view", _label="view_name"
                     )
 
-                    safe_set_attribute(span, "http.route", final_route)
+                    safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
+                    safe_set_attribute(span, "http.route_template", final_route)
+                    if norm_route and norm_route != "__unmatched__":
+                        safe_set_attribute(span, "django.route", norm_route)
                     safe_set_attribute(span, "http.response.status_code", status_code)
                     safe_set_attribute(span, "http.status_code", status_code)
                     safe_set_attribute(span, "django.view", str(view_name))
