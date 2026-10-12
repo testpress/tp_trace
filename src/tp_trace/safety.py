@@ -106,6 +106,27 @@ def safe_record_exception(span: Any, exc: BaseException) -> None:
     attempt(span.record_exception, exc, _label="record_exception")
 
 
+def find_exception(exc: BaseException) -> BaseException:
+    """Return the most specific exception inside a ``(Base)ExceptionGroup``.
+
+    Python 3.11+ groups (``ExceptionGroup``/``BaseExceptionGroup``) wrap one or
+    more children and are themselves ``BaseException`` subclasses. Recording the
+    group would hide the real failure from error capture and span status, so
+    walk into it and return the first leaf. A self-referential group is returned
+    unchanged rather than looping forever.
+    """
+    seen = set()
+    current = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        children = getattr(current, "exceptions", None)
+        if not children:
+            return current
+        leaf = next((child for child in children if getattr(child, "exceptions", None) is None), None)
+        current = leaf if leaf is not None else children[0]
+    return exc
+
+
 def safe_update_name(span: Any, name: str) -> None:
     """Rename a span; never raise."""
     attempt(span.update_name, name, _label="update_name")
@@ -129,6 +150,7 @@ def safe_enrich(span: Any, attributes: Any) -> None:
 __all__ = [
     "UNTRACED",
     "attempt",
+    "find_exception",
     "safe_enrich",
     "safe_record_exception",
     "safe_set_attribute",

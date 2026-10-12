@@ -582,10 +582,37 @@ def test_user_pii_redacted_for_authenticated_request():
     assert "username" not in req_span.attributes
 
 
-def test_sensitive_query_parameters_sanitized_in_django_request():
-    """Verify sensitive query parameters (token, secret, apiKey, etc.) are redacted on span attributes."""
+def test_query_string_exposed_by_default():
+    """Default (expose) mode: raw query string in url.query and url.full, no key redaction."""
     exporter = InMemorySpanExporter()
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
+
+    from django.core.handlers.wsgi import WSGIHandler
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    factory = RequestFactory()
+    request = factory.get("/test/sample/?token=secret123&page=2&apiKey=myKeyVal&sig=987654")
+
+    response = handler.get_response(request)
+    assert response.status_code == 200
+
+    spans = exporter.get_finished_spans()
+    req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
+
+    assert req_span.attributes["url.query"] == "token=secret123&page=2&apiKey=myKeyVal&sig=987654"
+    assert "token=secret123&page=2" in req_span.attributes["url.full"]
+
+
+def test_sensitive_query_parameters_sanitized_in_redact_mode():
+    """Redact mode: sensitive query parameters (token, secret, apiKey, etc.) are redacted."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="django-test-svc",
+        exporter=exporter,
+        export_batch=False,
+        query_mode="redact",
+    )
 
     from django.core.handlers.wsgi import WSGIHandler
     handler = WSGIHandler()
@@ -609,6 +636,34 @@ def test_sensitive_query_parameters_sanitized_in_django_request():
     assert "token=REDACTED" in query
     assert "apiKey=REDACTED" in query
     assert "sig=REDACTED" in query
+
+
+def test_query_string_stripped_in_strip_mode():
+    """Strip mode: no url.query attribute and a query-free url.full."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="django-test-svc",
+        exporter=exporter,
+        export_batch=False,
+        query_mode="strip",
+    )
+
+    from django.core.handlers.wsgi import WSGIHandler
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    factory = RequestFactory()
+    request = factory.get("/test/sample/?token=secret123&page=2")
+
+    response = handler.get_response(request)
+    assert response.status_code == 200
+
+    spans = exporter.get_finished_spans()
+    req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
+
+    assert "url.query" not in req_span.attributes
+    assert "?" not in req_span.attributes["url.full"]
+    assert req_span.attributes["url.path"] == "/test/sample/"
 
 
 def test_client_address_trusted_proxies():

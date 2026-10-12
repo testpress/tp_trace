@@ -11,11 +11,13 @@ from opentelemetry.trace import SpanKind, StatusCode, get_tracer
 from opentelemetry.propagate import extract
 
 from tp_trace.config import SDKConfig
-from tp_trace.safety import attempt, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
+from tp_trace.safety import attempt, find_exception, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
 from tp_trace.sanitize import sanitize_url
 from tp_trace.route_context import get_current_route, get_current_tags, reset_request_route, set_request_route, reset_request_tags, set_request_tag
 from tp_trace.tracing import reentrant_guard
 import tp_trace
+
+from .compat import user_is_authenticated
 
 logger = logging.getLogger("tp_trace.integrations.django")
 
@@ -383,7 +385,10 @@ def traced_get_response(wrapped, instance, args, kwargs):
             raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
         except Exception:
             raw_url = path
-        sanitized = sanitize_url(raw_url)
+        # expose (default) keeps the raw query string; redact strips credential
+        # keys; strip drops the query entirely. Userinfo is always stripped.
+        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
+        sanitized = sanitize_url(raw_url, mode=query_mode)
         url_path = path
         url_query = ""
         try:
@@ -401,7 +406,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
             "http.method": method,
             "url.full": sanitized,
             "url.path": url_path,
-            "http.target": url_path,
+            "http.target": f"{url_path}?{url_query}" if url_query else url_path,
             "url.scheme": scheme,
             "user_agent.original": ua,
             "http.user_agent": ua,
@@ -485,7 +490,13 @@ def traced_get_response(wrapped, instance, args, kwargs):
                 # response into an error, nor raise into the host application.
                 try:
                     response = wrapped(*args, **kwargs)
-                except Exception as exc:
+                except BaseException as exc:
+                    # Catch BaseException so a (Base)ExceptionGroup -- which is
+                    # not an Exception when it wraps non-Exception children --
+                    # is still recorded. Unwrap to the real leaf exception so
+                    # error capture and RED counts see the actual failure, then
+                    # re-raise the original unchanged.
+                    real_exc = find_exception(exc)
                     error = True
                     status_code = 500
                     route_for_metrics = attempt(
@@ -511,9 +522,9 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     safe_set_attribute(span, "http.response.status_code", 500)
                     safe_set_attribute(span, "http.status_code", 500)
                     safe_set_attribute(span, "error", True)
-                    safe_set_attribute(span, "error.type", exc.__class__.__name__)
-                    safe_record_exception(span, exc)
-                    safe_set_status(span, StatusCode.ERROR, description=str(exc))
+                    safe_set_attribute(span, "error.type", real_exc.__class__.__name__)
+                    safe_record_exception(span, real_exc)
+                    safe_set_status(span, StatusCode.ERROR, description=str(real_exc))
                     _apply_request_callback(span, request)
                     raise
                 else:
@@ -561,7 +572,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
 
                     def _set_user() -> None:
                         user = getattr(request, "user", None)
-                        if user and getattr(user, "is_authenticated", False):
+                        if user and user_is_authenticated(user):
                             user_id = str(getattr(user, "pk", getattr(user, "id", "")))
                             if user_id:
                                 safe_set_attribute(span, "usr.id", user_id)

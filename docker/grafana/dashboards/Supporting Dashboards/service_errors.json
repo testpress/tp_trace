@@ -324,7 +324,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true,
             "stacking": {
               "group": "A",
@@ -336,6 +336,7 @@
           },
           "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -430,7 +431,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true,
             "stacking": {
               "group": "A",
@@ -442,6 +443,7 @@
           },
           "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [

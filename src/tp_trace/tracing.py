@@ -19,6 +19,7 @@ from opentelemetry.trace import (
 from tp_trace.route_context import get_current_method, get_current_route
 from tp_trace.safety import (
     attempt,
+    find_exception,
     safe_record_exception,
     safe_set_attribute,
     safe_set_status,
@@ -120,16 +121,17 @@ def traced_span(
             yield span
             if span.is_recording() and hasattr(span, "status") and span.status.status_code == StatusCode.UNSET:
                 span.set_status(StatusCode.OK)
-        except Exception as exc:
+        except BaseException as exc:
             # This block sits between the application's exception and the
             # caller, so every statement in it is guarded: a telemetry fault
             # here would otherwise *replace* the app's exception with its own,
             # corrupting error handling on the one path where it matters most.
+            real_exc = find_exception(exc)
             if attempt(span.is_recording, default=False, _label="is_recording"):
-                safe_record_exception(span, exc)
+                safe_record_exception(span, real_exc)
                 safe_set_attribute(span, "error", True)
-                safe_set_attribute(span, "error.type", exc.__class__.__name__)
-                safe_set_status(span, StatusCode.ERROR, description=str(exc))
+                safe_set_attribute(span, "error.type", real_exc.__class__.__name__)
+                safe_set_status(span, StatusCode.ERROR, description=str(real_exc))
             raise
 
 

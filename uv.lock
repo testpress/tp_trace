@@ -16,7 +16,7 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/29/38/b3395cc9ad1b56d2ddac9970bc8f4141312dbaec28bc7c218b0dfafd0f42/asgiref-3.8.1.tar.gz", hash = "sha256:c343bd80a0bec947a9860adb4c432ffa7db769836c64238fc34bdc3fec84d590", size = 35186, upload-time = "2024-03-22T14:39:36.863Z" }
 wheels = [
@@ -31,7 +31,7 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/63/40/f03da1264ae8f7cfdbf9146542e5e7e8100a4c66ab48e791df9a03d3f6c0/asgiref-3.11.1.tar.gz", hash = "sha256:5f184dc43b7e763efe848065441eac62229c9f7b0475f41f80e207a114eda4ce", size = 38550, upload-time = "2026-02-03T13:30:14.33Z" }
 wheels = [
@@ -47,11 +47,20 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e6/26/3b59f2bdae5f640389becb1f673cded775287f5fc4f816309d9ca9a3f93d/asgiref-3.12.1.tar.gz", hash = "sha256:59dcb51c272ad209d59bed5708a64a333083e86017d7fcdd67498eeab7784340", size = 42378, upload-time = "2026-07-14T09:56:18.087Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/1b/54f4ad77cd8a584fa70746c47df988e002cf1ee1eba43364d46f87803647/asgiref-3.12.1-py3-none-any.whl", hash = "sha256:fe386d1c2bff7259ea95929266d12a8cf9a8b5a1c2598402967d8792e7a7c094", size = 25478, upload-time = "2026-07-14T09:56:16.926Z" },
+]
+
+[[package]]
+name = "async-timeout"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/ae/136395dfbfe00dfc94da3f3e136d0b13f394cba8f4841120e34226265780/async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3", size = 9274, upload-time = "2024-11-06T16:41:39.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/ba/e2081de779ca30d473f21f5b30e0e737c438205440784c7dfc81efc2b029/async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c", size = 6233, upload-time = "2024-11-06T16:41:37.9Z" },
 ]
 
 [[package]]
@@ -269,7 +278,7 @@ name = "deprecated"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/49/85/12f0a49a7c4ffb70572b6c2ef13c90c88fd190debda93b23f026b25f9634/deprecated-1.3.1.tar.gz", hash = "sha256:b1b50e0ff0c1fddaa5708a2c6b0a6588bb09b892825ab2b214ac9ea9d92a5223", size = 2932523, upload-time = "2025-10-30T08:19:02.757Z" }
 wheels = [
@@ -285,11 +294,11 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "asgiref", version = "3.8.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "asgiref", version = "3.8.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version != '3.9.*'" },
     { name = "asgiref", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "backports-zoneinfo", marker = "python_full_version < '3.9'" },
-    { name = "sqlparse", version = "0.5.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "tzdata", marker = "python_full_version < '3.10' and sys_platform == 'win32'" },
+    { name = "backports-zoneinfo", marker = "python_full_version != '3.9.*'" },
+    { name = "sqlparse", version = "0.5.5", source = { registry = "https://pypi.org/simple" } },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/b5/f1a53dc68da6429d6e0345bb848161e2381a2e9f02700148911e8582c2b3/django-4.2.30.tar.gz", hash = "sha256:4ebc7a434e3819db6cf4b399fb5b3f536310a30e8486f08b66886840be84b37c", size = 10468707, upload-time = "2026-04-07T14:05:45.57Z" }
 wheels = [
@@ -304,9 +313,9 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "asgiref", version = "3.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.12'" },
-    { name = "sqlparse", version = "0.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.12'" },
-    { name = "tzdata", marker = "python_full_version >= '3.10' and python_full_version < '3.12' and sys_platform == 'win32'" },
+    { name = "asgiref", version = "3.12.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "sqlparse", version = "0.6.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d5/d8/43e9d000519adceb189620b6869ff88031e046df91c2e9da72f8f6918399/django-5.2.17.tar.gz", hash = "sha256:9d4d93be539a18ab80d058eb515900e10951e04c537c5a6b394fc49528d3251f", size = 10889740, upload-time = "2026-08-04T15:04:03.173Z" }
 wheels = [
@@ -321,9 +330,9 @@ resolution-markers = [
     "python_full_version >= '3.12'",
 ]
 dependencies = [
-    { name = "asgiref", version = "3.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "sqlparse", version = "0.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "tzdata", marker = "python_full_version >= '3.12' and sys_platform == 'win32'" },
+    { name = "asgiref", version = "3.12.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "sqlparse", version = "0.6.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f8/d4/8314b5bdef20832f0ac6ae3b3e4d4924e4759fa3b4af27609dd747e7a6be/django-6.1.1.tar.gz", hash = "sha256:7ab93536d8e677aa14554c56426290c69480bf2ee68d7513d4a22f57d6bfeb84", size = 11284905, upload-time = "2026-09-02T17:20:45.621Z" }
 wheels = [
@@ -335,8 +344,8 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.12'" },
+    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9' or python_full_version >= '3.11'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -351,7 +360,7 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "protobuf", version = "5.29.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "protobuf", version = "5.29.6", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/99/96/a0205167fa0154f4a542fd6925bdc63d039d88dab3588b875078107e6f06/googleapis_common_protos-1.73.0.tar.gz", hash = "sha256:778d07cd4fbeff84c6f7c72102f0daf98fa2bfd3fa8bea426edc545588da0b5a", size = 147323, upload-time = "2026-03-06T21:53:09.727Z" }
 wheels = [
@@ -366,7 +375,7 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "protobuf", version = "6.33.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "protobuf", version = "6.33.6", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/c8/f439cffde755cffa462bfbb156278fa6f9d09119719af9814b858fd4f81f/googleapis_common_protos-1.75.0.tar.gz", hash = "sha256:53a062ff3c32552fbd62c11fe23768b78e4ddf0494d5e5fd97d3f4689c75fbbd", size = 151035, upload-time = "2026-05-07T08:04:49.423Z" }
 wheels = [
@@ -382,7 +391,7 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "protobuf", version = "7.36.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "protobuf", version = "7.36.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/90/fb8f1c84537fbf210c1f53a53ae473a805f6599c5a40b93c1bbadd211f7a/googleapis_common_protos-1.75.2.tar.gz", hash = "sha256:8829a3d1e4508c5b7b9a6b9525f7fccff611f8531644579a76466c29295d4bb2", size = 154083, upload-time = "2026-08-25T19:19:13.028Z" }
 wheels = [
@@ -423,7 +432,7 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "zipp", version = "3.20.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "zipp", version = "3.20.2", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cd/12/33e59336dca5be0c398a7482335911a33aa0e20776128f038019f1a95f1b/importlib_metadata-8.5.0.tar.gz", hash = "sha256:71522656f0abace1d072b9e5481a48f07c138e00f079c38c8f883823f9c26bd7", size = 55304, upload-time = "2024-09-11T14:56:08.937Z" }
 wheels = [
@@ -438,7 +447,7 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "zipp", version = "3.23.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "zipp", version = "3.23.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f3/49/3b30cad09e7771a4982d9975a8cbf64f00d4a1ececb53297f1d9a7be1b10/importlib_metadata-8.7.1.tar.gz", hash = "sha256:49fef1ae6440c182052f407c8d34a68f72efc36db9ca90dc0113398f2fdde8bb", size = 57107, upload-time = "2025-12-21T10:00:19.278Z" }
 wheels = [
@@ -479,8 +488,8 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "deprecated", marker = "python_full_version < '3.9'" },
-    { name = "importlib-metadata", version = "8.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "deprecated" },
+    { name = "importlib-metadata", version = "8.5.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9a/8d/1f5a45fbcb9a7d87809d460f09dc3399e3fbd31d7f3e14888345e9d29951/opentelemetry_api-1.33.1.tar.gz", hash = "sha256:1c6055fc0a2d3f23a50c7e17e16ef75ad489345fd3df1f8b8af7c0bbf8a109e8", size = 65002, upload-time = "2025-05-16T18:52:41.146Z" }
 wheels = [
@@ -495,8 +504,8 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "importlib-metadata", version = "8.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "importlib-metadata", version = "8.7.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fa/fc/b7564cbef36601aef0d6c9bc01f7badb64be8e862c2e1c3c5c3b43b53e4f/opentelemetry_api-1.41.1.tar.gz", hash = "sha256:0ad1814d73b875f84494387dae86ce0b12c68556331ce6ce8fe789197c949621", size = 71416, upload-time = "2026-04-24T13:15:38.262Z" }
 wheels = [
@@ -512,7 +521,7 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ee/8b/aa9e2d8b8dfa7c946f7dec5d1f8f6ba8eca062f43509a06bdb5ce93d26c0/opentelemetry_api-1.44.0.tar.gz", hash = "sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a", size = 72406, upload-time = "2026-07-16T15:25:32.678Z" }
 wheels = [
@@ -527,7 +536,7 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-proto", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-proto", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7a/18/a1ec9dcb6713a48b4bdd10f1c1e4d5d2489d3912b80d2bcc059a9a842836/opentelemetry_exporter_otlp_proto_common-1.33.1.tar.gz", hash = "sha256:c57b3fa2d0595a21c4ed586f74f948d259d9949b58258f11edb398f246bec131", size = 20828, upload-time = "2025-05-16T18:52:43.795Z" }
 wheels = [
@@ -542,7 +551,7 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-proto", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-proto", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ae/fa/f9e3bd3c4d692b3ce9a2880a167d1f79681a1bea11f00d5bf76adc03e6ea/opentelemetry_exporter_otlp_proto_common-1.41.1.tar.gz", hash = "sha256:0e253156ea9c36b0bd3d2440c5c9ba7dd1f3fb64ba7a08fc85fbac536b56e1fb", size = 20409, upload-time = "2026-04-24T13:15:40.924Z" }
 wheels = [
@@ -558,7 +567,7 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/09/4d717852c1cf3f854b76c7110a5d00883bc3c99288b9b0dbcbeb9e306eb6/opentelemetry_exporter_otlp_proto_common-1.44.0.tar.gz", hash = "sha256:dc87a5a5bc58f149a56d1547e4691588fa12994cdc3bc039a694ccb3375862ac", size = 20202, upload-time = "2026-07-16T15:25:37.658Z" }
 wheels = [
@@ -573,13 +582,13 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "deprecated", marker = "python_full_version < '3.9'" },
-    { name = "googleapis-common-protos", version = "1.73.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-proto", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-sdk", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "requests", version = "2.32.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "deprecated" },
+    { name = "googleapis-common-protos", version = "1.73.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-proto", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-sdk", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "requests", version = "2.32.4", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/60/48/e4314ac0ed2ad043c07693d08c9c4bf5633857f5b72f2fefc64fd2b114f6/opentelemetry_exporter_otlp_proto_http-1.33.1.tar.gz", hash = "sha256:46622d964a441acb46f463ebdc26929d9dec9efb2e54ef06acdc7305e8593c38", size = 15353, upload-time = "2025-05-16T18:52:45.522Z" }
 wheels = [
@@ -594,13 +603,13 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "googleapis-common-protos", version = "1.75.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-proto", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-sdk", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "googleapis-common-protos", version = "1.75.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-proto", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-sdk", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/33/5b/9d3c7f70cca10136ba82a81e738dee626c8e7fc61c6887ea9a58bf34c606/opentelemetry_exporter_otlp_proto_http-1.41.1.tar.gz", hash = "sha256:4747a9604c8550ab38c6fd6180e2fcb80de3267060bef2c306bad3cb443302bc", size = 24139, upload-time = "2026-04-24T13:15:42.977Z" }
 wheels = [
@@ -616,13 +625,13 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "googleapis-common-protos", version = "1.75.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "googleapis-common-protos", version = "1.75.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1a/87/95e2a5aaa795b4e2260d74e16df2d5541deb2ea9de010bcd615f4dee2654/opentelemetry_exporter_otlp_proto_http-1.44.0.tar.gz", hash = "sha256:c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8", size = 25806, upload-time = "2026-07-16T15:25:39.162Z" }
 wheels = [
@@ -637,10 +646,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "packaging", version = "26.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "packaging", version = "26.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c3/fd/5756aea3fdc5651b572d8aef7d94d22a0a36e49c8b12fcb78cb905ba8896/opentelemetry_instrumentation-0.54b1.tar.gz", hash = "sha256:7658bf2ff914b02f246ec14779b66671508125c0e4227361e56b5ebf6cef0aec", size = 28436, upload-time = "2025-05-16T19:03:22.223Z" }
 wheels = [
@@ -655,10 +664,10 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/52/cb/0523b92c112a6cc70be43724343dc45225d3af134419844d7879a07755d4/opentelemetry_instrumentation-0.62b1.tar.gz", hash = "sha256:90e92a905ba4f84db06ac3aec96701df6c079b2d66e9379f8739f0a1bdcc7f45", size = 34043, upload-time = "2026-04-24T13:22:31.997Z" }
 wheels = [
@@ -674,10 +683,10 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/91/3c58961cb0360cd60509064734f0be4275383c8681d73c580a40ca83ddce/opentelemetry_instrumentation-0.65b0.tar.gz", hash = "sha256:071d9d9eced9bd6460444ec3b0c77229870ed05a881c22c84fdede58e4eed09b", size = 42689, upload-time = "2026-07-16T15:25:50.275Z" }
 wheels = [
@@ -692,10 +701,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-propagator-aws-xray", marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/72/c9/88127b0714881e6801e4921bca445de634b0b3568e607ccc4a606f711ea7/opentelemetry_instrumentation_botocore-0.54b1.tar.gz", hash = "sha256:54f7b0b48398dfc8b8e98deec89df5b4c8c359d803a0d6c8ce4bd972d50c03dd", size = 110252, upload-time = "2025-05-16T19:03:35.805Z" }
 wheels = [
@@ -710,11 +719,11 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-propagator-aws-xray", marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d9/b8/47f6b6eb37f790f0de4339d6ca05b5222877c8327c1f0a967e6b443494d9/opentelemetry_instrumentation_botocore-0.62b1.tar.gz", hash = "sha256:2191ebfbb9cd6354ef1de6c0dd127c1cc847fabb7c9c25b8d000e766ce1b5671", size = 125970, upload-time = "2026-04-24T13:22:43.735Z" }
 wheels = [
@@ -730,11 +739,11 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-propagator-aws-xray", marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-propagator-aws-xray" },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/54/03/a0c6a0f34ba3cacda527317e7f2a5a1fcfd21c9911eee3e6fc2be63d0a93/opentelemetry_instrumentation_botocore-0.65b0.tar.gz", hash = "sha256:64987326ac98a47a85821606a981f5058864de0e98b43c8de892eb0fe625b04e", size = 125099, upload-time = "2026-07-16T15:25:59.335Z" }
 wheels = [
@@ -749,10 +758,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7b/b7/b74e2c7c858cde8909516cbe77cb0e841167d38795c90df524d84440e1f1/opentelemetry_instrumentation_dbapi-0.54b1.tar.gz", hash = "sha256:69421c36994114040d197f7e846c01869d663084c6c2025e85b2d6cfce2f8299", size = 14145, upload-time = "2025-05-16T19:03:40.074Z" }
 wheels = [
@@ -767,10 +776,10 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1b/f4/8a8ad1d9477dc8e4f5d28648ad51cb9f110a40a25744b2f16f1c5e2f524a/opentelemetry_instrumentation_dbapi-0.62b1.tar.gz", hash = "sha256:82755a0f013980b2c000a10452fb91ab5135b937a8afe37c45f34e62ecc7a2b8", size = 16920, upload-time = "2026-04-24T13:22:47.762Z" }
 wheels = [
@@ -786,10 +795,10 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0e/97/b2e0ae6951cbf93c0c211910077cb50f9478fb4b7e89a402800b9a98151c/opentelemetry_instrumentation_dbapi-0.65b0.tar.gz", hash = "sha256:da048bb683347ddad2f47344bacfe1e111bf7bfb2e5a39796b1083679ad4f0f3", size = 20247, upload-time = "2026-07-16T15:26:02.726Z" }
 wheels = [
@@ -804,11 +813,11 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation-wsgi", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-util-http", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation-wsgi", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ac/93/8d194bda118fc4c369b9a3091c39eec384137b46f33421272359883c53d9/opentelemetry_instrumentation_django-0.54b1.tar.gz", hash = "sha256:38414f989f60e9dba82928e13f6a20a26baf5cc700f1d891f27e0703ca577802", size = 24866, upload-time = "2025-05-16T19:03:41.183Z" }
 wheels = [
@@ -823,11 +832,11 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation-wsgi", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-util-http", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation-wsgi", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/dc/82/659d2192cb076bc836639c23876f67cc9afc85629694666479c189975cd4/opentelemetry_instrumentation_django-0.62b1.tar.gz", hash = "sha256:268c9b3d234510ab835acea0524ba65361389f6e2c291b495ba8072c7bb59003", size = 26022, upload-time = "2026-04-24T13:22:48.392Z" }
 wheels = [
@@ -843,11 +852,11 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation-wsgi", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-util-http", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation-wsgi", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5a/91/2ce18c8ace56c846a094bce126b8248f3820e366c157e7ca367679715552/opentelemetry_instrumentation_django-0.65b0.tar.gz", hash = "sha256:f79914e03ccf7f34a4dfd257ea9fa1236a6568cd1756e5f969dc026252fad6e9", size = 25386, upload-time = "2026-07-16T15:26:03.668Z" }
 wheels = [
@@ -862,9 +871,9 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation-dbapi", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation-dbapi", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/09/dd6e55a852c87ee6402d745486d7d2e32577e728781bc1c89812d2645f48/opentelemetry_instrumentation_psycopg2-0.54b1.tar.gz", hash = "sha256:6e899baf7b6687320491b25d5ceadde5c614a95fb379da8e2a513d430f28102f", size = 10663, upload-time = "2025-05-16T19:03:53.817Z" }
 wheels = [
@@ -879,9 +888,9 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation-dbapi", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation-dbapi", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/45/14/302c4c96bd4ec97656217e715f20e69f61dc79e3478c95e883ed50cd8100/opentelemetry_instrumentation_psycopg2-0.62b1.tar.gz", hash = "sha256:0f756c7e00babb04429c528e8cd0054b348a8458a7a986a6807c0d413222f45c", size = 12077, upload-time = "2026-04-24T13:22:57.343Z" }
 wheels = [
@@ -897,9 +906,9 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation-dbapi", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation-dbapi", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3a/98/9593c81b7bec220b9de8e72802eabcc9e0623b34edbb331c8a5d9d7a8955/opentelemetry_instrumentation_psycopg2-0.65b0.tar.gz", hash = "sha256:4eba60bef5f25d163a098109c2960773f3753e0b7e39824b9f398ba49ffab783", size = 12065, upload-time = "2026-07-16T15:26:13.788Z" }
 wheels = [
@@ -914,10 +923,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "1.17.3", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c2/01/fad85231c3518bf6349a7ef483ef06a27100da8d1b7531dec9d8d09b94d8/opentelemetry_instrumentation_redis-0.54b1.tar.gz", hash = "sha256:89024c4752147d528e8c51fff0034193e628da339848cda78afe0cf4eb0c7ccb", size = 13908, upload-time = "2025-05-16T19:03:58.876Z" }
 wheels = [
@@ -932,10 +941,10 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f5/ff/35414ad80409bd9e472c7959832524c5f2c8f63965af08c41c2b42d3a6a6/opentelemetry_instrumentation_redis-0.62b1.tar.gz", hash = "sha256:2d3c421d95e05ade075bee5becbe34e743b1cdf5bdee2085cb524f88c4f13dcb", size = 14796, upload-time = "2026-04-24T13:23:01.138Z" }
 wheels = [
@@ -951,10 +960,10 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "wrapt", version = "2.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/21/e5/b369897a9ff902eb028f1f999c9f9a4602f0b30fe1e97298d2c15fe5b8b0/opentelemetry_instrumentation_redis-0.65b0.tar.gz", hash = "sha256:f16409f189092984ff922f26939e7be79509365f5c9d202308c13fddf1368147", size = 17218, upload-time = "2026-07-16T15:26:17.243Z" }
 wheels = [
@@ -969,10 +978,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-util-http", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e7/45/116da84930d3dc2f5cdd876283ca96e9b96547bccee7eaa0bd01ce6bf046/opentelemetry_instrumentation_requests-0.54b1.tar.gz", hash = "sha256:3eca5d697c5564af04c6a1dd23b6a3ffbaf11e64887c6051655cee03998f4654", size = 15148, upload-time = "2025-05-16T19:04:00.488Z" }
 wheels = [
@@ -987,10 +996,10 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-util-http", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/85/03/eb26e1c65fd776206b759955d33151ee39ee0e7ac8dd80c97385c321a8d0/opentelemetry_instrumentation_requests-0.62b1.tar.gz", hash = "sha256:67a79c4b67e2192445c1cf03d62126fa623065688d8bd1a9f87f858b0e5f0286", size = 18401, upload-time = "2026-04-24T13:23:02.291Z" }
 wheels = [
@@ -1006,10 +1015,10 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-util-http", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c8/84/f46bf7976a81827419b085c9ed14562410c7599e07509786e9f6eb3c5438/opentelemetry_instrumentation_requests-0.65b0.tar.gz", hash = "sha256:1d601548f89236d5ab373c7208a2e1e162a8d6462b5b972f9ad8fb0ed82d7438", size = 18107, upload-time = "2026-07-16T15:26:18.532Z" }
 wheels = [
@@ -1024,10 +1033,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-util-http", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/0f/442eba02bd277fae2f5eb3ac5f8dd5f8cc52ddbe080506748871b91a63ab/opentelemetry_instrumentation_wsgi-0.54b1.tar.gz", hash = "sha256:261ad737e0058812aaae6bb7d6e0fa7344de62464c5df30c82bea180e735b903", size = 18244, upload-time = "2025-05-16T19:04:08.448Z" }
 wheels = [
@@ -1042,10 +1051,10 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-util-http", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/36/db/19f1d66cead56e52291fccaa235b07ad45a5c24be1c740301a840c68235a/opentelemetry_instrumentation_wsgi-0.62b1.tar.gz", hash = "sha256:02a364fd9c940a46b19c825c5bfe386b007d5292ef91573894164836953fe831", size = 19919, upload-time = "2026-04-24T13:23:09.796Z" }
 wheels = [
@@ -1061,10 +1070,10 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-util-http", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-instrumentation", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-util-http", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/17/f7/bfe74ba3baea8c61290c3ab1d692f841b695ccb6e40faf5ad55fd5412cf2/opentelemetry_instrumentation_wsgi-0.65b0.tar.gz", hash = "sha256:d4a62ae98667ddfe04fe538c3c54abad538feb8c9c7a407ba19f016e1ce4a89a", size = 19666, upload-time = "2026-07-16T15:26:25.485Z" }
 wheels = [
@@ -1093,7 +1102,7 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "protobuf", version = "5.29.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "protobuf", version = "5.29.6", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f6/dc/791f3d60a1ad8235930de23eea735ae1084be1c6f96fdadf38710662a7e5/opentelemetry_proto-1.33.1.tar.gz", hash = "sha256:9627b0a5c90753bf3920c398908307063e4458b287bb890e5c1d6fa11ad50b68", size = 34363, upload-time = "2025-05-16T18:52:52.141Z" }
 wheels = [
@@ -1108,7 +1117,7 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "protobuf", version = "6.33.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "protobuf", version = "6.33.6", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/99/e8/633c6d8a9c8840338b105907e55c32d3da1983abab5e52f899f72a82c3d1/opentelemetry_proto-1.41.1.tar.gz", hash = "sha256:4b9d2eb631237ea43b80e16c073af438554e32bc7e9e3f8ca4a9582f900020e5", size = 45670, upload-time = "2026-04-24T13:15:49.768Z" }
 wheels = [
@@ -1124,7 +1133,7 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "protobuf", version = "7.36.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "protobuf", version = "7.36.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/64/01/40ac4ae9a149263cc52c2cee200ddd80cb6d8db1a4610abf8eabce0fe771/opentelemetry_proto-1.44.0.tar.gz", hash = "sha256:c547a79c2f8c0c515d31509154682e5921c7cfd5ca67b70e1f9266e2c3e103f3", size = 46488, upload-time = "2026-07-16T15:25:45.34Z" }
 wheels = [
@@ -1139,9 +1148,9 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.54b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.13.2", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/67/12/909b98a7d9b110cce4b28d49b2e311797cffdce180371f35eba13a72dd00/opentelemetry_sdk-1.33.1.tar.gz", hash = "sha256:85b9fcf7c3d23506fbc9692fd210b8b025a1920535feec50bd54ce203d57a531", size = 161885, upload-time = "2025-05-16T18:52:52.832Z" }
 wheels = [
@@ -1156,9 +1165,9 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.62b1", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/d0/54ee30dab82fb0acda23d144502771ff76ef8728459c83c3e89ef9fb1825/opentelemetry_sdk-1.41.1.tar.gz", hash = "sha256:724b615e1215b5aeacda0abb8a6a8922c9a1853068948bd0bd225a56d0c792e6", size = 230180, upload-time = "2026-04-24T13:15:50.991Z" }
 wheels = [
@@ -1174,9 +1183,9 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5d/77/a6592cbc7c8d9bcc9d6757a9df45e04a7c585e3e6e7a13456da522b21109/opentelemetry_sdk-1.44.0.tar.gz", hash = "sha256:cebe7f65dc12f26ead75c6064de12fd2a9052e5060c0272d402cfa203aae123b", size = 208624, upload-time = "2026-07-16T15:25:46.078Z" }
 wheels = [
@@ -1191,8 +1200,8 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "deprecated", marker = "python_full_version < '3.9'" },
-    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "deprecated" },
+    { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5b/2c/d7990fc1ffc82889d466e7cd680788ace44a26789809924813b164344393/opentelemetry_semantic_conventions-0.54b1.tar.gz", hash = "sha256:d1cecedae15d19bdaafca1e56b29a66aa286f50b5d08f036a145c7f3e9ef9cee", size = 118642, upload-time = "2025-05-16T18:52:53.962Z" }
 wheels = [
@@ -1207,8 +1216,8 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "opentelemetry-api", version = "1.41.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/de/911ac9e309052aca1b20b2d5549d3db45d1011e1a610e552c6ccdd1b64f8/opentelemetry_semantic_conventions-0.62b1.tar.gz", hash = "sha256:c5cc6e04a7f8c7cdd30be2ed81499fa4e75bfbd52c9cb70d40af1f9cd3619802", size = 145750, upload-time = "2026-04-24T13:15:52.236Z" }
 wheels = [
@@ -1224,8 +1233,8 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "typing-extensions", version = "4.16.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8f/73/0cbdebcb4cf545fdd328da14f5137e37d0770c3f26185e478b0d15d94f50/opentelemetry_semantic_conventions-0.65b0.tar.gz", hash = "sha256:f9b2b81e9d5b64f11bc952075e7e9c7fb0aab075c7fd1c46d597f1b919852d60", size = 148774, upload-time = "2026-07-16T15:25:46.902Z" }
 wheels = [
@@ -1398,12 +1407,12 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version < '3.9' and sys_platform == 'win32'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.9'" },
-    { name = "iniconfig", version = "2.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "packaging", version = "26.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "pluggy", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "tomli", marker = "python_full_version < '3.9'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "exceptiongroup" },
+    { name = "iniconfig", version = "2.1.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "packaging", version = "26.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "pluggy", version = "1.5.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "tomli" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ae/3c/c9d525a414d506893f0cd8a8d0de7706446213181570cdbd766691164e40/pytest-8.3.5.tar.gz", hash = "sha256:f4efe70cc14e511565ac476b57c279e12a855b11f48f212af1080ef2263d3845", size = 1450891, upload-time = "2025-03-02T12:54:54.503Z" }
 wheels = [
@@ -1418,13 +1427,13 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version == '3.9.*' and sys_platform == 'win32'" },
-    { name = "exceptiongroup", marker = "python_full_version == '3.9.*'" },
-    { name = "iniconfig", version = "2.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "pluggy", version = "1.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "pygments", marker = "python_full_version == '3.9.*'" },
-    { name = "tomli", marker = "python_full_version == '3.9.*'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "exceptiongroup" },
+    { name = "iniconfig", version = "2.1.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "pluggy", version = "1.6.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "pygments" },
+    { name = "tomli" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
 wheels = [
@@ -1440,17 +1449,63 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version >= '3.10' and sys_platform == 'win32'" },
-    { name = "exceptiongroup", marker = "python_full_version == '3.10.*'" },
-    { name = "iniconfig", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "pluggy", version = "1.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "pygments", marker = "python_full_version >= '3.10'" },
-    { name = "tomli", marker = "python_full_version == '3.10.*'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "iniconfig", version = "2.3.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "packaging", version = "26.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "pluggy", version = "1.6.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "pygments" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e4/47/b9efed96c114afcfa3c9d3fe98a76a1d14c74a9e266d397cf6eb64be5e01/pytest-9.1.1.tar.gz", hash = "sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313", size = 1636369, upload-time = "2026-06-19T10:58:32.857Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl", hash = "sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c", size = 386536, upload-time = "2026-06-19T10:58:31.347Z" },
+]
+
+[[package]]
+name = "redis"
+version = "6.1.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+dependencies = [
+    { name = "async-timeout" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/8b/14ef373ffe71c0d2fde93c204eab78472ea13c021d9aee63b0e11bd65896/redis-6.1.1.tar.gz", hash = "sha256:88c689325b5b41cedcbdbdfd4d937ea86cf6dab2222a83e86d8a466e4b3d2600", size = 4629515, upload-time = "2025-06-02T11:44:04.137Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/cd/29503c609186104c363ef1f38d6e752e7d91ef387fc90aa165e96d69f446/redis-6.1.1-py3-none-any.whl", hash = "sha256:ed44d53d065bbe04ac6d76864e331cfe5c5353f86f6deccc095f8794fd15bb2e", size = 273930, upload-time = "2025-06-02T11:44:02.705Z" },
+]
+
+[[package]]
+name = "redis"
+version = "7.0.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version == '3.9.*'",
+]
+dependencies = [
+    { name = "async-timeout" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/57/8f/f125feec0b958e8d22c8f0b492b30b1991d9499a4315dfde466cf4289edc/redis-7.0.1.tar.gz", hash = "sha256:c949df947dca995dc68fdf5a7863950bf6df24f8d6022394585acc98e81624f1", size = 4755322, upload-time = "2025-10-27T14:34:00.33Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/97/9f22a33c475cda519f20aba6babb340fb2f2254a02fb947816960d1e669a/redis-7.0.1-py3-none-any.whl", hash = "sha256:4977af3c7d67f8f0eb8b6fec0dafc9605db9343142f634041fb0235f67c0588a", size = 339938, upload-time = "2025-10-27T14:33:58.553Z" },
+]
+
+[[package]]
+name = "redis"
+version = "8.1.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version >= '3.10' and python_full_version < '3.12'",
+]
+dependencies = [
+    { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a8/99/604f0b666d4c616d891cf77ebb9db6bb21601344c051aebf1b72b9ff915f/redis-8.1.0.tar.gz", hash = "sha256:6e1a19beef9225c83efd689c7e6b7da2d5215b1f42cd13b7fc3714d0a09c7b25", size = 5254356, upload-time = "2026-07-30T08:51:00.269Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/66/9d/c5731f6e3608663d4d3656fd8d3aecee8b509c3082818f5a13eae925baea/redis-8.1.0-py3-none-any.whl", hash = "sha256:a4fe1aac3d3b3cc791d4b3d5931c5a956045dc951ee74d1c913ee3ac4d2ee9fb", size = 560618, upload-time = "2026-07-30T08:50:58.497Z" },
 ]
 
 [[package]]
@@ -1461,10 +1516,10 @@ resolution-markers = [
     "python_full_version < '3.9'",
 ]
 dependencies = [
-    { name = "certifi", marker = "python_full_version < '3.9'" },
-    { name = "charset-normalizer", marker = "python_full_version < '3.9'" },
-    { name = "idna", version = "3.15", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "urllib3", version = "2.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna", version = "3.15", source = { registry = "https://pypi.org/simple" } },
+    { name = "urllib3", version = "2.2.3", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e1/0a/929373653770d8a0d7ea76c37de6e41f11eb07559b103b1c02cafb3f7cf8/requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422", size = 135258, upload-time = "2025-06-09T16:43:07.34Z" }
 wheels = [
@@ -1479,10 +1534,10 @@ resolution-markers = [
     "python_full_version == '3.9.*'",
 ]
 dependencies = [
-    { name = "certifi", marker = "python_full_version == '3.9.*'" },
-    { name = "charset-normalizer", marker = "python_full_version == '3.9.*'" },
-    { name = "idna", version = "3.19", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "urllib3", version = "2.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna", version = "3.19", source = { registry = "https://pypi.org/simple" } },
+    { name = "urllib3", version = "2.6.3", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c9/74/b3ff8e6c8446842c3f5c837e9c3dfcfe2018ea6ecef224c710c85ef728f4/requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf", size = 134517, upload-time = "2025-08-18T20:46:02.573Z" }
 wheels = [
@@ -1498,10 +1553,10 @@ resolution-markers = [
     "python_full_version >= '3.10' and python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "certifi", marker = "python_full_version >= '3.10'" },
-    { name = "charset-normalizer", marker = "python_full_version >= '3.10'" },
-    { name = "idna", version = "3.19", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "urllib3", version = "2.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna", version = "3.19", source = { registry = "https://pypi.org/simple" } },
+    { name = "urllib3", version = "2.7.0", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz", hash = "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed", size = 142856, upload-time = "2026-05-14T19:25:27.735Z" }
 wheels = [
@@ -1629,14 +1684,23 @@ dev = [
     { name = "pytest", version = "8.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "redis", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "redis", version = "7.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "redis", version = "8.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "requests", version = "2.32.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+django = [
+    { name = "django", version = "4.2.30", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.12'" },
+    { name = "django", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "django", marker = "extra == 'dev'", specifier = ">=4.2" },
+    { name = "django", marker = "extra == 'django'", specifier = ">=4.2" },
     { name = "opentelemetry-api", specifier = ">=1.20.0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.20.0" },
     { name = "opentelemetry-instrumentation-botocore", specifier = ">=0.44b0" },
@@ -1646,10 +1710,11 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-requests", specifier = ">=0.44b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.20.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "redis", marker = "extra == 'dev'", specifier = ">=3.5.0" },
     { name = "requests", marker = "extra == 'dev'", specifier = ">=2.25.0" },
     { name = "wrapt", specifier = ">=1.14.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["django", "dev"]
 
 [[package]]
 name = "typing-extensions"

@@ -20,6 +20,8 @@ class DjangoIntegration(BaseIntegration):
     def __init__(self, config: Optional[SDKConfig] = None) -> None:
         super().__init__(config=config)
         self._wrapped_middleware: set[str] = set()
+        self._populate_patched: bool = False
+        self._armed: bool = False
 
     def is_installed(self) -> bool:
         try:
@@ -28,11 +30,65 @@ class DjangoIntegration(BaseIntegration):
         except ImportError:
             return False
 
+    def on_unavailable(self) -> None:
+        """Re-arm once Django becomes importable."""
+        self._arm()
+
+    def _arm(self) -> None:
+        if self._armed:
+            return
+        try:
+            self.when_imported("django", self._on_django_available)
+            # Only mark armed once registration succeeded, so a failed
+            # when_imported registration can be retried on the next apply.
+            self._armed = True
+        except Exception as exc:
+            logger.debug("Failed to register django when_imported hook: %s", exc)
+
+    def _on_django_available(self, _module=None) -> None:
+        self._patch_apps_populate()
+        self.instrument()
+
+    def instrument(self) -> bool:
+        if self.is_installed():
+            self._patch_apps_populate()
+        return super().instrument()
+
+    def _patch_apps_populate(self) -> None:
+        if self._populate_patched:
+            return
+        try:
+            from django.apps.registry import Apps
+
+            self.wrap(Apps, "populate", self._make_traced_populate())
+            self._populate_patched = True
+        except Exception as exc:
+            logger.debug("Failed to wrap Apps.populate: %s", exc)
+
+    def _make_traced_populate(self):
+        def traced_populate(wrapped, instance, args, kwargs):
+            result = wrapped(*args, **kwargs)
+            if getattr(instance, "ready", False):
+                try:
+                    self._retry_patch_after_ready()
+                except Exception as exc:
+                    logger.debug("post-populate instrumentation retry failed: %s", exc)
+            return result
+
+        return traced_populate
+
+    def _retry_patch_after_ready(self) -> None:
+        if self._instrumented:
+            return
+        logger.debug("Django apps ready; retrying deferred instrumentation.")
+        self.instrument()
+
     def _apply_patch(self) -> None:
+
         try:
             import django  # noqa: F401
-            from django.core.handlers.base import BaseHandler
-            from django.template.base import Template
+            from django.core.handlers.base import BaseHandler  # noqa: F401
+            from django.template.base import Template  # noqa: F401
         except ImportError:
             logger.debug("Django is not installed, skipping patch.")
             return
@@ -153,4 +209,6 @@ class DjangoIntegration(BaseIntegration):
         except Exception:
             pass
         self._wrapped_middleware.clear()
+        self._populate_patched = False
+        self._armed = False
         super()._remove_patch()

@@ -524,6 +524,47 @@ def test_sample_rate_validation():
         SDKConfig.from_env_and_kwargs(sample_rate="not_a_number")
 
 
+def test_masking_exposure_config_defaults():
+    """Masking toggles default to expose: real Redis endpoint, full commands, raw query."""
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert cfg.redis_mask_endpoint is False
+    assert cfg.redis_mask_command is False
+    assert cfg.redis_cmd_max_length == 1000
+    assert cfg.query_mode == "expose"
+
+
+def test_masking_exposure_config_env_and_kwargs(monkeypatch):
+    monkeypatch.setenv("TP_TRACE_REDIS_MASK_ENDPOINT", "true")
+    monkeypatch.setenv("TP_TRACE_REDIS_MASK_COMMAND", "1")
+    monkeypatch.setenv("TP_TRACE_REDIS_CMD_MAX_LENGTH", "500")
+    monkeypatch.setenv("TP_TRACE_QUERY_MODE", "strip")
+
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert cfg.redis_mask_endpoint is True
+    assert cfg.redis_mask_command is True
+    assert cfg.redis_cmd_max_length == 500
+    assert cfg.query_mode == "strip"
+
+    # Explicit kwargs override env vars
+    cfg2 = SDKConfig.from_env_and_kwargs(
+        redis_mask_endpoint=False,
+        redis_mask_command=False,
+        query_mode="redact",
+    )
+    assert cfg2.redis_mask_endpoint is False
+    assert cfg2.redis_mask_command is False
+    assert cfg2.query_mode == "redact"
+
+
+def test_masking_exposure_config_validation():
+    with pytest.raises(ValueError, match="query_mode"):
+        SDKConfig.from_env_and_kwargs(query_mode="drop")
+    with pytest.raises(ValueError, match="redis_cmd_max_length"):
+        SDKConfig.from_env_and_kwargs(redis_cmd_max_length="not_a_number")
+    with pytest.raises(ValueError, match="redis_cmd_max_length"):
+        SDKConfig.from_env_and_kwargs(redis_cmd_max_length=0)
+
+
 def test_init_invalid_config_does_not_crash_app():
     """Verify tp_trace.init() catches invalid config and falls back safely without raising ValueError."""
     import tp_trace

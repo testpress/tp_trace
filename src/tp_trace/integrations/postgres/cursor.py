@@ -149,32 +149,6 @@ def is_pgbouncer_connection(db_host: Any, db_port: Any) -> bool:
 suppress_db_instrumentation = suppress_instrumentation
 
 
-def _build_pool_span_context(
-    db_host: Any,
-    db_port: Any,
-    db_alias: Any,
-) -> Tuple[str, Dict[str, Any]]:
-    """Construct span name and attributes for the outer PgBouncer pool-wait span."""
-    try:
-        port_num = int(db_port) if db_port else 6432
-    except (ValueError, TypeError):
-        port_num = 6432
-    host_str = str(db_host) if db_host else "pgbouncer"
-    alias_str = str(db_alias) if db_alias else "default"
-
-    span_attrs: Dict[str, Any] = {
-        "db.system": "pgbouncer",
-        "db.system.name": "pgbouncer",
-        "db.connection.pool": "pgbouncer",
-        "db.instance": alias_str,
-        "net.peer.name": host_str,
-        "net.peer.port": port_num,
-        "server.address": host_str,
-        "server.port": port_num,
-    }
-    return "🔹 pgbouncer.pool_wait", span_attrs
-
-
 def _build_db_span_context(
     sql: Optional[str],
     instance_or_conn: Any,
@@ -187,6 +161,10 @@ def _build_db_span_context(
     summary = extract_query_summary(sanitized_sql)
     is_pgbouncer = is_pgbouncer_connection(db_host, db_port)
 
+    resolved_port = db_port
+    if is_pgbouncer and (not db_port or str(db_port) == "0"):
+        resolved_port = 6432
+
     span_attrs: Dict[str, Any] = {
         "db.system": db_vendor if db_vendor else "postgresql",
         "db.system.name": db_vendor if db_vendor else "postgresql",
@@ -195,9 +173,9 @@ def _build_db_span_context(
         "db.instance": str(db_alias),
         "db.connection_alias": str(db_alias),
         "net.peer.name": str(db_host),
-        "net.peer.port": db_port,
+        "net.peer.port": resolved_port,
         "server.address": str(db_host),
-        "server.port": db_port,
+        "server.port": resolved_port,
         "db.statement": metric_sql,
         "db.statement.full": sanitized_sql,
         "db.query.text": sanitized_sql,
@@ -206,7 +184,7 @@ def _build_db_span_context(
         "db.operation.name": op,
         "db.role": db_role,
         "resource.name": metric_sql,
-        "normalized.service": "pgbouncer" if is_pgbouncer else "postgres",
+        "normalized.service": "postgres",
         "normalized.operation": metric_sql or "postgres.query",
     }
     if is_pgbouncer:
@@ -264,26 +242,7 @@ def tp_trace_django_db_execute_wrapper(
                 return execute(sql, params, many, context)
             span_name, span_attrs = db_ctx
 
-            if is_pgbouncer_connection(span_attrs.get("net.peer.name"), span_attrs.get("net.peer.port")):
-                pool_name, pool_attrs = _build_pool_span_context(
-                    span_attrs.get("net.peer.name"),
-                    span_attrs.get("net.peer.port"),
-                    span_attrs.get("db.instance", "default"),
-                )
-                inner_attrs = dict(span_attrs)
-                inner_attrs["db.system"] = "postgresql"
-                inner_attrs["db.system.name"] = "postgresql"
-                inner_attrs.pop("db.connection.pool", None)
-
-                with traced_span(
-                    pool_name,
-                    kind=SpanKind.CLIENT,
-                    attributes=pool_attrs,
-                    tracer_name="tp_trace.postgres",
-                ):
-                    return _emit_db_span(span_name, inner_attrs, lambda: execute(sql, params, many, context), cursor)
-            else:
-                return _emit_db_span(span_name, span_attrs, lambda: execute(sql, params, many, context), cursor)
+            return _emit_db_span(span_name, span_attrs, lambda: execute(sql, params, many, context), cursor)
     except Exception as exc:
         # Never retry: a failing statement has already been sent to the server and
         # re-sending it would double side effects. Propagate instead.
@@ -322,28 +281,8 @@ def traced_django_cursor_exec(
                 return wrapped(*args, **kwargs)
             span_name, span_attrs = db_ctx
 
-            if is_pgbouncer_connection(span_attrs.get("net.peer.name"), span_attrs.get("net.peer.port")):
-                pool_name, pool_attrs = _build_pool_span_context(
-                    span_attrs.get("net.peer.name"),
-                    span_attrs.get("net.peer.port"),
-                    span_attrs.get("db.instance", "default"),
-                )
-                inner_attrs = dict(span_attrs)
-                inner_attrs["db.system"] = "postgresql"
-                inner_attrs["db.system.name"] = "postgresql"
-                inner_attrs.pop("db.connection.pool", None)
-
-                with traced_span(
-                    pool_name,
-                    kind=SpanKind.CLIENT,
-                    attributes=pool_attrs,
-                    tracer_name="tp_trace.postgres",
-                ):
-                    cursor = attempt(getattr, instance, "cursor", default=instance, _label="db.cursor")
-                    return _emit_db_span(span_name, inner_attrs, lambda: wrapped(*args, **kwargs), cursor)
-            else:
-                cursor = attempt(getattr, instance, "cursor", default=instance, _label="db.cursor")
-                return _emit_db_span(span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor)
+            cursor = attempt(getattr, instance, "cursor", default=instance, _label="db.cursor")
+            return _emit_db_span(span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor)
     except Exception as exc:
         # Never retry: the statement has already been executed, and re-running it
         # would double side effects. Propagate instead.

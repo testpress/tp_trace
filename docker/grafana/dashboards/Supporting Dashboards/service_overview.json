@@ -335,6 +335,7 @@
           },
           "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -421,7 +422,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true,
             "stacking": {
               "group": "A",
@@ -441,6 +442,7 @@
             }
           ],
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -547,6 +549,7 @@
           },
           "decimals": 1,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -798,6 +801,26 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Value #B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Total Calls"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Value #A"
             },
             "properties": [
@@ -811,7 +834,7 @@
               },
               {
                 "id": "decimals",
-                "value": 2
+                "value": 3
               }
             ]
           },
@@ -965,6 +988,20 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
+          "expr": "sum by (normalized_operation) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~\"(?i)(${operation:pipe})\"}[$__range]))\nor\nsum by (normalized_operation) (increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~\"(?i)(${operation:pipe})\"}[$__range]))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Total Calls",
+          "range": false,
+          "refId": "B",
+          "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
           "expr": "(\n  (\n    (sum by (normalized_operation) (rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~\"(?i)(${operation:pipe})\", error=\"true\"}[$__range])))\n    or (0 * sum by (normalized_operation) (rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~\"(?i)(${operation:pipe})\"}[$__range])))\n    or (sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~\"(?i)(${operation:pipe})\", error=\"true\"}[$__range])))\n    or (0 * sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~\"(?i)(${operation:pipe})\"}[$__range])))\n  )\n  /\n  (\n    (sum by (normalized_operation) (rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~\"(?i)(${operation:pipe})\"}[$__range])))\n    or (sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~\"(?i)(${operation:pipe})\"}[$__range])))\n  )\n) * 100",
           "format": "table",
           "instant": true,
@@ -1034,29 +1071,289 @@
               "Time 2": true,
               "Time 3": true,
               "Time 4": true,
-              "Time 5": true
+              "Time 5": true,
+              "Time 6": true
             },
             "indexByName": {
               "normalized_operation": 0,
               "Operation": 0,
-              "Value #A": 1,
-              "RPS": 1,
-              "Value #C": 2,
-              "Error Rate %": 2,
-              "Value #D": 3,
-              "P50 Latency": 3,
-              "Value #E": 4,
-              "P95 Latency": 4,
-              "Value #F": 5,
-              "P99 Latency": 5
+              "Value #B": 1,
+              "Total Calls": 1,
+              "Value #A": 2,
+              "RPS": 2,
+              "Value #C": 3,
+              "Error Rate %": 3,
+              "Value #D": 4,
+              "P50 Latency": 4,
+              "Value #E": 5,
+              "P95 Latency": 5,
+              "Value #F": 6,
+              "P99 Latency": 6
             },
             "renameByName": {
               "normalized_operation": "Operation",
+              "Value #B": "Total Calls",
               "Value #A": "RPS",
               "Value #C": "Error Rate %",
               "Value #D": "P50 Latency",
               "Value #E": "P95 Latency",
               "Value #F": "P99 Latency"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "id": 400,
+      "panels": [],
+      "title": "Recent Distributed Traces & Flamegraph Waterfalls ($service)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "description": "Recent distributed traces for $service with query parameters and full URLs. Click any Trace ID to open the complete Flamegraph waterfall.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TraceID"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              },
+              {
+                "id": "displayName",
+                "value": "Trace ID (Flamegraph Waterfall)"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open trace in Explore",
+                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span.http.response.status_code"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Status Code"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "semi-dark-green",
+                      "value": null
+                    },
+                    {
+                      "color": "semi-dark-yellow",
+                      "value": 400
+                    },
+                    {
+                      "color": "semi-dark-red",
+                      "value": 500
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Query Params|span.url.query|url.query)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              },
+              {
+                "id": "displayName",
+                "value": "Query Params"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Full URL|span.url.full|url.full)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 340
+              },
+              {
+                "id": "displayName",
+                "value": "Full URL"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Command \\/ Statement|span.db.statement|db.statement)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "displayName",
+                "value": "Command / Statement"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "id": 401,
+      "options": {
+        "enablePagination": true,
+        "footer": {
+          "countRows": true,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "limit": 30,
+          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && (kind = server || kind = client) } | select(span.url.full, span.url.query, span.http.target, span.db.statement)",
+          "queryType": "traceql",
+          "refId": "A",
+          "tableType": "traces"
+        }
+      ],
+      "title": "Recent Traces for $service",
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "format": "regexp",
+            "regExp": "/(?<TraceID>.*)/",
+            "source": "traceID"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "traceID": true
+            },
+            "indexByName": {
+              "TraceID": 0,
+              "startTime": 1,
+              "traceService": 2,
+              "serviceName": 2,
+              "traceName": 3,
+              "name": 3,
+              "span.url.query": 4,
+              "url.query": 4,
+              "Query Params": 4,
+              "span.url.full": 5,
+              "url.full": 5,
+              "Full URL": 5,
+              "span.db.statement": 6,
+              "db.statement": 6,
+              "Command / Statement": 6,
+              "traceDuration": 7,
+              "duration": 7
+            },
+            "renameByName": {
+              "TraceID": "Trace ID (Flamegraph Waterfall)",
+              "span.url.query": "Query Params",
+              "url.query": "Query Params",
+              "span.url.full": "Full URL",
+              "url.full": "Full URL",
+              "span.db.statement": "Command / Statement",
+              "db.statement": "Command / Statement"
             }
           }
         }

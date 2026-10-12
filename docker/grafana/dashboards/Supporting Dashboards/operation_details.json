@@ -327,8 +327,8 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
-            "spanNulls": false,
+            "showPoints": "auto",
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "normal"
@@ -337,7 +337,9 @@
               "mode": "off"
             }
           },
+          "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -467,8 +469,8 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
-            "spanNulls": false,
+            "showPoints": "auto",
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "normal"
@@ -477,7 +479,9 @@
               "mode": "off"
             }
           },
+          "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -655,7 +659,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true,
             "stacking": {
               "group": "A",
@@ -667,6 +671,7 @@
           },
           "decimals": 2,
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -940,6 +945,54 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Query Params|span.url.query|url.query)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              },
+              {
+                "id": "displayName",
+                "value": "Query Params"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Full URL|span.url.full|url.full)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 340
+              },
+              {
+                "id": "displayName",
+                "value": "Full URL"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Command \\/ Statement|span.db.statement|db.statement)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              },
+              {
+                "id": "displayName",
+                "value": "Command / Statement"
+              }
+            ]
           }
         ]
       },
@@ -970,7 +1023,7 @@
             "uid": "tempo"
           },
           "limit": 30,
-          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && span.normalized.operation = `${operation:raw}` && (kind = server || kind = client) }",
+          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && span.normalized.operation = `${operation:raw}` && (kind = server || kind = client) } | select(span.url.full, span.url.query, span.http.target, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -999,11 +1052,26 @@
               "serviceName": 2,
               "traceName": 3,
               "name": 3,
-              "traceDuration": 4,
-              "duration": 4
+              "span.url.query": 4,
+              "url.query": 4,
+              "Query Params": 4,
+              "span.url.full": 5,
+              "url.full": 5,
+              "Full URL": 5,
+              "span.db.statement": 6,
+              "db.statement": 6,
+              "Command / Statement": 6,
+              "traceDuration": 7,
+              "duration": 7
             },
             "renameByName": {
-              "TraceID": "Trace ID (Flamegraph Waterfall)"
+              "TraceID": "Trace ID (Flamegraph Waterfall)",
+              "span.url.query": "Query Params",
+              "url.query": "Query Params",
+              "span.url.full": "Full URL",
+              "url.full": "Full URL",
+              "span.db.statement": "Command / Statement",
+              "db.statement": "Command / Statement"
             }
           }
         }

@@ -134,14 +134,24 @@ def sanitize_query_string(query: Optional[str]) -> str:
         return ""
 
 
-def sanitize_url(url: Optional[str], strip_query: bool = False) -> str:
+def sanitize_url(url: Optional[str], strip_query: bool = False, mode: Optional[str] = None) -> str:
     """
-    Sanitize a URL by stripping credentials (userinfo), fragment, and redacting sensitive query params.
-    
-    Optionally strips query parameters completely if strip_query is True.
+    Sanitize a URL by stripping credentials (userinfo) and fragment.
+
+    Query handling is selected by ``mode`` (takes precedence over ``strip_query``):
+
+    - "expose": raw query string is kept verbatim (default SDK posture).
+    - "redact": sensitive query params (token/password/...) -> REDACTED.
+    - "strip":  query string is omitted entirely.
+    - None (default, backwards compatible): "strip" if strip_query else "redact".
+
+    Userinfo stripping and the fail-closed ``<unparseable-url>`` fallback apply
+    in every mode.
     """
     if not url:
         return ""
+    if mode is None:
+        mode = "strip" if strip_query else "redact"
     try:
         parsed = urlparse(url)
         # Strip userinfo (username:password) if present
@@ -149,9 +159,12 @@ def sanitize_url(url: Optional[str], strip_query: bool = False) -> str:
         if "@" in netloc:
             netloc = netloc.split("@")[-1]
 
-        if strip_query:
+        if mode == "strip":
             query = ""
+        elif mode == "expose":
+            query = parsed.query
         else:
+            # "redact" and any unknown mode fail closed to redaction
             query = sanitize_query_string(parsed.query) if parsed.query else ""
 
         cleaned = urlunparse((
