@@ -207,7 +207,7 @@ class SDKConfig:
     project_name: str = "unknown-project"
     cluster_name: Optional[str] = None
     environment: str = "development"
-    version: str = "0.1.0"
+    version: str = "0.1.1"
     endpoint: str = "http://localhost:4318"
     traces_endpoint: Optional[str] = None
     headers: Dict[str, str] = field(default_factory=dict)
@@ -342,7 +342,7 @@ class SDKConfig:
             or os.getenv("TP_DOG_VERSION")
             or os.getenv("OTEL_SERVICE_VERSION")
             or os.getenv("SERVICE_VERSION")
-            or "0.1.0"
+            or "0.1.1"
         )
 
         # 4. Endpoints & Headers
