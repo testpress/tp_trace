@@ -140,6 +140,10 @@ class IntegrationManager:
                 if success:
                     instrumented_names.append(canonical)
             else:
+                try:
+                    instance.on_unavailable()
+                except Exception:
+                    logger.debug("on_unavailable hook failed for '%s'", canonical)
                 logger.debug("Library for integration '%s' is not installed, skipping.", canonical)
 
         # For backwards compatibility with tests asserting on alias names:

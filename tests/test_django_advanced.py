@@ -199,7 +199,7 @@ def test_request_and_view_spans_generated():
     assert len(spans) > 0
     req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
     assert req_span.kind == SpanKind.SERVER
-    assert req_span.attributes.get("http.route") == "/test/sample/"
+    assert req_span.attributes.get("http.route") == "http://testserver/test/sample/"
     assert req_span.attributes.get("http.request.method") == "GET"
     assert req_span.attributes.get("http.response.status_code") == 200
 
@@ -214,7 +214,9 @@ def test_endpoint_label_normalized():
     spans = exporter.get_finished_spans()
     req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
     route = req_span.attributes.get("http.route")
-    assert route == "/api/products/<int:id>/", f"route should be normalized, got {route}"
+    route_template = req_span.attributes.get("http.route_template")
+    assert route == "http://testserver/api/products/928371/", f"http.route should be full URL, got {route}"
+    assert route_template == "/api/products/<int:id>/", f"route template should be normalized, got {route_template}"
     assert req_span.attributes.get("url.path") == "/api/products/928371/"
 
 

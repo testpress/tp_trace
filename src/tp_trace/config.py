@@ -50,6 +50,36 @@ def _parse_rate(val: Any, field_name: str = "sample_rate") -> float:
     return r
 
 
+_QUERY_MODES = {"expose", "redact", "strip"}
+
+
+def _parse_query_mode(val: Any) -> str:
+    """Parse TP_TRACE_QUERY_MODE: expose (raw), redact (credential keys -> REDACTED), strip (drop query)."""
+    if val is None:
+        return "expose"
+    mode = str(val).strip().lower()
+    if not mode:
+        return "expose"
+    if mode not in _QUERY_MODES:
+        raise ValueError(
+            f"tp_trace: cannot parse {val!r} as query_mode; "
+            f"accepted values: {sorted(_QUERY_MODES)}"
+        )
+    return mode
+
+
+def _parse_cmd_max_length(val: Any) -> int:
+    if val is None:
+        return 1000
+    try:
+        n = int(val)
+    except (TypeError, ValueError):
+        raise ValueError(f"tp_trace: redis_cmd_max_length={val!r} is not a valid integer")
+    if n <= 0:
+        raise ValueError(f"tp_trace: redis_cmd_max_length={val!r} must be a positive integer")
+    return n
+
+
 def _parse_endpoint_sample_rules(val: Any) -> Dict[str, float]:
     """Parse and validate endpoint-specific sampling rules.
 
@@ -177,7 +207,7 @@ class SDKConfig:
     project_name: str = "unknown-project"
     cluster_name: Optional[str] = None
     environment: str = "development"
-    version: str = "0.1.0"
+    version: str = "0.1.1"
     endpoint: str = "http://localhost:4318"
     traces_endpoint: Optional[str] = None
     headers: Dict[str, str] = field(default_factory=dict)
@@ -201,6 +231,13 @@ class SDKConfig:
     metrics_endpoint: Optional[str] = None
     metrics_enabled: bool = True
     metrics_export_interval_millis: int = 5000
+    # Masking -> exposure toggles. Defaults expose infrastructure details
+    # (Redis endpoint, Redis command contents, URL query strings), matching
+    # dd-trace. Deployments that do NOT own the infra can restore masking.
+    redis_mask_endpoint: bool = False
+    redis_mask_command: bool = False
+    redis_cmd_max_length: int = 1000
+    query_mode: str = "expose"
 
     @classmethod
     def from_env_and_kwargs(
@@ -226,6 +263,10 @@ class SDKConfig:
         metrics_endpoint: Optional[str] = None,
         metrics_enabled: Optional[bool] = None,
         metrics_export_interval_millis: Optional[int] = None,
+        redis_mask_endpoint: Optional[bool] = None,
+        redis_mask_command: Optional[bool] = None,
+        redis_cmd_max_length: Optional[int] = None,
+        query_mode: Optional[str] = None,
         **extra: Any,
     ) -> "SDKConfig":
         """Build SDKConfig by prioritizing explicit kwargs over environment variables."""
@@ -301,7 +342,7 @@ class SDKConfig:
             or os.getenv("TP_DOG_VERSION")
             or os.getenv("OTEL_SERVICE_VERSION")
             or os.getenv("SERVICE_VERSION")
-            or "0.1.0"
+            or "0.1.1"
         )
 
         # 4. Endpoints & Headers
@@ -603,6 +644,41 @@ class SDKConfig:
         else:
             resolved_extract = True
 
+        # 16. Masking -> exposure toggles (defaults expose, matching dd-trace)
+        if redis_mask_endpoint is not None:
+            resolved_redis_mask_endpoint = bool(redis_mask_endpoint)
+        elif "TP_TRACE_REDIS_MASK_ENDPOINT" in os.environ:
+            resolved_redis_mask_endpoint = _str_to_bool(os.environ["TP_TRACE_REDIS_MASK_ENDPOINT"], default=False)
+        elif "TP_DOG_REDIS_MASK_ENDPOINT" in os.environ:
+            resolved_redis_mask_endpoint = _str_to_bool(os.environ["TP_DOG_REDIS_MASK_ENDPOINT"], default=False)
+        else:
+            resolved_redis_mask_endpoint = False
+
+        if redis_mask_command is not None:
+            resolved_redis_mask_command = bool(redis_mask_command)
+        elif "TP_TRACE_REDIS_MASK_COMMAND" in os.environ:
+            resolved_redis_mask_command = _str_to_bool(os.environ["TP_TRACE_REDIS_MASK_COMMAND"], default=False)
+        elif "TP_DOG_REDIS_MASK_COMMAND" in os.environ:
+            resolved_redis_mask_command = _str_to_bool(os.environ["TP_DOG_REDIS_MASK_COMMAND"], default=False)
+        else:
+            resolved_redis_mask_command = False
+
+        raw_cmd_max_length = (
+            redis_cmd_max_length
+            if redis_cmd_max_length is not None
+            else os.getenv("TP_TRACE_REDIS_CMD_MAX_LENGTH")
+            or os.getenv("TP_DOG_REDIS_CMD_MAX_LENGTH")
+        )
+        resolved_cmd_max_length = _parse_cmd_max_length(raw_cmd_max_length)
+
+        raw_query_mode = (
+            query_mode
+            if query_mode is not None
+            else os.getenv("TP_TRACE_QUERY_MODE")
+            or os.getenv("TP_DOG_QUERY_MODE")
+        )
+        resolved_query_mode = _parse_query_mode(raw_query_mode)
+
         return cls(
             project_name=resolved_project,
             cluster_name=resolved_cluster,
@@ -631,4 +707,8 @@ class SDKConfig:
             metrics_endpoint=resolved_metrics_endpoint,
             metrics_enabled=resolved_metrics_enabled,
             metrics_export_interval_millis=resolved_metrics_interval,
+            redis_mask_endpoint=resolved_redis_mask_endpoint,
+            redis_mask_command=resolved_redis_mask_command,
+            redis_cmd_max_length=resolved_cmd_max_length,
+            query_mode=resolved_query_mode,
         )

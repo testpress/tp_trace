@@ -23,7 +23,7 @@ from typing import Any, Optional, Tuple
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
-from opentelemetry.trace import Span
+from opentelemetry.trace import Span, SpanKind
 
 current_route: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "tp_trace.http_route", default=None
@@ -132,12 +132,22 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                     span.set_attribute(k, v)
 
             existing = getattr(span, "attributes", None) or {}
-            if not existing.get("http.route"):
-                route = get_current_route()
-                if route and route != "__unmatched__":
+            span_kind = getattr(span, "kind", None)
+            if span_kind is None and hasattr(span, "_kind"):
+                span_kind = getattr(span, "_kind", None)
+            is_client_or_internal = span_kind in (SpanKind.CLIENT, SpanKind.INTERNAL)
+            is_db_or_cache = bool(
+                existing.get("db.system")
+                or existing.get("db.name")
+            )
+            route = get_current_route()
+            if route and route != "__unmatched__":
+                if not existing.get("django.route"):
+                    span.set_attribute("django.route", route)
+                if not is_client_or_internal and not is_db_or_cache and not existing.get("http.route"):
                     span.set_attribute("http.route", route)
             method = get_current_method()
-            if method:
+            if method and not is_client_or_internal and not is_db_or_cache:
                 if not existing.get("http.request.method"):
                     span.set_attribute("http.request.method", method)
                 if not existing.get("http.method"):
@@ -157,6 +167,15 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                 target_dict = attrs
 
             if target_dict is not None:
+                # Remove accidental http.method / http.route from database/cache spans
+                if target_dict.get("db.system") or attrs.get("db.system") or target_dict.get("normalized.service") in ("redis", "postgres", "pgbouncer"):
+                    for bad_key in ("http.method", "http.request.method", "http.route"):
+                        if bad_key in target_dict:
+                            try:
+                                del target_dict[bad_key]
+                            except Exception:
+                                pass
+
                 if not attrs.get("normalized.service"):
                     svc = (
                         attrs.get("peer.service")
@@ -170,14 +189,42 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                         svc = "aws-s3"
                     target_dict["normalized.service"] = str(svc or "django")
 
+                svc = target_dict.get("normalized.service") or attrs.get("normalized.service")
+
                 if not attrs.get("normalized.operation"):
                     op = None
-                    if attrs.get("http.method") and attrs.get("http.route"):
-                        op = f"{attrs.get('http.method')} {attrs.get('http.route')}"
-                    elif attrs.get("db.statement"):
-                        op = attrs.get("db.statement")
+                    if svc == "redis" or attrs.get("db.system") == "redis":
+                        if "db.redis.pipeline_length" in attrs:
+                            op = "redis.pipeline"
+                        elif attrs.get("db.operation"):
+                            op = f"redis.{str(attrs.get('db.operation')).lower()}"
+                        elif getattr(span, "name", ""):
+                            raw = (
+                                getattr(span, "name", "")
+                                .replace("🔸", "")
+                                .replace("REDIS:", "")
+                                .replace("redis:", "")
+                                .strip()
+                                .lower()
+                            )
+                            op = f"redis.{raw}" if raw else "redis.command"
+                        else:
+                            op = "redis.command"
+                    elif svc in ("postgres", "pgbouncer") or attrs.get("db.system") in ("postgres", "postgresql"):
+                        op = attrs.get("db.statement") or "postgres.query"
+                    elif svc == "django":
+                        route_val = attrs.get("http.route_template") or attrs.get("http.route")
+                        if attrs.get("http.method") and route_val:
+                            op = f"{attrs.get('http.method')} {route_val}"
+                        else:
+                            op = getattr(span, "name", "")
                     elif attrs.get("rpc.service") and attrs.get("rpc.method"):
                         op = f"{attrs.get('rpc.service')}.{attrs.get('rpc.method')}"
+                    elif attrs.get("db.statement"):
+                        op = attrs.get("db.statement")
+                    elif attrs.get("http.method") and (attrs.get("http.route_template") or attrs.get("http.route")):
+                        route_val = attrs.get("http.route_template") or attrs.get("http.route")
+                        op = f"{attrs.get('http.method')} {route_val}"
                     else:
                         op = getattr(span, "name", "")
                     if op:

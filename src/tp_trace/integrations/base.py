@@ -26,6 +26,7 @@ class BaseIntegration(abc.ABC):
         self._config = config
         self._instrumented: bool = False
         self._wrapped_targets: List[Tuple[Any, str, Any]] = []
+        self._wrapped_keys: set = set()
         self._when_imported_hooks: List[Tuple[str, Callable]] = []
 
     @abc.abstractmethod
@@ -74,8 +75,13 @@ class BaseIntegration(abc.ABC):
             else:
                 target_obj = target
 
+            key = (id(target_obj), attribute_name)
+            if key in self._wrapped_keys:
+                return
+
             original = getattr(target_obj, attribute_name, None)
             wrapt.wrap_function_wrapper(target_obj, attribute_name, wrapper)
+            self._wrapped_keys.add(key)
             self._wrapped_targets.append((target_obj, attribute_name, original))
         except Exception as exc:
             logger.debug(
@@ -106,6 +112,7 @@ class BaseIntegration(abc.ABC):
                     self.name,
                     exc,
                 )
+        self._wrapped_keys.clear()
 
     def when_imported(self, module_name: str, callback: Callable[..., Any]) -> None:
         """
@@ -144,6 +151,14 @@ class BaseIntegration(abc.ABC):
                 exc_info=True,
             )
             return False
+
+    def on_unavailable(self) -> None:
+        """Called when the target library is not installed at apply time.
+
+        Subclasses can override to register deferred re-arm hooks so that
+        instrumentation runs once the dependency becomes importable.
+        """
+        pass
 
     def uninstrument(self) -> bool:
         """Uninstrument the library and restore original functions."""

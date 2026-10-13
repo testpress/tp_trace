@@ -75,127 +75,164 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Number of healthy collectors reporting metrics vs total registered collectors",
+      "description": "Unified health overview of all observability backend components: Tempo (trace storage), OpenTelemetry Collector, and Prometheus. Shows status, CPU utilization, and memory usage for each.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
-              },
-              {
-                "color": "#f59e0b",
-                "value": 1
-              },
-              {
-                "color": "#10b981",
-                "value": 4
               }
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "red",
+                        "index": 1,
+                        "text": "Down"
+                      },
+                      "1": {
+                        "color": "green",
+                        "index": 0,
+                        "text": "Healthy"
+                      }
+                    },
+                    "type": "value"
+                  },
+                  {
+                    "options": {
+                      "from": 1,
+                      "result": {
+                        "color": "green",
+                        "index": 2,
+                        "text": "Healthy"
+                      },
+                      "to": 999999999
+                    },
+                    "type": "range"
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU Usage"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory Usage"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Component"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/(Status)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
+        "h": 5,
+        "w": 24,
         "x": 0,
         "y": 0
       },
-      "id": 1,
+      "id": 301,
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
           "fields": "",
-          "values": false
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "text": {
-          "valueSize": 38
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "10.4.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "count(up{source=\"otelcol-telemetry\", net_host_name=~\"(${instance:pipe})\"} == 1) or vector(0)",
-          "instant": true,
-          "legendFormat": "Healthy",
-          "range": false,
-          "refId": "A",
-          "exemplar": false
-        }
-      ],
-      "title": "Healthy Collectors",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "_IY366MMk"
-      },
-      "description": "Number of collectors currently dropping or refusing spans",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "semi-dark-green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Component"
           }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "valueSize": 38
-        },
-        "textMode": "auto"
+        ]
       },
       "pluginVersion": "10.4.1",
       "targets": [
@@ -205,156 +242,74 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count(sum by (instance) (rate({__name__=~\"otelcol_receiver_refused_spans.*|otelcol_exporter_send_failed_spans.*|otelcol_processor_dropped_spans.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) > 0) or vector(0)",
+          "expr": "(label_replace(max(up{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(up{source=\"otelcol-telemetry\"}) or vector(0), \"component\", \"OpenTelemetry Collector\", \"\", \"\")) or (label_replace(max(up{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
+          "format": "table",
           "instant": true,
-          "legendFormat": "Dropping",
+          "legendFormat": "Status",
           "range": false,
           "refId": "A",
           "exemplar": false
-        }
-      ],
-      "title": "Dropping Telemetry",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "_IY366MMk"
-      },
-      "description": "Average CPU utilization across the collector fleet",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "#38bdf8",
-            "mode": "fixed"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#38bdf8",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "valueSize": 38
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "10.4.1",
-      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "avg((rate({__name__=~\"otelcol_process_cpu_seconds.*\", net_host_name=~\"(${instance:pipe})\"}[2m]) / 0.5) * 100) or vector(0)",
-          "instant": false,
-          "legendFormat": "Avg CPU",
-          "range": true,
-          "refId": "A",
+          "expr": "(label_replace(max(rate(process_cpu_seconds_total{job=\"tempo\"}[2m])) * 100 or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(avg(rate(otelcol_process_cpu_seconds_total{source=\"otelcol-telemetry\"}[2m])) * 100 or vector(0), \"component\", \"OpenTelemetry Collector\", \"\", \"\")) or (label_replace(max(rate(process_cpu_seconds_total{job=\"prometheus\"}[2m])) * 100 or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "CPU Usage",
+          "range": false,
+          "refId": "B",
           "exemplar": false
-        }
-      ],
-      "title": "Avg CPU Usage",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "_IY366MMk"
-      },
-      "description": "Average memory utilization against quota across the collector fleet",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "#10b981",
-            "mode": "fixed"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "valueSize": 38
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "10.4.1",
-      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "avg((otelcol_process_memory_rss{net_host_name=~\"(${instance:pipe})\"} / 402653184) * 100) or vector(0)",
-          "instant": false,
-          "legendFormat": "Avg Memory",
-          "range": true,
-          "refId": "A",
+          "expr": "(label_replace(max(process_resident_memory_bytes{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(sum(otelcol_process_memory_rss{source=\"otelcol-telemetry\"}) or vector(0), \"component\", \"OpenTelemetry Collector\", \"\", \"\")) or (label_replace(max(process_resident_memory_bytes{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Memory Usage",
+          "range": false,
+          "refId": "C",
           "exemplar": false
         }
       ],
-      "title": "Avg Memory Usage",
-      "type": "stat"
+      "title": "System Health \u2014 {service} \u00b7 OpenTelemetry Collector",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true
+            },
+            "indexByName": {
+              "component": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3
+            },
+            "renameByName": {
+              "component": "Component",
+              "Value #A": "Status",
+              "Value #B": "CPU Usage",
+              "Value #C": "Memory Usage"
+            }
+          }
+        }
+      ],
+      "type": "table"
     },
     {
       "datasource": {
@@ -577,7 +532,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "id": 10,
       "options": {
@@ -744,7 +699,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 12
       },
       "id": 100,
       "title": "Core Collector Health & Telemetry (6 Key Panels)",
@@ -836,7 +791,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 12
+        "y": 13
       },
       "id": 20,
       "options": {
@@ -875,8 +830,8 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "vector(402653184)",
-          "legendFormat": "Limit (384 MiB)",
+          "expr": "vector(536870912)",
+          "legendFormat": "Limit (512 MiB)",
           "range": true,
           "refId": "B",
           "exemplar": false
@@ -944,7 +899,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 12
+        "y": 13
       },
       "id": 21,
       "options": {
@@ -1038,7 +993,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 12
+        "y": 13
       },
       "id": 11,
       "options": {
@@ -1132,7 +1087,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 20
+        "y": 21
       },
       "id": 12,
       "options": {
@@ -1229,7 +1184,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 20
+        "y": 21
       },
       "id": 13,
       "options": {
@@ -1333,7 +1288,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 20
+        "y": 21
       },
       "id": 22,
       "options": {
@@ -1376,7 +1331,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 39
       },
       "id": 199,
       "panels": [],
@@ -1389,7 +1344,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 30
       },
       "id": 286,
       "title": "Receivers",
@@ -1482,7 +1437,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 30
+        "y": 31
       },
       "id": 228,
       "interval": "$minstep",
@@ -1632,7 +1587,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 30
+        "y": 31
       },
       "id": 280,
       "interval": "$minstep",
@@ -1782,7 +1737,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 30
+        "y": 31
       },
       "id": 247,
       "interval": "$minstep",
@@ -1851,7 +1806,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 39
       },
       "id": 287,
       "title": "Processors",
@@ -1961,7 +1916,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 39
+        "y": 40
       },
       "id": 285,
       "interval": "$minstep",
@@ -2128,7 +2083,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 39
+        "y": 40
       },
       "id": 283,
       "interval": "$minstep",
@@ -2295,7 +2250,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 39
+        "y": 40
       },
       "id": 284,
       "interval": "$minstep",
@@ -2464,7 +2419,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 47
+        "y": 48
       },
       "id": 235,
       "interval": "$minstep",
@@ -2693,7 +2648,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 47
+        "y": 48
       },
       "id": 250,
       "interval": "$minstep",
@@ -2922,7 +2877,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 47
+        "y": 48
       },
       "id": 251,
       "interval": "$minstep",
@@ -3070,7 +3025,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 55
+        "y": 56
       },
       "id": 249,
       "interval": "$minstep",
@@ -3211,7 +3166,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 55
+        "y": 56
       },
       "id": 236,
       "interval": "$minstep",
@@ -3354,7 +3309,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 55
+        "y": 56
       },
       "id": 256,
       "interval": "$minstep",
@@ -3423,7 +3378,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 63
+        "y": 64
       },
       "id": 288,
       "title": "Exporters",
@@ -3516,7 +3471,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 64
+        "y": 65
       },
       "id": 237,
       "interval": "$minstep",
@@ -3681,7 +3636,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 64
+        "y": 65
       },
       "id": 238,
       "interval": "$minstep",
@@ -3846,7 +3801,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 64
+        "y": 65
       },
       "id": 248,
       "interval": "$minstep",
@@ -3990,7 +3945,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 73
+        "y": 74
       },
       "id": 210,
       "options": {
@@ -4103,7 +4058,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 73
+        "y": 74
       },
       "id": 255,
       "options": {
@@ -4216,7 +4171,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 73
+        "y": 74
       },
       "id": 267,
       "options": {
@@ -4269,7 +4224,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 82
+        "y": 83
       },
       "id": 289,
       "title": "Collector",
@@ -4412,7 +4367,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 83
+        "y": 84
       },
       "id": 240,
       "interval": "$minstep",
@@ -4627,7 +4582,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 83
+        "y": 84
       },
       "id": 252,
       "interval": "$minstep",
@@ -4842,7 +4797,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 83
+        "y": 84
       },
       "id": 253,
       "interval": "$minstep",
@@ -5053,7 +5008,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 92
+        "y": 93
       },
       "id": 239,
       "interval": "$minstep",
@@ -5199,7 +5154,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 92
+        "y": 93
       },
       "id": 241,
       "interval": "$minstep",
@@ -5313,7 +5268,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 92
+        "y": 93
       },
       "id": 254,
       "interval": "$minstep",
@@ -5403,7 +5358,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 101
+        "y": 102
       },
       "id": 257,
       "interval": "$minstep",
@@ -5452,7 +5407,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 106
+        "y": 107
       },
       "id": 290,
       "title": "Signal flows",
@@ -5468,7 +5423,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 107
+        "y": 108
       },
       "id": 258,
       "options": {
@@ -5546,7 +5501,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 107
+        "y": 108
       },
       "id": 260,
       "options": {
@@ -5624,7 +5579,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 107
+        "y": 108
       },
       "id": 261,
       "options": {
@@ -5698,7 +5653,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 116
+        "y": 117
       },
       "id": 291,
       "panels": [
@@ -6051,7 +6006,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 117
+        "y": 118
       },
       "id": 292,
       "panels": [
@@ -7045,7 +7000,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 118
+        "y": 119
       },
       "id": 293,
       "panels": [
@@ -7221,7 +7176,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 119
+        "y": 120
       },
       "id": 294,
       "panels": [
@@ -7529,7 +7484,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 120
+        "y": 121
       },
       "id": 295,
       "title": "Documentation",
@@ -7540,7 +7495,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 121
+        "y": 122
       },
       "id": 245,
       "options": {

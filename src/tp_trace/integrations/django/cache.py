@@ -5,31 +5,15 @@ from typing import Any, Callable, Optional
 from contextvars import ContextVar
 from opentelemetry.trace import SpanKind
 
-from tp_trace.config import SDKConfig
+from tp_trace.config_access import get_config as _get_config, set_config
 from tp_trace.safety import attempt, safe_set_attribute
 from tp_trace.tracing import suppress_instrumentation, traced_span
-import tp_trace
 
 logger = logging.getLogger("tp_trace.integrations.django.cache")
 
 _in_cache_span: ContextVar[bool] = ContextVar("in_cache_span", default=False)
 
 CACHE_OPS = ["get", "set", "delete", "get_many", "set_many", "delete_many", "add", "touch", "incr", "decr", "clear"]
-
-_config: Optional[SDKConfig] = None
-
-
-def set_config(config: Optional[SDKConfig]) -> None:
-    """Set the active SDKConfig for this module via the integration seam."""
-    global _config
-    _config = config
-
-
-def _get_config() -> Optional[SDKConfig]:
-    """Return the config received through the integration seam, or active config."""
-    if _config is not None:
-        return _config
-    return getattr(tp_trace, "_ACTIVE_CONFIG", None)
 
 
 _REDIS_BACKEND_CLASSES = {
@@ -111,6 +95,49 @@ def make_traced_cache_op(op_name: str):
                 span_attrs["server.address"] = server_addr
             if server_port:
                 span_attrs["server.port"] = server_port
+
+            try:
+                cmd_parts = [op_name.upper()]
+                if op_name in ("get", "delete", "has_key", "incr", "decr"):
+                    if key is not None:
+                        cmd_parts.append(str(key))
+                    if op_name in ("incr", "decr") and len(args) > 1:
+                        cmd_parts.append(str(args[1]))
+                    elif op_name in ("incr", "decr") and "delta" in kwargs:
+                        cmd_parts.append(str(kwargs["delta"]))
+                elif op_name in ("set", "add"):
+                    if key is not None:
+                        cmd_parts.append(str(key))
+                    val = args[1] if len(args) > 1 else kwargs.get("value")
+                    if val is not None:
+                        cmd_parts.append(str(val))
+                elif op_name in ("get_many", "delete_many"):
+                    if key is not None:
+                        if isinstance(key, (list, tuple, set)):
+                            cmd_parts.extend(str(k) for k in key)
+                        else:
+                            cmd_parts.append(str(key))
+                elif op_name == "set_many":
+                    data = args[0] if args else kwargs.get("data", {})
+                    if isinstance(data, dict):
+                        for k, v in data.items():
+                            cmd_parts.extend([str(k), str(v)])
+                    elif key is not None:
+                        cmd_parts.append(str(key))
+                else:
+                    if key is not None:
+                        cmd_parts.append(str(key))
+                    for a in args[1:]:
+                        cmd_parts.append(str(a))
+
+                from tp_trace.integrations.redis.integration import _tp_trace_format_command_args
+                stmt = _tp_trace_format_command_args(cmd_parts)
+                if stmt:
+                    span_attrs["db.statement"] = stmt
+                    span_attrs["redis.raw_command"] = stmt
+                    span_attrs["redis.command"] = stmt
+            except Exception:
+                pass
 
         if key is not None:
             if isinstance(key, (list, tuple, set)):

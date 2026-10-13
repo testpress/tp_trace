@@ -17,6 +17,12 @@ processors:
       action: delete
     - key: process.pid
       action: delete
+  transform/spanmetrics_route:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["http.route"], attributes["http.route_template"]) where attributes["http.route_template"] != nil
   batch:
     timeout: 500ms
     send_batch_size: 256
@@ -87,6 +93,15 @@ service:
       - batch
       exporters:
       - otlp/tempo
+    traces/spanmetrics:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/drop_ephemeral
+      - transform/spanmetrics_route
+      - batch
+      exporters:
       - spanmetrics
     metrics:
       receivers:

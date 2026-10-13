@@ -26,6 +26,59 @@ from .cursor import traced_django_cursor_exec, tp_trace_django_db_execute_wrappe
 logger = logging.getLogger("tp_trace.integrations.postgres")
 
 
+def _make_traced_connection_hook():
+    from opentelemetry.trace import SpanKind
+    from tp_trace.tracing import traced_span, reentrant_guard
+    from .cursor import is_pgbouncer_connection
+
+    def traced_connect(wrapped, instance, args, kwargs):
+        with reentrant_guard(instance, "_tp_in_conn_acquire") as should_trace:
+            if not should_trace:
+                return wrapped(*args, **kwargs)
+
+            conn_params = args[0] if args and isinstance(args[0], dict) else kwargs.get("conn_params", {})
+            host = ""
+            port = ""
+            alias = getattr(instance, "alias", "default")
+            if isinstance(conn_params, dict):
+                host = conn_params.get("host") or ""
+                port = conn_params.get("port") or ""
+            if not host or not port:
+                settings_dict = getattr(instance, "settings_dict", {})
+                if isinstance(settings_dict, dict):
+                    host = host or settings_dict.get("HOST", "")
+                    port = port or settings_dict.get("PORT", "")
+
+            if is_pgbouncer_connection(host, port):
+                try:
+                    port_num = int(port) if port else 6432
+                except (ValueError, TypeError):
+                    port_num = 6432
+                host_str = str(host) if host else "pgbouncer"
+                span_attrs = {
+                    "db.system": "postgresql",
+                    "db.system.name": "postgresql",
+                    "db.connection.pool": "pgbouncer",
+                    "db.instance": str(alias),
+                    "net.peer.name": host_str,
+                    "net.peer.port": port_num,
+                    "server.address": host_str,
+                    "server.port": port_num,
+                    "normalized.service": "pgbouncer",
+                    "normalized.operation": "pgbouncer.connect",
+                }
+                with traced_span(
+                    "🔹 pgbouncer.connect",
+                    kind=SpanKind.CLIENT,
+                    attributes=span_attrs,
+                    tracer_name="tp_trace.postgres",
+                ):
+                    return wrapped(*args, **kwargs)
+            return wrapped(*args, **kwargs)
+
+    return traced_connect
+
+
 class PostgresIntegration(BaseIntegration):
     """Deep SQL query tracing for PostgreSQL and Django database backends."""
 
@@ -54,6 +107,19 @@ class PostgresIntegration(BaseIntegration):
     def _apply_patch(self) -> None:
         from . import cursor as _cursor
         _cursor.set_config(self._config)
+
+        # 0. Measure actual client-to-PgBouncer connection establishment
+        conn_hook = _make_traced_connection_hook()
+        conn_targets = [
+            ("django.db.backends.base.base.BaseDatabaseWrapper", "connect"),
+            ("django.db.backends.base.base.BaseDatabaseWrapper", "get_new_connection"),
+            ("django.db.backends.postgresql.base.DatabaseWrapper", "get_new_connection"),
+        ]
+        for cls_path, method in conn_targets:
+            try:
+                self.wrap(cls_path, method, conn_hook)
+            except Exception as exc:
+                logger.debug("Failed to wrap %s on %s: %s", method, cls_path, exc)
 
         # 1. Attach native execute_wrappers to active Django database connections
         try:

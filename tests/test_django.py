@@ -119,7 +119,7 @@ def test_request_span_created():
     assert req_span.attributes["http.request.method"] == "GET"
     assert req_span.attributes["http.response.status_code"] == 200
     assert req_span.attributes["url.path"] == "/test/sample/"
-    assert req_span.attributes["http.route"] == "/test/sample/"
+    assert req_span.attributes["http.route"] == "http://testserver/test/sample/"
     assert req_span.status.status_code == StatusCode.OK
 
 
@@ -585,7 +585,7 @@ def test_user_pii_redacted_for_authenticated_request():
 def test_sensitive_query_parameters_sanitized_in_django_request():
     """Verify sensitive query parameters (token, secret, apiKey, etc.) are redacted on span attributes."""
     exporter = InMemorySpanExporter()
-    tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
+    tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False, query_mode="redact")
 
     from django.core.handlers.wsgi import WSGIHandler
     handler = WSGIHandler()
@@ -669,7 +669,8 @@ def test_unmatched_route_normalization():
     req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
     assert req_span.name == "GET 404"
     assert req_span.attributes["resource.name"] == "GET 404"
-    assert req_span.attributes["http.route"] == "404"
+    assert req_span.attributes["http.route"] == "http://testserver/scanners/probe?id=999"
+    assert req_span.attributes["http.route_template"] == "404"
     assert req_span.attributes["normalized.service"] == "django"
     assert req_span.attributes["normalized.operation"] == "GET 404"
     assert req_span.attributes["url.path"] == "/scanners/probe"

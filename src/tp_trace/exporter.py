@@ -31,14 +31,41 @@ def _ensure_normalized_attributes(span: Any) -> None:
                     svc = "aws-s3"
                 attrs["normalized.service"] = str(svc or "django")
 
+            svc = attrs.get("normalized.service")
             if not attrs.get("normalized.operation"):
                 op = None
-                if attrs.get("http.method") and attrs.get("http.route"):
-                    op = f"{attrs.get('http.method')} {attrs.get('http.route')}"
-                elif attrs.get("db.statement"):
-                    op = attrs.get("db.statement")
+                if svc == "redis" or attrs.get("db.system") == "redis":
+                    if "db.redis.pipeline_length" in attrs:
+                        op = "redis.pipeline"
+                    elif attrs.get("db.operation"):
+                        op = f"redis.{str(attrs.get('db.operation')).lower()}"
+                    elif getattr(span, "name", ""):
+                        raw = (
+                            getattr(span, "name", "")
+                            .replace("🔸", "")
+                            .replace("REDIS:", "")
+                            .replace("redis:", "")
+                            .strip()
+                            .lower()
+                        )
+                        op = f"redis.{raw}" if raw else "redis.command"
+                    else:
+                        op = "redis.command"
+                elif svc in ("postgres", "pgbouncer") or attrs.get("db.system") in ("postgres", "postgresql"):
+                    op = attrs.get("db.statement") or "postgres.query"
+                elif svc == "django":
+                    route_val = attrs.get("http.route_template") or attrs.get("http.route")
+                    if attrs.get("http.method") and route_val:
+                        op = f"{attrs.get('http.method')} {route_val}"
+                    else:
+                        op = getattr(span, "name", "")
                 elif attrs.get("rpc.service") and attrs.get("rpc.method"):
                     op = f"{attrs.get('rpc.service')}.{attrs.get('rpc.method')}"
+                elif attrs.get("db.statement"):
+                    op = attrs.get("db.statement")
+                elif attrs.get("http.method") and (attrs.get("http.route_template") or attrs.get("http.route")):
+                    route_val = attrs.get("http.route_template") or attrs.get("http.route")
+                    op = f"{attrs.get('http.method')} {route_val}"
                 else:
                     op = getattr(span, "name", "")
                 if op:
