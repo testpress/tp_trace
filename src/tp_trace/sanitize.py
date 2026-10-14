@@ -15,6 +15,7 @@ _BATCH_VALUES_RE = re.compile(r"\bVALUES\s*\([^)]+\)(?:\s*,\s*\([^)]+\))+", re.I
 _SQL_COMMENTS_RE = re.compile(r"/\*.*?\*/|--[^\r\n]*")
 _DOLLAR_QUOTE_RE = re.compile(r"\$(\w*)\$.*?\$\1\$", re.DOTALL)
 _UNCLOSED_DOLLAR_QUOTE_RE = re.compile(r"\$[a-zA-Z_]\w*\$|\$\$")
+_SAVEPOINT_RE = re.compile(r"\b(SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+([\"`']?)(?:s\d+_\w+|\w+)\2", re.IGNORECASE)
 _MAX_STATEMENT_LENGTH = 4096
 _MAX_METRIC_STATEMENT_LENGTH = 256
 
@@ -66,7 +67,10 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
         # 4. Collapse arity of placeholder-only IN lists
         sanitized = _IN_PLACEHOLDER_LIST_RE.sub(r"\1 (?)", sanitized)
 
-        # 5. Normalize whitespace
+        # 5. Parameterize savepoint names (e.g. SAVEPOINT "s8597110336_x1" -> SAVEPOINT ?)
+        sanitized = _SAVEPOINT_RE.sub(r"\1 ?", sanitized)
+
+        # 6. Normalize whitespace
         normalized = _WHITESPACE_RE.sub(" ", sanitized).strip()
 
         if len(normalized) > max_length:
