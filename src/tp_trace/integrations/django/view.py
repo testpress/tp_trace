@@ -14,22 +14,11 @@ from tp_trace.safety import UNTRACED, attempt, safe_enrich, safe_set_attribute, 
 from tp_trace.tracing import traced_span
 import tp_trace
 
+from tp_trace.config_access import get_config as _get_config, set_config
+
 from .request import _normalize_route, _resolve_view_name
 
-_config: Optional[SDKConfig] = None
 _in_view_dispatch: ContextVar[bool] = ContextVar("in_view_dispatch", default=False)
-
-
-def set_config(config: Optional[SDKConfig]) -> None:
-    global _config
-    _config = config
-
-
-def _get_config() -> Optional[SDKConfig]:
-    """Return the config received through the integration seam, or active config."""
-    if _config is not None:
-        return _config
-    return getattr(tp_trace, "_ACTIVE_CONFIG", None)
 
 
 def _apply_tags(span):
@@ -275,6 +264,9 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                 if method != handler_method
                 else None
             )
+            inst_dict = getattr(instance, "__dict__", None)
+            had_action_in_dict = inst_dict is not None and handler_method in inst_dict
+            had_method_in_dict = inst_dict is not None and method in inst_dict
 
             attempt(setattr, instance, handler_method, _traced_handler, _label="bind_handler")
             if orig_method_handler is not None:
@@ -284,9 +276,16 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                 attempt(_bind_response_parent, res, _label="bind_response_parent")
                 return res
             finally:
-                if orig_action_handler is not None:
-                    attempt(setattr, instance, handler_method, orig_action_handler, _label="restore_handler")
+                if had_action_in_dict:
+                    if orig_action_handler is not None:
+                        attempt(setattr, instance, handler_method, orig_action_handler, _label="restore_handler")
+                else:
+                    attempt(delattr, instance, handler_method, _label="del_handler")
+
                 if orig_method_handler is not None:
-                    attempt(setattr, instance, method, orig_method_handler, _label="restore_method")
+                    if had_method_in_dict:
+                        attempt(setattr, instance, method, orig_method_handler, _label="restore_method")
+                    else:
+                        attempt(delattr, instance, method, _label="del_method")
     finally:
         _in_view_dispatch.reset(token)

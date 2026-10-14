@@ -7,6 +7,7 @@ from opentelemetry.trace import SpanKind, set_span_in_context
 
 from tp_trace.config import DEFAULT_EXCLUDE_PATTERNS, SDKConfig
 from tp_trace.safety import UNTRACED, attempt
+from tp_trace.config_access import get_config as _get_config, set_config
 from tp_trace.tracing import traced_span
 import tp_trace
 
@@ -14,21 +15,6 @@ _in_template_span: ContextVar[bool] = ContextVar("in_template_span", default=Fal
 _active_rendering_templates: ContextVar[FrozenSet[int]] = ContextVar(
     "active_rendering_templates", default=frozenset()
 )
-
-_config: Optional[SDKConfig] = None
-
-
-def set_config(config: Optional[SDKConfig]) -> None:
-    """Set the active SDKConfig for this module via the integration seam."""
-    global _config
-    _config = config
-
-
-def _get_config() -> Optional[SDKConfig]:
-    """Return the config received through the integration seam, or active config."""
-    if _config is not None:
-        return _config
-    return getattr(tp_trace, "_ACTIVE_CONFIG", None)
 
 
 def _is_excluded(template_name: str, patterns: Optional[List[str]]) -> bool:

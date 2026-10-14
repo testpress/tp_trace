@@ -12,7 +12,6 @@ dependencies = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
-    "opentelemetry-instrumentation-django>=0.44b0",
     "opentelemetry-instrumentation-requests>=0.44b0",
     "opentelemetry-instrumentation-psycopg2>=0.44b0",
     "opentelemetry-instrumentation-redis>=0.44b0",

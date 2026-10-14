@@ -1,5 +1,27 @@
+"""Middleware spans — traces each class-based middleware's __call__ and process_* hooks.
 
-from typing import Any
+Produces exact Datadog APM waterfall hierarchy:
+- <module>.<MiddlewareClass>.__call__
+  - <module>.<MiddlewareClass>.process_request
+  - (downstream middleware chain / view)
+  - <module>.<MiddlewareClass>.process_response
+"""
+
+import contextlib
+import functools
+import logging
+from typing import Any, Callable, Optional
+
+from opentelemetry.trace import SpanKind
+
+from tp_trace.config import SDKConfig
+from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.safety import attempt
+from tp_trace.tracing import traced_span
+import tp_trace
+
+logger = logging.getLogger("tp_trace.integrations.django.middleware")
+
 
 def _inspect_and_propagate_request_tags(request: Any) -> None:
     """Auto-detect tenant / institute context on the request and propagate to all child spans."""
@@ -13,42 +35,6 @@ def _inspect_and_propagate_request_tags(request: Any) -> None:
                 set_request_tag("institute", str(subdomain))
     except Exception:
         pass
-
-"""Middleware spans — traces each class-based middleware's __call__ and process_* hooks.
-
-Produces exact Datadog APM waterfall hierarchy:
-- <module>.<MiddlewareClass>.__call__
-  - <module>.<MiddlewareClass>.process_request
-  - (downstream middleware chain / view)
-  - <module>.<MiddlewareClass>.process_response
-"""
-import contextlib
-import functools
-import logging
-from typing import Any, Callable, Optional
-
-from opentelemetry.trace import SpanKind
-
-from tp_trace.config import SDKConfig
-from tp_trace.safety import attempt
-from tp_trace.tracing import traced_span
-import tp_trace
-
-logger = logging.getLogger("tp_trace.integrations.django.middleware")
-
-_config: Optional[SDKConfig] = None
-
-
-def set_config(config: Optional[SDKConfig]) -> None:
-    global _config
-    _config = config
-
-
-def _get_config() -> Optional[SDKConfig]:
-    """Return the config received through the integration seam, or active config."""
-    if _config is not None:
-        return _config
-    return getattr(tp_trace, "_ACTIVE_CONFIG", None)
 
 _HOOK_METHODS = (
     "__call__",

@@ -151,6 +151,34 @@ def test_middleware_spans_created():
     assert any(s.kind == SpanKind.SERVER for s in trace_spans)
 
 
+def test_middleware_module_has_docstring():
+    """Verify that middleware module has its intended docstring at module level (P3-3)."""
+    import tp_trace.integrations.django.middleware as mw
+    assert mw.__doc__ is not None
+    assert "Middleware spans" in mw.__doc__
+
+
+def test_config_access_unification():
+    """Verify all integration modules share tp_trace.config_access (P3-4)."""
+    from tp_trace.config import SDKConfig
+    import tp_trace.config_access as ca
+    import tp_trace.integrations.django.middleware as mw
+    import tp_trace.integrations.django.request as req
+    import tp_trace.integrations.django.template as tmpl
+    import tp_trace.integrations.django.view as vw
+    import tp_trace.integrations.postgres.cursor as cur
+
+    test_cfg = SDKConfig.from_env_and_kwargs(project_name="shared-config-test")
+    try:
+        mw.set_config(test_cfg)
+        assert req._get_config() is test_cfg
+        assert vw._get_config() is test_cfg
+        assert tmpl._get_config() is test_cfg
+        assert cur._get_config() is test_cfg
+    finally:
+        ca.set_config(None)
+
+
 def test_waterfall_parent_child():
     exporter = InMemorySpanExporter()
     handler = _make_handler(exporter)
@@ -851,6 +879,33 @@ def test_drf_view_dispatch_reentrancy_single_span():
     spans = exporter.get_finished_spans()
     dispatch_spans = [s for s in spans if "dispatch" in s.name]
     assert len(dispatch_spans) == 1, f"Expected exactly 1 dispatch span, got {[s.name for s in dispatch_spans]}"
+
+
+def test_cbv_traced_view_dispatch_prevents_dict_pollution():
+    """Verify traced_view_dispatch cleans up instance __dict__ and does not leave bound methods."""
+    from tp_trace.integrations.django.view import traced_view_dispatch
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="dict-pollution-test", exporter=exporter, export_batch=False)
+
+    class SampleCBV(View):
+        def get(self, request, *args, **kwargs):
+            return HttpResponse("ok")
+
+    view_inst = SampleCBV()
+    # Before dispatch, 'get' is defined on the class, not in instance __dict__
+    assert "get" not in view_inst.__dict__
+
+    factory = RequestFactory()
+    req = factory.get("/test/cbv/")
+
+    wrapped = lambda *a, **k: view_inst.dispatch(*a, **k)
+    response = traced_view_dispatch(wrapped, view_inst, (req,), {})
+    assert response.status_code == 200
+
+    # After dispatch, 'get' must NOT remain in instance __dict__
+    assert "get" not in view_inst.__dict__
+
 
 
 def test_unmatched_route_does_not_poison_child_spans():

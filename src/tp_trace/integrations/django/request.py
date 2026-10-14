@@ -12,6 +12,7 @@ from opentelemetry.trace import SpanKind, StatusCode, get_tracer
 from opentelemetry.propagate import extract
 
 from tp_trace.config import SDKConfig
+from tp_trace.config_access import get_config as _get_config, set_config
 from tp_trace.safety import attempt, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
 from tp_trace.sanitize import sanitize_url
 from tp_trace.route_context import get_current_route, get_current_tags, reset_request_route, set_request_route, reset_request_tags, set_request_tag
@@ -20,7 +21,6 @@ import tp_trace
 
 logger = logging.getLogger("tp_trace.integrations.django")
 
-_config: Optional[SDKConfig] = None
 _CALLBACK_ARITY_CACHE: Dict[int, bool] = {}
 
 
@@ -46,18 +46,6 @@ def _callback_takes_response(callback: Any) -> bool:
         except Exception:
             return False
 
-
-def set_config(config: Optional[SDKConfig]) -> None:
-    """Set the active SDKConfig for this module via the integration seam."""
-    global _config
-    _config = config
-
-
-def _get_config() -> Optional[SDKConfig]:
-    """Return the config received through the integration seam, or active config."""
-    if _config is not None:
-        return _config
-    return getattr(tp_trace, "_ACTIVE_CONFIG", None)
 
 
 def _apply_static_tags(span: Any) -> None:
