@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tp_trace"
-version = "0.1.2"
+version = "0.1.3"
 description = "tp_trace: High-performance Python Observability SDK for OpenTelemetry"
 readme = "README.md"
 requires-python = ">=3.8"
