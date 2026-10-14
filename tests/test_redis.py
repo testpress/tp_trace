@@ -67,7 +67,12 @@ def test_django_redis_cache_tracing(memory_exporter):
     assert span.attributes["django.cache.backend"] == "FakeRedisCache"
     assert span.attributes["django.cache.hit"] is True
     assert span.attributes["db.system"] == "redis"
+    assert span.attributes["db.system.name"] == "redis"
     assert span.attributes["db.operation"] == "get"
+    assert span.attributes["db.operation.name"] == "get"
+    assert span.attributes["db.statement"] == "GET tenant:subdomain.com"
+    assert span.attributes["db.query.text"] == "GET tenant:subdomain.com"
+    assert "cache.system" not in span.attributes
     assert "peer.service" not in span.attributes
 
 
@@ -89,7 +94,12 @@ def test_cache_span_sets_redis_db_system(memory_exporter):
     span = memory_exporter.get_finished_spans()[0]
     assert span.kind == SpanKind.CLIENT
     assert span.attributes["db.system"] == "redis"
+    assert span.attributes["db.system.name"] == "redis"
     assert span.attributes["db.operation"] == "get"
+    assert span.attributes["db.operation.name"] == "get"
+    assert span.attributes["db.statement"] == "GET k"
+    assert span.attributes["db.query.text"] == "GET k"
+    assert "cache.system" not in span.attributes
     assert "peer.service" not in span.attributes
     assert span.attributes["server.address"] == "127.0.0.1"
     assert span.attributes["server.port"] == 6379
@@ -185,6 +195,12 @@ def test_redis_request_hook_prefixes_command_span():
     mock_span.update_name.assert_called_once_with("🔸 GET")
     set_attrs = {call[0][0]: call[0][1] for call in mock_span.set_attribute.call_args_list}
     assert set_attrs.get("db.system") == "redis"
+    assert set_attrs.get("db.system.name") == "redis"
+    assert set_attrs.get("db.operation") == "GET"
+    assert set_attrs.get("db.operation.name") == "GET"
+    assert set_attrs.get("db.statement") == "GET key"
+    assert set_attrs.get("db.query.text") == "GET key"
+    assert "cache.system" not in set_attrs
     assert "peer.service" not in set_attrs
 
 
@@ -268,6 +284,35 @@ def test_redis_format_command_args_masks_when_enabled():
     assert _tp_trace_format_command_args(("GET", "users:123")) == "GET ?"
 
 
+def test_redis_format_command_args_redacts_credentials():
+    """Sensitive tokens (AUTH/CONFIG/HELLO/MIGRATE/ACL) are masked to [REDACTED]."""
+    from tp_trace.integrations.redis.integration import _tp_trace_format_command_args as fmt
+
+    # Plain commands are untouched.
+    assert fmt(("GET", "users:123")) == "GET users:123"
+    assert fmt(("SET", "k", "v")) == "SET k v"
+
+    # AUTH <password> and AUTH <user> <password>.
+    assert fmt(("AUTH", "hunter2")) == "AUTH [REDACTED]"
+    assert fmt(("AUTH", "bob", "hunter2")) == "AUTH bob [REDACTED]"
+
+    # CONFIG SET requirepass/masterauth.
+    assert fmt(("CONFIG", "SET", "requirepass", "s3cret")) == "CONFIG SET requirepass [REDACTED]"
+    assert fmt(("CONFIG", "SET", "masterauth", "s3cret")) == "CONFIG SET masterauth [REDACTED]"
+    # Non-credential CONFIG keys are preserved.
+    assert fmt(("CONFIG", "SET", "maxmemory", "100mb")) == "CONFIG SET maxmemory 100mb"
+
+    # HELLO <ver> AUTH <user> <password>.
+    assert fmt(("HELLO", "3", "AUTH", "bob", "hunter2")) == "HELLO 3 AUTH bob [REDACTED]"
+
+    # MIGRATE ... AUTH <password> / AUTH2 <user> <password>.
+    assert fmt(("MIGRATE", "h", "p", "k", "0", "5000", "AUTH", "pw")).endswith("AUTH [REDACTED]")
+    assert fmt(("MIGRATE", "h", "p", "k", "0", "5000", "AUTH2", "bob", "pw")).endswith("AUTH2 bob [REDACTED]")
+
+    # ACL SETUSER <name> >password.
+    assert fmt(("ACL", "SETUSER", "bob", ">hunter2")) == "ACL SETUSER bob >[REDACTED]"
+
+
 def test_redis_format_command_args_fallback_on_exception():
     """If formatting raises, degrade to str(args[0]) rather than blanking db.statement."""
     from tp_trace.integrations.redis.integration import _tp_trace_format_command_args
@@ -307,7 +352,11 @@ def test_redis_request_hook_full_contract_deterministic():
 
     attrs = {call[0][0]: call[0][1] for call in mock_span.set_attribute.call_args_list}
     assert attrs["db.system"] == "redis"
-    assert attrs["db.name"] == "redis"
+    assert attrs["db.system.name"] == "redis"
+    assert attrs["db.operation"] == "HSET"
+    assert attrs["db.operation.name"] == "HSET"
+    assert attrs["db.statement"] == "HSET users:1 name bala"
+    assert attrs["db.query.text"] == "HSET users:1 name bala"
     assert attrs["normalized.service"] == "redis"
     assert attrs["normalized.operation"] == "redis.hset"
     # Endpoints are preserved by default (not masked)

@@ -49,12 +49,14 @@ def _stringify_cmd_arg(value: Any) -> str:
 
 
 def _tp_trace_format_command_args(args: Any) -> str:
-    """db.statement formatter replacing the OTel instrumentor's arg reducer.
+    """db.statement / db.query.text formatter replacing the OTel instrumentor's arg reducer.
 
     Exposes the full command text (keys and values) so spans read like
-    dd-trace's ``redis.raw_command``. Reads the mask toggle and max length
-    from SDKConfig at call time; masking reproduces OTel's "COMMAND ? ?"
-    reduction. Truncation appends "..." beyond ``redis_cmd_max_length``.
+    dd-trace's ``redis.raw_command``, while redacting sensitive tokens
+    (passwords in AUTH, CONFIG SET requirepass/masterauth, etc.) to ``[REDACTED]``.
+    Reads the mask toggle and max length from SDKConfig at call time; masking
+    reproduces OTel's "COMMAND ? ?" reduction. Truncation appends "..." beyond
+    ``redis_cmd_max_length``.
     """
     try:
         if not args:
@@ -63,6 +65,37 @@ def _tp_trace_format_command_args(args: Any) -> str:
             parts = [str(args[0])] + ["?"] * (len(args) - 1)
         else:
             parts = [_stringify_cmd_arg(a) for a in args]
+            if parts:
+                cmd_upper = parts[0].upper()
+                if cmd_upper == "AUTH":
+                    if len(parts) == 2:
+                        parts[1] = "[REDACTED]"
+                    elif len(parts) >= 3:
+                        parts[-1] = "[REDACTED]"
+                elif cmd_upper == "CONFIG" and len(parts) >= 4:
+                    if parts[1].upper() == "SET":
+                        for i in range(2, len(parts) - 1):
+                            if parts[i].lower() in ("requirepass", "masterauth"):
+                                parts[i + 1] = "[REDACTED]"
+                elif cmd_upper == "HELLO" and len(parts) >= 4:
+                    for i in range(1, len(parts) - 1):
+                        if parts[i].upper() == "AUTH":
+                            if i + 2 < len(parts):
+                                parts[i + 2] = "[REDACTED]"
+                            elif i + 1 < len(parts):
+                                parts[i + 1] = "[REDACTED]"
+                elif cmd_upper == "MIGRATE":
+                    for i in range(len(parts) - 1):
+                        tok = parts[i].upper()
+                        if tok == "AUTH" and i + 1 < len(parts):
+                            parts[i + 1] = "[REDACTED]"
+                        elif tok == "AUTH2" and i + 2 < len(parts):
+                            parts[i + 2] = "[REDACTED]"
+                elif cmd_upper == "ACL" and len(parts) >= 3:
+                    if parts[1].upper() == "SETUSER":
+                        for i in range(2, len(parts)):
+                            if parts[i].startswith(">"):
+                                parts[i] = ">[REDACTED]"
         out_str = " ".join(parts)
         max_len = _cmd_max_length()
         if max_len > 0 and len(out_str) > max_len:
@@ -122,9 +155,17 @@ def _tp_trace_redis_request_hook(span: Any, instance: Any, args: Any, kwargs: An
             display_name = f"🔸 {raw_op.upper()}" if raw_op else "🔸 COMMAND"
             if hasattr(span, "update_name"):
                 span.update_name(display_name)
+
             if hasattr(span, "set_attribute"):
+                op_upper = raw_op.upper() if raw_op else "COMMAND"
+                # Redis is modelled as a database in the OTel semantic conventions:
+                # emit both the legacy (db.system/db.operation/db.statement) and the
+                # current (db.system.name/db.operation.name/db.query.text) names, the
+                # same dual-emit approach the PostgreSQL integration uses.
                 span.set_attribute("db.system", "redis")
-                span.set_attribute("db.name", "redis")
+                span.set_attribute("db.system.name", "redis")
+                span.set_attribute("db.operation", op_upper)
+                span.set_attribute("db.operation.name", op_upper)
                 span.set_attribute("normalized.service", "redis")
                 span.set_attribute("normalized.operation", f"redis.{raw_op.lower()}" if raw_op else "redis.command")
                 if args:
@@ -132,6 +173,7 @@ def _tp_trace_redis_request_hook(span: Any, instance: Any, args: Any, kwargs: An
                         cmd_str = _tp_trace_format_command_args(args)
                         if cmd_str:
                             span.set_attribute("db.statement", cmd_str)
+                            span.set_attribute("db.query.text", cmd_str)
                     except Exception:
                         pass
                 # Default exposes the real connection endpoint (team owns the
@@ -147,21 +189,33 @@ def _tp_trace_redis_response_hook(span: Any, instance: Any, response: Any) -> No
     try:
         if span is not None and getattr(span, "is_recording", lambda: True)():
             attrs = getattr(span, "attributes", None) or {}
-            if not attrs.get("normalized.service") and hasattr(span, "set_attribute"):
-                span.set_attribute("normalized.service", "redis")
-                span.set_attribute("db.system", "redis")
-                span.set_attribute("db.name", "redis")
-            if not attrs.get("normalized.operation") and hasattr(span, "set_attribute"):
-                if "db.redis.pipeline_length" in attrs or "pipeline" in getattr(span, "name", "").lower():
-                    span.set_attribute("normalized.operation", "redis.pipeline")
-                    if hasattr(span, "update_name"):
-                        span.update_name("🔸 PIPELINE")
-                elif attrs.get("db.operation"):
-                    span.set_attribute("normalized.operation", f"redis.{attrs.get('db.operation').lower()}")
-                else:
-                    name = getattr(span, "name", "")
-                    raw_op = name.replace("🔸", "").replace("REDIS:", "").replace("redis:", "").strip().lower() if name else "command"
-                    span.set_attribute("normalized.operation", f"redis.{raw_op}")
+
+            if hasattr(span, "set_attribute"):
+                if not attrs.get("db.system"):
+                    span.set_attribute("db.system", "redis")
+                if not attrs.get("db.system.name"):
+                    span.set_attribute("db.system.name", "redis")
+                # Mirror db.statement into the current-semconv db.query.text.
+                if not attrs.get("db.query.text") and attrs.get("db.statement"):
+                    span.set_attribute("db.query.text", attrs.get("db.statement"))
+                if not attrs.get("normalized.service"):
+                    span.set_attribute("normalized.service", "redis")
+                if not attrs.get("normalized.operation"):
+                    if "db.redis.pipeline_length" in attrs or "pipeline" in getattr(span, "name", "").lower():
+                        span.set_attribute("normalized.operation", "redis.pipeline")
+                        span.set_attribute("db.operation", "PIPELINE")
+                        span.set_attribute("db.operation.name", "PIPELINE")
+                        if hasattr(span, "update_name"):
+                            span.update_name("🔸 PIPELINE")
+                    elif attrs.get("db.operation") or attrs.get("db.operation.name"):
+                        op_name = str(attrs.get("db.operation") or attrs.get("db.operation.name"))
+                        span.set_attribute("normalized.operation", f"redis.{op_name.lower()}")
+                        if not attrs.get("db.operation.name"):
+                            span.set_attribute("db.operation.name", op_name.upper())
+                    else:
+                        name = getattr(span, "name", "")
+                        raw_op = name.replace("🔸", "").replace("REDIS:", "").replace("redis:", "").strip().lower() if name else "command"
+                        span.set_attribute("normalized.operation", f"redis.{raw_op}")
     except Exception as exc:
         logger.debug("redis response hook error: %s", exc)
 

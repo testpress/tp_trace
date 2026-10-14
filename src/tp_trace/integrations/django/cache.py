@@ -86,8 +86,9 @@ def make_traced_cache_op(op_name: str):
         }
         if is_redis:
             span_attrs["db.system"] = "redis"
+            span_attrs["db.system.name"] = "redis"
             span_attrs["db.operation"] = op_name
-            span_attrs["db.name"] = "redis"
+            span_attrs["db.operation.name"] = op_name
             span_attrs["normalized.service"] = "redis"
             span_attrs["normalized.operation"] = f"redis.{op_name}"
             server_addr, server_port = _extract_redis_server_info(instance)
@@ -134,6 +135,7 @@ def make_traced_cache_op(op_name: str):
                 stmt = _tp_trace_format_command_args(cmd_parts)
                 if stmt:
                     span_attrs["db.statement"] = stmt
+                    span_attrs["db.query.text"] = stmt
                     span_attrs["redis.raw_command"] = stmt
                     span_attrs["redis.command"] = stmt
             except Exception:
