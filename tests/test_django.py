@@ -768,6 +768,48 @@ def test_drf_dispatch_is_wrapped_when_drf_becomes_available(monkeypatch):
             del sys.modules[name]
 
 
+def test_django_server_span_respects_query_mode(monkeypatch):
+    """Verify that Django server spans respect query_mode='expose' vs 'redact'."""
+    from tp_trace.integrations.django.request import traced_get_response
+    from tp_trace.config import SDKConfig
+
+    factory = RequestFactory()
+    request = factory.get("/api/v1/search?token=secret123&q=python")
+
+    exporter = InMemorySpanExporter()
+    cfg = SDKConfig(project_name="test-query-mode", query_mode="expose")
+    provider = tp_trace.init(
+        project_name="test-query-mode",
+        environment="test",
+        exporter=exporter,
+        export_batch=False,
+    )
+    from tp_trace.integrations.django.request import set_config
+    set_config(cfg)
+
+    def view(req):
+        return HttpResponse("OK")
+
+    traced_get_response(view, None, (request,), {})
+
+    spans = exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    # Under expose, token is preserved
+    assert "token=secret123" in server_spans[0].attributes["url.full"]
+
+    # Now under redact mode
+    exporter.clear()
+    cfg_redact = SDKConfig(project_name="test-query-mode", query_mode="redact")
+    set_config(cfg_redact)
+    traced_get_response(view, None, (request,), {})
+    server_spans = [s for s in exporter.get_finished_spans() if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    assert "token=REDACTED" in server_spans[0].attributes["url.full"]
+    assert "q=python" in server_spans[0].attributes["url.full"]
+
+
+
 
 
 

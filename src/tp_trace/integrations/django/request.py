@@ -383,7 +383,8 @@ def traced_get_response(wrapped, instance, args, kwargs):
             raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
         except Exception:
             raw_url = path
-        sanitized = sanitize_url(raw_url)
+        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
+        sanitized = sanitize_url(raw_url, mode=query_mode)
         url_path = path
         url_query = ""
         try:
