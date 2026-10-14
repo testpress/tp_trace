@@ -385,6 +385,31 @@ def test_safe_span_exporter_rate_limits_warnings(caplog):
         assert "Failures: 3" in caplog.records[1].message
 
 
+def test_safe_span_exporter_normalizes_real_readable_spans():
+    """Verify SafeSpanExporter correctly mutates BoundedAttributes on real ended ReadableSpans."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from tp_trace.exporter import SafeSpanExporter
+
+    memory_exporter = InMemorySpanExporter()
+    safe_exporter = SafeSpanExporter(memory_exporter)
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(safe_exporter))
+    tracer = provider.get_tracer("real.test.tracer")
+
+    with tracer.start_as_current_span("client_query") as span:
+        span.set_attribute("db.system", "postgresql")
+        span.set_attribute("db.statement", "SELECT * FROM users")
+
+    finished = memory_exporter.get_finished_spans()
+    assert len(finished) == 1
+    exported_span = finished[0]
+    assert exported_span.attributes.get("normalized.service") == "postgres"
+    assert exported_span.attributes.get("normalized.operation") == "SELECT * FROM users"
+
+
+
 def test_unreachable_collector_never_crashes_application():
     """Verify that tracing with an unreachable collector endpoint NEVER crashes or raises."""
     # Point to a dead/non-existent port on localhost

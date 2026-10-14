@@ -17,28 +17,32 @@ def _ensure_normalized_attributes(span: Any) -> None:
         attrs = getattr(span, "_attributes", None)
         if attrs is None:
             attrs = getattr(span, "attributes", None)
-        if attrs is not None and hasattr(attrs, "__setitem__"):
-            if not attrs.get("normalized.service"):
+        target_dict = getattr(attrs, "_dict", None)
+        if target_dict is None and hasattr(attrs, "__setitem__"):
+            target_dict = attrs
+
+        if target_dict is not None:
+            if not target_dict.get("normalized.service"):
                 svc = (
-                    attrs.get("peer.service")
-                    or attrs.get("db.system")
-                    or attrs.get("rpc.system")
-                    or attrs.get("component")
+                    target_dict.get("peer.service")
+                    or target_dict.get("db.system")
+                    or target_dict.get("rpc.system")
+                    or target_dict.get("component")
                 )
                 if svc == "postgresql":
                     svc = "postgres"
                 elif svc == "aws-api":
                     svc = "aws-s3"
-                attrs["normalized.service"] = str(svc or "django")
+                target_dict["normalized.service"] = str(svc or "django")
 
-            svc = attrs.get("normalized.service")
-            if not attrs.get("normalized.operation"):
+            svc = target_dict.get("normalized.service")
+            if not target_dict.get("normalized.operation"):
                 op = None
-                if svc == "redis" or attrs.get("db.system") == "redis":
-                    if "db.redis.pipeline_length" in attrs:
+                if svc == "redis" or target_dict.get("db.system") == "redis":
+                    if "db.redis.pipeline_length" in target_dict:
                         op = "redis.pipeline"
-                    elif attrs.get("db.operation"):
-                        op = f"redis.{str(attrs.get('db.operation')).lower()}"
+                    elif target_dict.get("db.operation"):
+                        op = f"redis.{str(target_dict.get('db.operation')).lower()}"
                     elif getattr(span, "name", ""):
                         raw = (
                             getattr(span, "name", "")
@@ -51,25 +55,25 @@ def _ensure_normalized_attributes(span: Any) -> None:
                         op = f"redis.{raw}" if raw else "redis.command"
                     else:
                         op = "redis.command"
-                elif svc in ("postgres", "pgbouncer") or attrs.get("db.system") in ("postgres", "postgresql"):
-                    op = attrs.get("db.statement") or "postgres.query"
+                elif svc in ("postgres", "pgbouncer") or target_dict.get("db.system") in ("postgres", "postgresql"):
+                    op = target_dict.get("db.statement") or "postgres.query"
                 elif svc == "django":
-                    route_val = attrs.get("http.route_template") or attrs.get("http.route")
-                    if attrs.get("http.method") and route_val:
-                        op = f"{attrs.get('http.method')} {route_val}"
+                    route_val = target_dict.get("http.route_template") or target_dict.get("http.route")
+                    if target_dict.get("http.method") and route_val:
+                        op = f"{target_dict.get('http.method')} {route_val}"
                     else:
                         op = getattr(span, "name", "")
-                elif attrs.get("rpc.service") and attrs.get("rpc.method"):
-                    op = f"{attrs.get('rpc.service')}.{attrs.get('rpc.method')}"
-                elif attrs.get("db.statement"):
-                    op = attrs.get("db.statement")
-                elif attrs.get("http.method") and (attrs.get("http.route_template") or attrs.get("http.route")):
-                    route_val = attrs.get("http.route_template") or attrs.get("http.route")
-                    op = f"{attrs.get('http.method')} {route_val}"
+                elif target_dict.get("rpc.service") and target_dict.get("rpc.method"):
+                    op = f"{target_dict.get('rpc.service')}.{target_dict.get('rpc.method')}"
+                elif target_dict.get("db.statement"):
+                    op = target_dict.get("db.statement")
+                elif target_dict.get("http.method") and (target_dict.get("http.route_template") or target_dict.get("http.route")):
+                    route_val = target_dict.get("http.route_template") or target_dict.get("http.route")
+                    op = f"{target_dict.get('http.method')} {route_val}"
                 else:
                     op = getattr(span, "name", "")
                 if op:
-                    attrs["normalized.operation"] = str(op)
+                    target_dict["normalized.operation"] = str(op)
     except Exception:
         pass
 
