@@ -68,7 +68,7 @@
       "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%7D%5D"
     }
   ],
-  "refresh": "auto",
+  "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
@@ -145,7 +145,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, institute_subdomain)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -179,7 +179,7 @@
           }
         ],
         "query": "label_values(apm_calls_total{cluster_name=~\"${cluster:regex}\"}, project_name)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -213,7 +213,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, cluster_name)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"

@@ -787,10 +787,14 @@
               "serviceName": true
             },
             "indexByName": {
-              "traceID": 0,
-              "startTime": 1,
-              "traceName": 3,
-              "traceDuration": 4
+              "startTime": 0,
+              "DATE": 0,
+              "traceID": 1,
+              "TRACE ID": 1,
+              "traceName": 2,
+              "ROUTE": 2,
+              "traceDuration": 3,
+              "DURATION": 3
             },
             "renameByName": {
               "traceID": "TRACE ID",
@@ -804,7 +808,7 @@
       "type": "table"
     }
   ],
-  "refresh": "5s",
+  "refresh": "30s",
   "schemaVersion": 39,
   "tags": [
     "tp_trace",
@@ -842,7 +846,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, institute_subdomain)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -866,7 +870,7 @@
         "name": "project",
         "options": [],
         "query": "label_values(apm_calls_total, project_name)",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "type": "query"
       },
@@ -899,7 +903,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, cluster_name)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -923,7 +927,7 @@
         "name": "service",
         "options": [],
         "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "type": "query"
       },

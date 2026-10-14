@@ -28,7 +28,7 @@
       "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%7D%5D"
     }
   ],
-  "refresh": "auto",
+  "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
@@ -105,7 +105,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, institute_subdomain)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -139,7 +139,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, project_name)",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "type": "query"
       },
@@ -172,7 +172,7 @@
           }
         ],
         "query": "label_values(apm_calls_total, cluster_name)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -202,7 +202,7 @@
           }
         ],
         "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "type": "query"
       },
@@ -221,7 +221,7 @@
         "name": "operation",
         "options": [],
         "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", service_version!=\"0.1.0\", span_kind!=\"SPAN_KIND_INTERNAL\"}, normalized_operation)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -1035,7 +1035,7 @@
             "uid": "tempo"
           },
           "limit": 30,
-          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && span.normalized.operation = `${operation:raw}` && (kind = server || kind = client) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
+          "query": "{ span.normalized.service = `${service:raw}` && span.normalized.operation = `${operation:raw}` } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -1076,24 +1076,27 @@
               "Target Route (with Query)": true
             },
             "indexByName": {
-              "TraceID": 0,
-              "span.url.full": 1,
-              "url.full": 1,
-              "Full URL": 1,
-              "span.url.query": 2,
-              "url.query": 2,
-              "Query Params": 2,
-              "span.db.statement": 3,
-              "db.statement": 3,
-              "Command / Statement": 3,
-              "time": 4,
-              "startTime": 4,
-              "duration": 5,
-              "span.http.status_code": 6,
-              "http.status_code": 6,
-              "span.http.response.status_code": 6,
-              "http.response.status_code": 6,
-              "Status Code": 6
+              "time": 0,
+              "startTime": 0,
+              "Start time": 0,
+              "TraceID": 1,
+              "Trace ID (Flamegraph Waterfall)": 1,
+              "span.url.full": 2,
+              "url.full": 2,
+              "Full URL": 2,
+              "span.url.query": 3,
+              "url.query": 3,
+              "Query Params": 3,
+              "span.db.statement": 4,
+              "db.statement": 4,
+              "Command / Statement": 4,
+              "span.http.status_code": 5,
+              "http.status_code": 5,
+              "span.http.response.status_code": 5,
+              "http.response.status_code": 5,
+              "Status Code": 5,
+              "duration": 6,
+              "Duration": 6
             },
             "renameByName": {
               "TraceID": "Trace ID (Flamegraph Waterfall)",
