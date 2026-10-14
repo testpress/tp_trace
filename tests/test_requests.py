@@ -127,6 +127,8 @@ def test_tp_trace_request_hook(memory_exporter):
     assert attrs["peer.service"] == "httpbin.org"
     assert attrs["resource.name"] == "GET https://httpbin.org/get"
     assert attrs["http.target"] == "/get"
+    assert attrs["normalized.service"] == "requests"
+    assert attrs["normalized.operation"] == "HTTP GET"
 
 
 def test_tp_trace_request_hook_query_params(memory_exporter):

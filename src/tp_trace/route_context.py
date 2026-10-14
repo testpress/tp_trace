@@ -76,33 +76,38 @@ def reset_request_route(tokens: Optional[Tuple[Any, Any]]) -> None:
     except Exception:
         current_method.set(None)
 
-current_tags: contextvars.ContextVar[dict] = contextvars.ContextVar(
-    "tp_trace.tags", default={}
+current_tags: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar(
+    "tp_trace.tags", default=None
 )
 
 
 def get_current_tags() -> dict:
     """Return the dynamic tags published on the in-flight request, if any."""
     try:
-        return current_tags.get()
+        val = current_tags.get()
+        return dict(val) if val is not None else {}
     except LookupError:
         return {}
 
 
-def set_request_tag(key: str, value: Any) -> None:
+def set_request_tag(key: str, value: Any) -> Optional[contextvars.Token]:
     """Set a dynamic tag on the in-flight request and propagate to all child spans."""
     try:
-        existing = dict(current_tags.get())
+        val = current_tags.get()
+        existing = dict(val) if val is not None else {}
         existing[key] = value
-        current_tags.set(existing)
+        return current_tags.set(existing)
     except Exception:
-        pass
+        return None
 
 
-def reset_request_tags() -> None:
+def reset_request_tags(token: Optional[contextvars.Token] = None) -> None:
     """Reset dynamic request tags."""
     try:
-        current_tags.set({})
+        if token is not None:
+            current_tags.reset(token)
+        else:
+            current_tags.set(None)
     except Exception:
         pass
 

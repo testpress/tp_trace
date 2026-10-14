@@ -32,7 +32,10 @@ _active_reentrant_guards: contextvars.ContextVar[FrozenSet[Tuple[int, str]]] = c
 )
 
 
-def _with_request_route(attributes: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _with_request_route(
+    attributes: Optional[Dict[str, Any]],
+    kind: Optional[SpanKind] = None,
+) -> Optional[Dict[str, Any]]:
     """Merge the in-flight Django request route into span attributes.
 
     Lets per-endpoint spanmetrics series (``http_route`` label) be emitted
@@ -40,9 +43,16 @@ def _with_request_route(attributes: Optional[Dict[str, Any]]) -> Optional[Dict[s
     route after the handler returns. Never overwrites explicit attributes.
     """
     route = get_current_route()
-    if not route:
+    if not route or route == "__unmatched__":
         return attributes
     attrs = dict(attributes) if attributes else {}
+    if (
+        kind in (SpanKind.CLIENT, SpanKind.INTERNAL)
+        or "db.system" in attrs
+        or "db.name" in attrs
+        or attrs.get("normalized.service") in ("redis", "postgres", "pgbouncer")
+    ):
+        return attributes
     if "http.route" not in attrs:
         attrs["http.route"] = route
     return attrs
@@ -68,7 +78,7 @@ def _span_lifecycle(
         span_cm = get_tracer(tracer_name).start_as_current_span(
             name,
             kind=kind,
-            attributes=_with_request_route(attributes),
+            attributes=_with_request_route(attributes, kind=kind),
             context=context,
             record_exception=False,
             set_status_on_exception=False,

@@ -72,6 +72,8 @@ def _apply_request_attributes(span: Any, request: Any) -> None:
     span.set_attribute("net.peer.port", port)
     span.set_attribute("peer.service", peer_service)
     span.set_attribute("resource.name", f"{method} {clean_target}")
+    span.set_attribute("normalized.service", "requests")
+    span.set_attribute("normalized.operation", f"HTTP {method}")
 
     # Tag the outgoing call with the in-flight Django endpoint so
     # per-endpoint spanmetrics series (http_route label) include it.

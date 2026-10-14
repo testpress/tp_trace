@@ -1,5 +1,6 @@
 """Django request-response tracing middleware / wrapper for BaseHandler.get_response."""
 
+import functools
 import inspect
 import logging
 import re
@@ -23,20 +24,27 @@ _config: Optional[SDKConfig] = None
 _CALLBACK_ARITY_CACHE: Dict[int, bool] = {}
 
 
-def _callback_takes_response(callback: Any) -> bool:
-    """Return True if callback accepts 3 or more arguments, cached by callback id."""
-    cb_id = id(callback)
-    cached = _CALLBACK_ARITY_CACHE.get(cb_id)
-    if cached is not None:
-        return cached
-    takes_response = False
+@functools.lru_cache(maxsize=256)
+def _inspect_takes_response(callback: Any) -> bool:
     try:
         sig = inspect.signature(callback)
-        takes_response = len(sig.parameters) >= 3
+        takes = len(sig.parameters) >= 3
     except (ValueError, TypeError):
-        takes_response = False
-    _CALLBACK_ARITY_CACHE[cb_id] = takes_response
-    return takes_response
+        takes = False
+    _CALLBACK_ARITY_CACHE[id(callback)] = takes
+    return takes
+
+
+def _callback_takes_response(callback: Any) -> bool:
+    """Return True if callback accepts 3 or more arguments, cached by callable."""
+    try:
+        return _inspect_takes_response(callback)
+    except TypeError:
+        # Unhashable callable fallback
+        try:
+            return len(inspect.signature(callback).parameters) >= 3
+        except Exception:
+            return False
 
 
 def set_config(config: Optional[SDKConfig]) -> None:

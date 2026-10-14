@@ -134,14 +134,17 @@ def init(
         resource_data = {
             "service.name": config.project_name,
             "project_name": config.project_name,
-            "cluster_name": config.cluster_name,
-            "deployment.environment.name": config.environment,
-            "service.version": config.version,
             "telemetry.sdk.name": "tp_trace",
             "telemetry.sdk.language": "python",
             "telemetry.sdk.version": __version__,
         }
-        resource_data["deployment.environment"] = config.environment
+        if config.cluster_name is not None:
+            resource_data["cluster_name"] = str(config.cluster_name)
+        if config.environment is not None:
+            resource_data["deployment.environment.name"] = str(config.environment)
+            resource_data["deployment.environment"] = str(config.environment)
+        if config.version is not None:
+            resource_data["service.version"] = str(config.version)
         if config.tags:
             resource_data.update(config.tags)
         if config.resource_attributes:
