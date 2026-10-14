@@ -117,7 +117,7 @@ send_req() {
 }
 
 echo -e "${C_BOLD}================================================================${C_RESET}"
-echo -e "${C_BOLD}         TP_DOG APM — UNIVERSAL MULTI-APP TRAFFIC            ${C_RESET}"
+echo -e "${C_BOLD}         TP_TRACE APM — UNIVERSAL MULTI-APP TRAFFIC          ${C_RESET}"
 echo -e "${C_BOLD}================================================================${C_RESET}"
 echo -e "  Target 1: Django Full (Postgres + Redis) : ${DJANGO_FULL_URL}"
 echo -e "  Target 2: Django Lite (Zero DB)          : ${DJANGO_LITE_URL}"

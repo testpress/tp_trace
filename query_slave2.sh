@@ -79,7 +79,7 @@ if [ -n "${TRACE_ID}" ]; then
   echo -e "     ${GRAFANA_URL}/explore?schemaVersion=1&panes=%7B%22p%22:%7B%22datasource%22:%22tempo%22,%22queries%22:%5B%7B%22query%22:%22${TRACE_ID}%22,%22queryType%22:%22traceql%22%7D%5D%7D%7D"
   echo ""
   echo -e "  📊 ${C_YELLOW}Generic Operation Details Dashboard:${C_RESET}"
-  echo -e "     ${GRAFANA_URL}/d/generic-operation-details?var-service=postgresql"
+  echo -e "     ${GRAFANA_URL}/d/generic-operation-details?var-service=postgres"
   echo ""
   echo -e "  ℹ️  ${C_BLUE}Tempo Raw Trace API:${C_RESET}"
   echo -e "     ${TEMPO_URL}/api/traces/${TRACE_ID}"

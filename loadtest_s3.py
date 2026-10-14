@@ -481,9 +481,9 @@ def verify_apm(args: argparse.Namespace) -> bool:
     print(f"       {args.grafana}/explore?schemaVersion=1&panes=%7B%22p%22:%7B%22datasource%22:%22tempo%22,"
           f"%22queries%22:%5B%7B%22query%22:%22%7Bname=~%5C%22.%2AS3.%2A%5C%22%7D%22,%22queryType%22:%22traceql%22%7D%5D%7D%7D")
     print(f"    📊 Service overview  (var-service = aws-s3):")
-    print(f"       {args.grafana}/d/tp_trace-generic-service-overview?var-service=aws-s3")
+    print(f"       {args.grafana}/d/generic-service-overview?var-service=aws-s3")
     print(f"    📋 Operation details (shows S3.PutObject / S3.GetObject / ...):")
-    print(f"       {args.grafana}/d/tp_trace-generic-operation-details?var-service=aws-s3")
+    print(f"       {args.grafana}/d/generic-operation-details?var-service=aws-s3")
     print()
     print(f"  {CYAN}Tempo raw search:{RESET} {args.tempo}/api/search?q=%7B+name=~%22.*S3.*%22%7D")
     print(f"{BOLD}{CYAN}{'=' * 70}{RESET}")

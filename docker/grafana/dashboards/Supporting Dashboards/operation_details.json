@@ -262,7 +262,7 @@
   "timezone": "browser",
   "title": "Request & Database Operation Traces \u2014 Flamegraphs",
   "uid": "generic-operation-details",
-  "version": 1015,
+  "version": 1016,
   "panels": [
     {
       "collapsed": false,
@@ -929,8 +929,7 @@
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "mode": "basic",
-                  "type": "color-background"
+                  "type": "color-text"
                 }
               },
               {
@@ -1078,23 +1077,23 @@
             },
             "indexByName": {
               "TraceID": 0,
-              "span.http.status_code": 1,
-              "http.status_code": 1,
-              "span.http.response.status_code": 1,
-              "http.response.status_code": 1,
-              "Status Code": 1,
-              "span.url.full": 2,
-              "url.full": 2,
-              "Full URL": 2,
-              "span.url.query": 3,
-              "url.query": 3,
-              "Query Params": 3,
-              "span.db.statement": 4,
-              "db.statement": 4,
-              "Command / Statement": 4,
-              "time": 5,
-              "startTime": 5,
-              "duration": 6
+              "span.url.full": 1,
+              "url.full": 1,
+              "Full URL": 1,
+              "span.url.query": 2,
+              "url.query": 2,
+              "Query Params": 2,
+              "span.db.statement": 3,
+              "db.statement": 3,
+              "Command / Statement": 3,
+              "time": 4,
+              "startTime": 4,
+              "duration": 5,
+              "span.http.status_code": 6,
+              "http.status_code": 6,
+              "span.http.response.status_code": 6,
+              "http.response.status_code": 6,
+              "Status Code": 6
             },
             "renameByName": {
               "TraceID": "Trace ID (Flamegraph Waterfall)",
