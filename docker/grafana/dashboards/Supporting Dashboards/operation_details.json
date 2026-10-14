@@ -23,9 +23,9 @@
       "includeVars": false,
       "keepTime": true,
       "targetBlank": true,
-      "title": "Traces",
+      "title": "Explore Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:1000,%22query%22:%22%7B%20span.normalized.service%20%3D%20%60${service:raw}%60%20%26%26%20span.normalized.operation%20%3D%20%60${operation:raw}%60%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
     }
   ],
   "refresh": "30s",
@@ -929,7 +929,8 @@
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-text"
+                  "type": "color-background",
+                  "mode": "basic"
                 }
               },
               {
@@ -1009,7 +1010,7 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 14,
         "w": 24,
         "x": 0,
         "y": 18
@@ -1034,7 +1035,7 @@
             "type": "tempo",
             "uid": "tempo"
           },
-          "limit": 30,
+          "limit": 100,
           "query": "{ span.normalized.service = `${service:raw}` && span.normalized.operation = `${operation:raw}` } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
@@ -1076,27 +1077,27 @@
               "Target Route (with Query)": true
             },
             "indexByName": {
-              "time": 0,
-              "startTime": 0,
-              "Start time": 0,
-              "TraceID": 1,
-              "Trace ID (Flamegraph Waterfall)": 1,
+              "TraceID": 0,
+              "Trace ID (Flamegraph Waterfall)": 0,
+              "time": 1,
+              "startTime": 1,
+              "Start time": 1,
               "span.url.full": 2,
               "url.full": 2,
               "Full URL": 2,
-              "span.url.query": 3,
-              "url.query": 3,
-              "Query Params": 3,
-              "span.db.statement": 4,
-              "db.statement": 4,
-              "Command / Statement": 4,
-              "span.http.status_code": 5,
-              "http.status_code": 5,
-              "span.http.response.status_code": 5,
-              "http.response.status_code": 5,
-              "Status Code": 5,
-              "duration": 6,
-              "Duration": 6
+              "span.http.status_code": 3,
+              "http.status_code": 3,
+              "span.http.response.status_code": 3,
+              "http.response.status_code": 3,
+              "Status Code": 3,
+              "duration": 4,
+              "Duration": 4,
+              "span.url.query": 5,
+              "url.query": 5,
+              "Query Params": 5,
+              "span.db.statement": 6,
+              "db.statement": 6,
+              "Command / Statement": 6
             },
             "renameByName": {
               "TraceID": "Trace ID (Flamegraph Waterfall)",
@@ -1114,7 +1115,18 @@
           }
         }
       ],
-      "type": "table"
+      "type": "table",
+      "links": [
+        {
+          "asDropdown": false,
+          "icon": "external link",
+          "includeVars": false,
+          "keepTime": true,
+          "targetBlank": true,
+          "title": "Open in Explore (Full Search)",
+          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:1000,%22query%22:%22%7B%20span.normalized.service%20%3D%20%60${service:raw}%60%20%26%26%20span.normalized.operation%20%3D%20%60${operation:raw}%60%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+        }
+      ]
     }
   ]
 }
