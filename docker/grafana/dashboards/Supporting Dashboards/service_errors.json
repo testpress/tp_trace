@@ -782,41 +782,33 @@
             "uid": "tempo"
           },
           "limit": 50,
-          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && (status = error || span.error = true) && kind = server } | select(span.url.full, span.http.method, span.http.status_code)",
+          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && (status = error || span.error = true) }",
           "queryType": "traceql",
           "refId": "A",
-          "tableType": "spans"
+          "tableType": "traces"
         }
       ],
       "title": "Error Trace Explorer",
       "transformations": [
         {
-          "id": "extractFields",
-          "options": {
-            "format": "regexp",
-            "regExp": "/(?<TraceID>.*)/",
-            "source": "traceID"
-          }
-        },
-        {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "traceID": true
+              "nested": true
             },
             "indexByName": {
-              "TraceID": 0,
+              "traceID": 0,
               "startTime": 1,
               "traceService": 2,
-              "serviceName": 2,
-              "span.url.full": 3,
-              "traceName": 4,
-              "name": 4,
-              "traceDuration": 5,
-              "duration": 5
+              "traceName": 3,
+              "traceDuration": 4
             },
             "renameByName": {
-              "TraceID": "TRACE ID"
+              "traceID": "TRACE ID",
+              "startTime": "DATE",
+              "traceService": "SERVICE",
+              "traceName": "ROUTE",
+              "traceDuration": "DURATION"
             }
           }
         }
@@ -935,14 +927,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
         "multi": false,
         "name": "service",
         "options": [],
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
         "refresh": 2,
         "sort": 1,
         "type": "query"
