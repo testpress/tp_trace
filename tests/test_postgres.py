@@ -1001,13 +1001,45 @@ def test_db_execute_wrapper_suppresses_downstream_driver_instrumentation():
     assert instrumentation_state[0] is False  # Suppressed!
 
 
+def test_postgres_integration_does_not_touch_connections_before_apps_ready(monkeypatch):
+    """Verify that PostgresIntegration._apply_patch() does not access connections if apps.ready is False.
 
+    Accessing connections before Django finishes loading settings forces ConnectionHandler
+    to cache dummy settings and instantiate dummy database wrappers, breaking custom backends
+    like tenant_schemas.
+    """
+    from django.apps import apps
+    from django.db import connections
+    from django.db.backends.signals import connection_created
+    from unittest.mock import MagicMock
+    from tp_trace.integrations.postgres.cursor import tp_trace_django_db_execute_wrapper
 
+    integration = PostgresIntegration()
 
+    # Simulate apps.ready = False (settings import time)
+    monkeypatch.setattr(apps, "ready", False)
 
+    connections_all_called = False
+    orig_all = connections.all
 
+    def spy_all(*args, **kwargs):
+        nonlocal connections_all_called
+        connections_all_called = True
+        return orig_all(*args, **kwargs)
 
+    monkeypatch.setattr(connections, "all", spy_all)
 
+    try:
+        integration._apply_patch()
 
+        # connections.all should NOT have been called while apps.ready is False
+        assert not connections_all_called
 
+        # But new connections created later should still get the execute_wrapper attached via signal
+        mock_conn = MagicMock()
+        mock_conn.execute_wrappers = []
+        connection_created.send(sender=mock_conn.__class__, connection=mock_conn)
 
+        assert tp_trace_django_db_execute_wrapper in mock_conn.execute_wrappers
+    finally:
+        integration.uninstrument()

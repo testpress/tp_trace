@@ -123,12 +123,14 @@ class PostgresIntegration(BaseIntegration):
 
         # 1. Attach native execute_wrappers to active Django database connections
         try:
+            from django.apps import apps
             from django.db import connections
             from django.db.backends.signals import connection_created
 
-            for conn in connections.all():
-                if hasattr(conn, "execute_wrappers") and tp_trace_django_db_execute_wrapper not in conn.execute_wrappers:
-                    conn.execute_wrappers.append(tp_trace_django_db_execute_wrapper)
+            if getattr(apps, "ready", False):
+                for conn in connections.all(initialized_only=True):
+                    if hasattr(conn, "execute_wrappers") and tp_trace_django_db_execute_wrapper not in conn.execute_wrappers:
+                        conn.execute_wrappers.append(tp_trace_django_db_execute_wrapper)
 
             # Also listen for new connections
             def _on_connection_created(sender, connection, **kwargs):
@@ -190,18 +192,20 @@ class PostgresIntegration(BaseIntegration):
     def uninstrument(self) -> bool:
         # Remove connection signal handler and execute_wrappers
         try:
+            from django.apps import apps
             from django.db import connections
             from django.db.backends.signals import connection_created
 
             if hasattr(self, "_connection_created_handler"):
                 connection_created.disconnect(self._connection_created_handler)
 
-            for conn in connections.all():
-                if hasattr(conn, "execute_wrappers"):
-                    if tp_trace_django_db_execute_wrapper in conn.execute_wrappers:
-                        conn.execute_wrappers.remove(tp_trace_django_db_execute_wrapper)
-                    elif tp_dog_django_db_execute_wrapper in conn.execute_wrappers:
-                        conn.execute_wrappers.remove(tp_dog_django_db_execute_wrapper)
+            if getattr(apps, "ready", False):
+                for conn in connections.all(initialized_only=True):
+                    if hasattr(conn, "execute_wrappers"):
+                        if tp_trace_django_db_execute_wrapper in conn.execute_wrappers:
+                            conn.execute_wrappers.remove(tp_trace_django_db_execute_wrapper)
+                        elif tp_dog_django_db_execute_wrapper in conn.execute_wrappers:
+                            conn.execute_wrappers.remove(tp_dog_django_db_execute_wrapper)
         except Exception:
             pass
 
