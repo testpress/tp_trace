@@ -229,7 +229,6 @@ def _prime_request(span: Any, request: Any) -> Any:
     span_ctx = attempt(span.get_span_context, default=None, _label="prime_span_context")
 
     def _bind() -> None:
-        request._tp_span = span
         if span_ctx is not None:
             request.trace_id = _format_trace_id(span_ctx.trace_id)
             request.span_id = _format_span_id(span_ctx.span_id)

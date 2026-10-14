@@ -32,12 +32,19 @@ def _apply_tags(span):
         safe_enrich(span, cfg.tags)
 
 
+import weakref
+
+_RESPONSE_PARENT_SPANS: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
 def _bind_response_parent(response: Any) -> None:
     if response is not None and hasattr(response, "render") and not getattr(response, "is_rendered", False):
-        if not hasattr(response, "_tp_parent_span"):
-            curr = get_current_span()
-            if curr and curr.is_recording():
-                response._tp_parent_span = curr
+        curr = get_current_span()
+        if curr and curr.is_recording():
+            try:
+                _RESPONSE_PARENT_SPANS[response] = curr
+            except Exception:
+                pass
 
 
 @functools.lru_cache(maxsize=512)

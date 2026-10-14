@@ -179,7 +179,20 @@ def traced_template_response_render(wrapped: Callable, instance: Any, args: Any,
     if cfg and cfg.tags:
         span_attrs.update(cfg.tags)
 
-    parent_span = getattr(instance, "_tp_parent_span", None)
+    from .view import _RESPONSE_PARENT_SPANS
+
+    parent_span = None
+    try:
+        parent_span = _RESPONSE_PARENT_SPANS.pop(instance, None)
+    except Exception:
+        pass
+    if parent_span is None and hasattr(instance, "_tp_parent_span"):
+        parent_span = getattr(instance, "_tp_parent_span", None)
+        try:
+            delattr(instance, "_tp_parent_span")
+        except Exception:
+            pass
+
     parent_ctx = set_span_in_context(parent_span) if parent_span else None
 
     with traced_span(

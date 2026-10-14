@@ -1010,3 +1010,43 @@ def test_institute_subdomain_propagated_to_child_spans():
     assert redis_span.attributes.get("institute") == "demo"
     assert server_span.attributes.get("institute.subdomain") == "demo"
     assert server_span.attributes.get("institute") == "demo"
+
+
+def test_response_and_request_remain_picklable_for_cache_middleware():
+    """Verify that traced request and TemplateResponse remain picklable.
+
+    Django's cache_page and UpdateCacheMiddleware serialize responses using pickle
+    (e.g., with django_redis). Stashing raw Span objects containing _thread.RLock
+    on request or response breaks caching with 'TypeError: cannot pickle _thread.RLock object'.
+    """
+    import pickle
+    from django.template.response import SimpleTemplateResponse
+    from tp_trace.integrations.django.request import _prime_request
+    from tp_trace.integrations.django.view import _bind_response_parent
+    from opentelemetry.trace import get_tracer
+
+    tracer = get_tracer("test.pickle")
+    with tracer.start_as_current_span("server.req") as span:
+        factory = RequestFactory()
+        req = factory.get("/api/v2.3/exams/trial-exam/languages/")
+
+        _prime_request(span, req)
+
+        # Ensure request has trace IDs but no raw span object
+        assert hasattr(req, "trace_id")
+        assert not hasattr(req, "_tp_span")
+
+        resp = SimpleTemplateResponse("dummy.html")
+        resp._request = req
+        resp.content = b'{"languages":["en","hi"]}'
+
+        _bind_response_parent(resp)
+
+        # Ensure response has no raw unpicklable span attribute
+        assert not hasattr(resp, "_tp_parent_span")
+
+        # Must pickle and unpickle cleanly
+        pickled = pickle.dumps(resp)
+        unpickled = pickle.loads(pickled)
+        assert unpickled.content == b'{"languages":["en","hi"]}'
+
