@@ -4,9 +4,9 @@ import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
-
-
 import math
+
+from tp_trace.version import __version__
 
 logger = logging.getLogger("tp_trace.config")
 
@@ -207,7 +207,7 @@ class SDKConfig:
     project_name: str = "unknown-project"
     cluster_name: Optional[str] = None
     environment: str = "development"
-    version: str = "0.1.1"
+    version: str = __version__
     endpoint: str = "http://localhost:4318"
     traces_endpoint: Optional[str] = None
     headers: Dict[str, str] = field(default_factory=dict)
@@ -342,7 +342,7 @@ class SDKConfig:
             or os.getenv("TP_DOG_VERSION")
             or os.getenv("OTEL_SERVICE_VERSION")
             or os.getenv("SERVICE_VERSION")
-            or "0.1.1"
+            or __version__
         )
 
         # 4. Endpoints & Headers

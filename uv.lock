@@ -1532,7 +1532,7 @@ wheels = [
 
 [[package]]
 name = "tp-trace"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "opentelemetry-api", version = "1.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

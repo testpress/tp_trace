@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.2] - 2026-10-14
+
+### Fixed
+- **Tempo TraceQL Query Timeout**:
+  - Replaced unindexed regex matching (`span.normalized.service =~ ...`) and disjunctive OR conditions (`kind = server || kind = client`) with indexed exact matches (`span.normalized.service = "${service:raw}"`) in the Operation Details dashboard waterfall panel.
+  - Reduced query execution latency from >50s timeouts (`context deadline exceeded`) down to under 0.5s for 3-hour to 24-hour search windows.
+- **Datasource & Data Proxy Timeout**:
+  - Configured `timeout: 120` in Grafana Tempo datasource provisioning (`datasources.yaml`).
+  - Added `GF_DATAPROXY_TIMEOUT=120` to Grafana container environment in `docker-compose.yml`.
+- **Collector Metric Cardinality & Deduplication**:
+  - Excluded intrinsic `span.name` from the OpenTelemetry Collector's `spanmetrics` connector (`exclude_dimensions: [span.name]`), eliminating duplicate `span_name` metric series that mirrored `normalized_operation`.
+  - Guarded `normalized.operation` OTTL transformation to preserve existing SDK-normalized operations from being overwritten.
+- **Service Catalog Active Filtering**:
+  - Filtered out inactive services with zero throughput (`0 req/s` and `0 Total Calls`) from the Service Catalog dashboard overview table.
+- **Table Visual Polish**:
+  - Moved the `Status Code` column to the far right in the Operation Details trace table with subtle text coloring instead of high-saturation badge highlights.
+
+---
+
 ## [0.1.1] - 2026-10-12
 
 ### Added
