@@ -33,18 +33,6 @@
     },
     {
       "asDropdown": false,
-      "icon": "apps",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Project Catalog",
-      "tooltip": "Go to Service Catalog",
-      "type": "link",
-      "url": "/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
-    },
-    {
-      "asDropdown": false,
       "icon": "external link",
       "includeVars": false,
       "keepTime": true,
@@ -65,7 +53,7 @@
       },
       "id": 100,
       "options": {
-        "content": "<div style=\"display: flex; gap: 12px; align-items: center; padding: 6px 0;\">\n  <a href=\"/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}\" style=\"background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 5px 12px; border-radius: 4px; font-weight: 500; font-size: 13px; text-decoration: none;\">\u2190 Service Overview</a>\n  <a href=\"/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}\" style=\"background: rgba(255, 255, 255, 0.06); color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.15); padding: 5px 12px; border-radius: 4px; font-weight: 500; font-size: 13px; text-decoration: none;\">\u2190 Project Catalog</a>\n  <span style=\"color: #ef4444; font-weight: 600; font-size: 14px; margin-left: 12px;\">Error & Exception Triage for <span style=\"color: #ffffff;\">${service}</span></span>\n</div>",
+        "content": "<div style=\"display: flex; gap: 12px; align-items: center; padding: 6px 0;\">\n  <a href=\"/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}\" style=\"background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 5px 12px; border-radius: 4px; font-weight: 500; font-size: 13px; text-decoration: none;\">\u2190 Service Overview</a>\n  <span style=\"color: #ef4444; font-weight: 600; font-size: 14px; margin-left: 12px;\">Error & Exception Triage for <span style=\"color: #ffffff;\">${service}</span></span>\n</div>",
         "defaultContent": "",
         "editorMode": "code",
         "mode": "html"
@@ -519,7 +507,7 @@
         "type": "tempo",
         "uid": "tempo"
       },
-      "description": "Live error traces with execution time, service, URL/resource, and duration. Click any Trace ID to open the complete Flamegraph waterfall.",
+      "description": "Live error traces with execution time, route, and duration. Click any Trace ID to open the complete Flamegraph waterfall.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -759,12 +747,12 @@
       "options": {
         "enablePagination": true,
         "footer": {
-          "countRows": true,
+          "countRows": false,
           "fields": "",
           "reducer": [
             "sum"
           ],
-          "show": true
+          "show": false
         },
         "showHeader": true,
         "sortBy": [
@@ -794,19 +782,19 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "nested": true
+              "nested": true,
+              "traceService": true,
+              "serviceName": true
             },
             "indexByName": {
               "traceID": 0,
               "startTime": 1,
-              "traceService": 2,
               "traceName": 3,
               "traceDuration": 4
             },
             "renameByName": {
               "traceID": "TRACE ID",
               "startTime": "DATE",
-              "traceService": "SERVICE",
               "traceName": "ROUTE",
               "traceDuration": "DURATION"
             }

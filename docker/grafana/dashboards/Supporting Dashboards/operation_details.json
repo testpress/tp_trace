@@ -13,19 +13,9 @@
       "includeVars": false,
       "keepTime": true,
       "targetBlank": false,
-      "title": "\u2190 Service Dashboard",
+      "title": "\u2190 Service Overview",
       "type": "link",
       "url": "/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
-    },
-    {
-      "asDropdown": false,
-      "icon": "arrow-left",
-      "includeVars": false,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "\u2190 Project Catalog",
-      "type": "link",
-      "url": "/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
     },
     {
       "asDropdown": false,
@@ -198,7 +188,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
         "includeAll": false,
         "label": "Service",
@@ -211,7 +201,7 @@
             "value": "django"
           }
         ],
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
         "refresh": 2,
         "sort": 1,
         "type": "query"
@@ -223,16 +213,16 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result(sum by (normalized_operation) (rate(calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\"}[1h]) > 0 or rate(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[1h]) > 0))",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", service_version!=\"0.1.0\", span_kind!=\"SPAN_KIND_INTERNAL\"}, normalized_operation)",
         "hide": 0,
         "includeAll": false,
         "label": "Operation",
         "multi": false,
         "name": "operation",
         "options": [],
-        "query": "query_result(sum by (normalized_operation) (rate(calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\"}[1h]) > 0 or rate(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[1h]) > 0))",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", service_version!=\"0.1.0\", span_kind!=\"SPAN_KIND_INTERNAL\"}, normalized_operation)",
         "refresh": 2,
-        "regex": "/.*normalized_operation=\"([^\"]+)\".*/",
+        "regex": "",
         "sort": 1,
         "type": "query"
       },
@@ -385,8 +375,8 @@
       "options": {
         "legend": {
           "calcs": [
-            "sum",
             "mean",
+            "max",
             "lastNotNull"
           ],
           "displayMode": "table",
@@ -443,7 +433,7 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "errors / sec",
+            "axisLabel": "Errors",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "bars",
@@ -470,9 +460,10 @@
               "mode": "off"
             }
           },
-          "decimals": 2,
+          "decimals": 0,
           "mappings": [],
           "min": 0,
+          "softMax": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -482,9 +473,24 @@
               }
             ]
           },
-          "unit": "reqps"
+          "unit": "short"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*Error.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef4444",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byRegexp",
@@ -588,7 +594,7 @@
         "legend": {
           "calcs": [
             "sum",
-            "mean",
+            "max",
             "lastNotNull"
           ],
           "displayMode": "table",
@@ -608,8 +614,8 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__rate_interval])) by (http_status_code)\nor\nsum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__rate_interval])) by (http_status_code)",
-          "legendFormat": "http.status_code: {{http_status_code}}",
+          "expr": "label_replace(label_replace((sum(increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__interval])) by (http_status_code) or sum(increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__interval])) by (http_status_code) or (vector(0) unless (sum(increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__interval])) > 0 or sum(increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__interval])) > 0))), \"status_label\", \"HTTP $1\", \"http_status_code\", \"(.+)\"), \"status_label\", \"Errors\", \"status_label\", \"^$\")",
+          "legendFormat": "{{status_label}}",
           "range": true,
           "refId": "A",
           "exemplar": false
@@ -894,14 +900,14 @@
               },
               {
                 "id": "unit",
-                "value": "ms"
+                "value": "ns"
               }
             ]
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "span.http.response.status_code"
+              "id": "byRegexp",
+              "options": "/^(Status Code|http\\.status_code|span\\.http\\.status_code|http\\.response\\.status_code|span\\.http\\.response\\.status_code)$/"
             },
             "properties": [
               {
@@ -909,9 +915,21 @@
                 "value": "Status Code"
               },
               {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              },
+              {
                 "id": "custom.cellOptions",
                 "value": {
-                  "mode": "gradient",
+                  "mode": "basic",
                   "type": "color-background"
                 }
               },
@@ -921,15 +939,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "semi-dark-green",
+                      "color": "#10b981",
                       "value": null
                     },
                     {
-                      "color": "semi-dark-yellow",
+                      "color": "#f59e0b",
                       "value": 400
                     },
                     {
-                      "color": "semi-dark-red",
+                      "color": "#ef4444",
                       "value": 500
                     }
                   ]
@@ -950,22 +968,10 @@
               {
                 "id": "displayName",
                 "value": "Full URL"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(Target Route \\(with Query\\)|span.http.target|http.target)$/"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 300
               },
               {
-                "id": "displayName",
-                "value": "Target Route (with Query)"
+                "id": "custom.filterable",
+                "value": true
               }
             ]
           },
@@ -1013,12 +1019,12 @@
       "options": {
         "enablePagination": true,
         "footer": {
-          "countRows": true,
+          "countRows": false,
           "fields": "",
           "reducer": [
             "sum"
           ],
-          "show": true
+          "show": false
         },
         "showHeader": true
       },
@@ -1030,10 +1036,10 @@
             "uid": "tempo"
           },
           "limit": 30,
-          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && span.normalized.operation = `${operation:raw}` && (kind = server || kind = client) } | select(span.url.full, span.url.query, span.http.target, span.db.statement)",
+          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && span.normalized.operation = `${operation:raw}` && (kind = server || kind = client) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
-          "tableType": "traces"
+          "tableType": "spans"
         }
       ],
       "title": "Recent Traces & Flamegraph Waterfall for $operation",
@@ -1043,45 +1049,63 @@
           "options": {
             "format": "regexp",
             "regExp": "/(?<TraceID>.*)/",
-            "source": "traceID"
+            "source": "traceIdHidden"
           }
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "traceID": true
+              "traceIdHidden": true,
+              "spanID": true,
+              "traceName": true,
+              "name": true,
+              "traceService": true,
+              "serviceName": true,
+              "kind": true,
+              "span.kind": true,
+              "status": true,
+              "span.status": true,
+              "normalized_operation": true,
+              "normalized.operation": true,
+              "span.normalized.operation": true,
+              "normalized_service": true,
+              "normalized.service": true,
+              "span.normalized.service": true,
+              "span.http.target": true,
+              "http.target": true,
+              "Target Route (with Query)": true
             },
             "indexByName": {
               "TraceID": 0,
-              "startTime": 1,
-              "traceService": 2,
-              "serviceName": 2,
-              "traceName": 3,
-              "name": 3,
-              "span.url.full": 4,
-              "url.full": 4,
-              "Full URL": 4,
-              "span.url.query": 5,
-              "url.query": 5,
-              "Query Params": 5,
-              "span.http.target": 6,
-              "http.target": 6,
-              "Target Route (with Query)": 6,
-              "span.db.statement": 7,
-              "db.statement": 7,
-              "Command / Statement": 7,
-              "traceDuration": 8,
-              "duration": 8
+              "span.http.status_code": 1,
+              "http.status_code": 1,
+              "span.http.response.status_code": 1,
+              "http.response.status_code": 1,
+              "Status Code": 1,
+              "span.url.full": 2,
+              "url.full": 2,
+              "Full URL": 2,
+              "span.url.query": 3,
+              "url.query": 3,
+              "Query Params": 3,
+              "span.db.statement": 4,
+              "db.statement": 4,
+              "Command / Statement": 4,
+              "time": 5,
+              "startTime": 5,
+              "duration": 6
             },
             "renameByName": {
               "TraceID": "Trace ID (Flamegraph Waterfall)",
+              "span.http.status_code": "Status Code",
+              "http.status_code": "Status Code",
+              "span.http.response.status_code": "Status Code",
+              "http.response.status_code": "Status Code",
               "span.url.full": "Full URL",
               "url.full": "Full URL",
               "span.url.query": "Query Params",
               "url.query": "Query Params",
-              "span.http.target": "Target Route (with Query)",
-              "http.target": "Target Route (with Query)",
               "span.db.statement": "Command / Statement",
               "db.statement": "Command / Statement"
             }

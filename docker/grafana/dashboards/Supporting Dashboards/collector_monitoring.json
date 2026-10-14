@@ -75,7 +75,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Unified health overview of all observability backend components: Tempo (trace storage), OpenTelemetry Collector, and Prometheus. Shows status, CPU utilization, and memory usage for each.",
+      "description": "Unified health overview of observability backend components: Tempo (trace storage) and Prometheus. Shows status, CPU utilization, and memory usage for each.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -242,7 +242,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(label_replace(max(up{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(up{source=\"otelcol-telemetry\"}) or vector(0), \"component\", \"OpenTelemetry Collector\", \"\", \"\")) or (label_replace(max(up{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
+          "expr": "(label_replace(max(up{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(up{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
           "format": "table",
           "instant": true,
           "legendFormat": "Status",
@@ -256,7 +256,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(label_replace(max(rate(process_cpu_seconds_total{job=\"tempo\"}[2m])) * 100 or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(avg(rate(otelcol_process_cpu_seconds_total{source=\"otelcol-telemetry\"}[2m])) * 100 or vector(0), \"component\", \"OpenTelemetry Collector\", \"\", \"\")) or (label_replace(max(rate(process_cpu_seconds_total{job=\"prometheus\"}[2m])) * 100 or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
+          "expr": "(label_replace(max(rate(process_cpu_seconds_total{job=\"tempo\"}[2m])) * 100 or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(rate(process_cpu_seconds_total{job=\"prometheus\"}[2m])) * 100 or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
           "format": "table",
           "instant": true,
           "legendFormat": "CPU Usage",
@@ -270,7 +270,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(label_replace(max(process_resident_memory_bytes{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(sum(otelcol_process_memory_rss{source=\"otelcol-telemetry\"}) or vector(0), \"component\", \"OpenTelemetry Collector\", \"\", \"\")) or (label_replace(max(process_resident_memory_bytes{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
+          "expr": "(label_replace(max(process_resident_memory_bytes{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(process_resident_memory_bytes{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
           "format": "table",
           "instant": true,
           "legendFormat": "Memory Usage",
@@ -279,7 +279,7 @@
           "exemplar": false
         }
       ],
-      "title": "System Health \u2014 {service} \u00b7 OpenTelemetry Collector",
+      "title": "System Health",
       "transformations": [
         {
           "id": "merge",
