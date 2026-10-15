@@ -890,8 +890,8 @@
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "duration"
+              "id": "byRegexp",
+              "options": "/^(duration|Duration)$/"
             },
             "properties": [
               {
@@ -1090,14 +1090,14 @@
               "span.http.response.status_code": 3,
               "http.response.status_code": 3,
               "Status Code": 3,
-              "duration": 4,
-              "Duration": 4,
-              "span.url.query": 5,
-              "url.query": 5,
-              "Query Params": 5,
-              "span.db.statement": 6,
-              "db.statement": 6,
-              "Command / Statement": 6
+              "duration": 6,
+              "Duration": 6,
+              "span.url.query": 4,
+              "url.query": 4,
+              "Query Params": 4,
+              "span.db.statement": 5,
+              "db.statement": 5,
+              "Command / Statement": 5
             },
             "renameByName": {
               "TraceID": "Trace ID (Flamegraph Waterfall)",
