@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.4] - 2026-10-15
+
+### Fixed
+- **Django AppRegistry & Early Import Safety**:
+  - Deferred patching of `django.contrib.auth` and third-party cache backends (`django_redis.cache.RedisCache`, `django_redis.client.default.DefaultClient`) using `when_imported()`.
+  - Deferred Django REST Framework (`rest_framework.views`) view patching if not already loaded in `sys.modules`.
+  - Eliminates `AppRegistryNotReady` errors when instrumenting Django before `django.setup()` or during ASGI/WSGI module bootstrapping.
+- **Unintended Database Queries on Public Endpoints**:
+  - Guarded user attribute extraction in `_set_user()` by verifying `hasattr(request, "_cached_user")` before inspecting `request.user.is_authenticated`.
+  - Prevents evaluating `SimpleLazyObject` on unauthenticated/anonymous requests, preventing redundant `SELECT ... FROM auth_user` SQL queries on public endpoints.
+- **Thread-Safe Middleware Instrumentation**:
+  - Replaced mutable monkeypatching of Django's `load_middleware` with a one-time patch on `django.core.handlers.base.import_string`.
+  - Protected middleware wrapping with an execution-gated `ContextVar` (`_active_middleware_integration`), eliminating race conditions during concurrent worker thread initialization.
+- **Empty-State Dashboard Resilience**:
+  - Added `or vector(0)` fallbacks to Prometheus expressions across Service Catalog, Service Overview, and Operation Details Grafana dashboards, preventing NaN/broken visualization when metric streams are idle.
+
+### Performance
+- **Redis Memory Allocation Bounds**:
+  - Added argument-level string length truncation in `_stringify_cmd_arg` before string decoding and command concatenation.
+  - Bounds memory allocation when logging large cached objects or multi-megabyte payloads in Redis commands (`SET`, `MSET`).
+
+### Added
+- **AWS Integration Test Coverage**:
+  - Added `botocore` to development test dependencies and extended automated regression tests covering Boto3/S3 client instrumentation.
+
+---
+
+## [0.1.3] - 2026-10-14
+
+### Fixed
+- **Django Response Serialization & Cache Pickling**:
+  - Removed unpicklable OpenTelemetry `Span` references (`request._tp_span` and `response._tp_parent_span`) containing thread locks (`_thread.RLock`).
+  - Stored response parent spans out-of-band in a `weakref.WeakKeyDictionary` (`_RESPONSE_PARENT_SPANS`).
+  - Resolves `TypeError: cannot pickle '_thread.RLock' object` when caching HTTP responses with Django's `cache_page`, `UpdateCacheMiddleware`, and `django_redis`.
+- **PostgreSQL Connection Access Guard**:
+  - Guarded database connection wrapping behind `django.apps.apps.ready`.
+  - Filtered connections using `connections.all(initialized_only=True)` to prevent premature connection instantiation and dummy settings assignment before Django finishes initializing.
+
+---
+
 ## [0.1.2] - 2026-10-14
 
 ### Fixed

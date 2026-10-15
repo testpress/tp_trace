@@ -13,3 +13,6 @@ scratch/
 .env.local
 .plan/
 
+# Reference repositories
+dd-trace-py/
+sentry-python/
