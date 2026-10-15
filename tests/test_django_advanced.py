@@ -1050,3 +1050,115 @@ def test_response_and_request_remain_picklable_for_cache_middleware():
         unpickled = pickle.loads(pickled)
         assert unpickled.content == b'{"languages":["en","hi"]}'
 
+
+def test_auth_patching_defers_via_when_imported(monkeypatch):
+    """Verify that DjangoIntegration._patch_auth registers when_imported if not in sys.modules."""
+    import sys
+    from tp_trace.integrations.django import DjangoIntegration
+
+    integration = DjangoIntegration()
+    registered_hooks = []
+
+    def fake_when_imported(mod_name, callback):
+        registered_hooks.append((mod_name, callback))
+
+    monkeypatch.setattr(integration, "when_imported", fake_when_imported)
+
+    # Simulate django.contrib.auth NOT in sys.modules
+    orig_auth = sys.modules.pop("django.contrib.auth", None)
+    try:
+        integration._patch_auth()
+        assert any(mod == "django.contrib.auth" for mod, _ in registered_hooks)
+    finally:
+        if orig_auth is not None:
+            sys.modules["django.contrib.auth"] = orig_auth
+
+
+def test_middleware_import_string_contextvar_safety():
+    """Verify that handler_base.import_string uses ContextVar and does not race or flip globally."""
+    import django.core.handlers.base as handler_base
+    from tp_trace.integrations.django import DjangoIntegration
+    from tp_trace.integrations.django.middleware import (
+        _patch_handler_base_import_string,
+        unpatch_handler_base_import_string,
+        _active_middleware_integration,
+    )
+
+    integration = DjangoIntegration()
+    _patch_handler_base_import_string()
+    try:
+        assert getattr(handler_base, "_tp_import_string_patched", False)
+
+        # When active_middleware_integration is None, import_string returns unmodified
+        orig_func = handler_base.import_string("django.utils.deprecation.MiddlewareMixin")
+        assert orig_func is not None
+
+        # When active, callable factories get wrapped
+        token = _active_middleware_integration.set(integration)
+        try:
+            wrapped_func = handler_base.import_string("django.utils.deprecation.MiddlewareMixin")
+            # MiddlewareMixin is a class/type, not a factory function, so it passes through
+            assert wrapped_func is not None
+        finally:
+            _active_middleware_integration.reset(token)
+    finally:
+        unpatch_handler_base_import_string()
+
+
+def test_cache_classes_deferred_patching(monkeypatch):
+    """Verify that third-party cache backends (django_redis) are deferred via when_imported if not loaded."""
+    import sys
+    from tp_trace.integrations.django import DjangoIntegration
+
+    integration = DjangoIntegration()
+    registered_hooks = []
+
+    def fake_when_imported(mod_name, callback):
+        registered_hooks.append(mod_name)
+
+    monkeypatch.setattr(integration, "when_imported", fake_when_imported)
+
+    # Remove django_redis.cache if present
+    orig_redis = sys.modules.pop("django_redis.cache", None)
+    try:
+        integration._patch_cache_classes()
+        assert "django_redis.cache" in registered_hooks
+        assert "django_redis.client.default" in registered_hooks
+    finally:
+        if orig_redis is not None:
+            sys.modules["django_redis.cache"] = orig_redis
+
+
+def test_unmaterialized_simple_lazy_object_user_not_evaluated():
+    """Verify that un-materialized SimpleLazyObject on request.user is not forced to evaluate."""
+    from django.utils.functional import SimpleLazyObject
+    from django.test import RequestFactory
+    from django.http import HttpResponse
+    from tp_trace.integrations.django.request import traced_get_response
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    import tp_trace
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="lazy-test", exporter=exporter, export_batch=False)
+
+    evaluated = False
+
+    def load_user():
+        nonlocal evaluated
+        evaluated = True
+        return None
+
+    factory = RequestFactory()
+    req = factory.get("/api/v1/public/")
+    req.user = SimpleLazyObject(load_user)
+
+    def dummy_handler(request):
+        return HttpResponse("ok", status=200)
+
+    resp = traced_get_response(dummy_handler, None, (req,), {})
+    assert resp.status_code == 200
+    # Must NOT have been evaluated!
+    assert not evaluated, "request.user was prematurely materialized by SDK telemetry!"
+
+
+

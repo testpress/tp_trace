@@ -566,7 +566,27 @@ def traced_get_response(wrapped, instance, args, kwargs):
 
                     def _set_user() -> None:
                         user = getattr(request, "user", None)
-                        if user and getattr(user, "is_authenticated", False):
+                        if user is None:
+                            return
+                        try:
+                            from django.utils.functional import SimpleLazyObject
+                            if isinstance(user, SimpleLazyObject):
+                                if hasattr(request, "_cached_user"):
+                                    user = request._cached_user
+                                else:
+                                    # User was never evaluated during request; do not force DB query
+                                    return
+                        except Exception:
+                            pass
+
+                        is_auth = False
+                        try:
+                            is_auth_attr = getattr(user, "is_authenticated", False)
+                            is_auth = is_auth_attr() if callable(is_auth_attr) else bool(is_auth_attr)
+                        except Exception:
+                            pass
+
+                        if is_auth:
                             user_id = str(getattr(user, "pk", getattr(user, "id", "")))
                             if user_id:
                                 safe_set_attribute(span, "usr.id", user_id)

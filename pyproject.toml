@@ -47,3 +47,8 @@ testpaths = ["tests"]
 # Keep bare `pytest`/`pytest .` from wandering outside the suite if another
 # throwaway scripts directory (or a vendored copy of tests) is ever added.
 norecursedirs = ["scratch", "*.egg", ".*", "build", "dist", "node_modules"]
+
+[dependency-groups]
+dev = [
+    "botocore>=1.37.38",
+]

@@ -39,12 +39,19 @@ def _cmd_max_length() -> int:
         return _DEFAULT_CMD_MAX_LENGTH
 
 
-def _stringify_cmd_arg(value: Any) -> str:
+def _stringify_cmd_arg(value: Any, max_arg_len: Optional[int] = None) -> str:
     if isinstance(value, (bytes, bytearray)):
+        if max_arg_len and len(value) > max_arg_len:
+            try:
+                return value[:max_arg_len].decode("utf-8", "replace")
+            except Exception:
+                return repr(value[:max_arg_len])
         try:
             return value.decode("utf-8", "replace")
         except Exception:
             return repr(value)
+    if isinstance(value, str) and max_arg_len and len(value) > max_arg_len:
+        return value[:max_arg_len]
     return str(value)
 
 
@@ -61,10 +68,12 @@ def _tp_trace_format_command_args(args: Any) -> str:
     try:
         if not args:
             return ""
+        max_len = _cmd_max_length()
+        max_arg_len = max(max_len, 1024) if max_len > 0 else None
         if _mask_command_enabled():
             parts = [str(args[0])] + ["?"] * (len(args) - 1)
         else:
-            parts = [_stringify_cmd_arg(a) for a in args]
+            parts = [_stringify_cmd_arg(a, max_arg_len=max_arg_len) for a in args]
             if parts:
                 cmd_upper = parts[0].upper()
                 if cmd_upper == "AUTH":

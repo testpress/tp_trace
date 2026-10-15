@@ -58,8 +58,6 @@ def _make_hook_wrapper(mw_path: str, mw_short: str, method_name: str):
             "django.middleware.method": method_name,
             "resource.name": span_name,
         }
-        # Pre-application telemetry: config lookup and tag merge must never
-        # prevent the middleware hook from running.
         cfg = attempt(_get_config, default=None, _label="middleware_config")
         if cfg and cfg.tags:
             attempt(lambda: attrs.update(cfg.tags), _label="merge_tags")
@@ -112,40 +110,52 @@ def _make_traced_middleware_factory(integration, mw_path, factory):
     return traced_factory
 
 
-@contextlib.contextmanager
-def _tracing_middleware_factories(integration, middleware_list):
-    """Temporarily patch BaseHandler.import_string to trace function middleware factories."""
-    if not middleware_list:
-        yield
-        return
+from contextvars import ContextVar
 
+_active_middleware_integration: ContextVar[Optional[Any]] = ContextVar("active_middleware_integration", default=None)
+_orig_handler_base_import_string: Optional[Callable] = None
+
+
+def _patch_handler_base_import_string() -> None:
+    """Safely patch django.core.handlers.base.import_string once with ContextVar guard."""
+    global _orig_handler_base_import_string
     try:
         import django.core.handlers.base as handler_base
     except Exception:
-        yield
         return
 
-    original_import_string = getattr(handler_base, "import_string", None)
-    if original_import_string is None:
-        yield
+    if getattr(handler_base, "_tp_import_string_patched", False):
         return
 
-    path_set = set(middleware_list)
+    orig = getattr(handler_base, "import_string", None)
+    if orig is None:
+        return
 
-    def patched_import_string(dotted_path):
-        obj = original_import_string(dotted_path)
-        if dotted_path in path_set and not isinstance(obj, type) and callable(obj):
-            return _make_traced_middleware_factory(integration, dotted_path, obj)
+    _orig_handler_base_import_string = orig
+
+    def patched_import_string(dotted_path: str) -> Any:
+        obj = orig(dotted_path)
+        active_integration = _active_middleware_integration.get()
+        if active_integration is not None and not isinstance(obj, type) and callable(obj):
+            return _make_traced_middleware_factory(active_integration, dotted_path, obj)
         return obj
 
     handler_base.import_string = patched_import_string
+    handler_base._tp_import_string_patched = True
+
+
+def unpatch_handler_base_import_string() -> None:
+    """Restore original django.core.handlers.base.import_string."""
+    global _orig_handler_base_import_string
     try:
-        yield
-    finally:
-        try:
-            handler_base.import_string = original_import_string
-        except Exception:
-            pass
+        import django.core.handlers.base as handler_base
+        if getattr(handler_base, "_tp_import_string_patched", False):
+            if _orig_handler_base_import_string is not None:
+                handler_base.import_string = _orig_handler_base_import_string
+            delattr(handler_base, "_tp_import_string_patched")
+            _orig_handler_base_import_string = None
+    except Exception:
+        pass
 
 
 def _instrument_class_middleware(integration, middleware_list):
@@ -189,6 +199,7 @@ def _instrument_class_middleware(integration, middleware_list):
 
 def make_traced_load_middleware(integration):
     """Factory that captures the DjangoIntegration instance so we can track wrapped middlewares."""
+    _patch_handler_base_import_string()
 
     def traced_load_middleware(wrapped: Callable, instance: Any, args: Any, kwargs: Any):
         if getattr(instance, "_tp_middleware_instrumented", False):
@@ -201,8 +212,11 @@ def make_traced_load_middleware(integration):
         except Exception:
             middleware_list = []
 
-        with _tracing_middleware_factories(integration, middleware_list):
+        token = _active_middleware_integration.set(integration)
+        try:
             result = wrapped(*args, **kwargs)
+        finally:
+            _active_middleware_integration.reset(token)
 
         try:
             _instrument_class_middleware(integration, middleware_list)
@@ -213,3 +227,4 @@ def make_traced_load_middleware(integration):
         return result
 
     return traced_load_middleware
+

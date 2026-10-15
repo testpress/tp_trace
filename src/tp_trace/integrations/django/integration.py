@@ -93,7 +93,6 @@ class DjangoIntegration(BaseIntegration):
             logger.debug("Django is not installed, skipping patch.")
             return
 
-        from .auth import traced_authenticate, traced_login
         from .cache import CACHE_OPS, make_traced_cache_op
         from .middleware import make_traced_load_middleware
         from .request import traced_get_response
@@ -142,31 +141,10 @@ class DjangoIntegration(BaseIntegration):
             logger.debug("Django SimpleTemplateResponse instrumentation skipped: %s", exc)
 
         # 4. Django Cache Backends (BaseCache, django_redis, and Django redis backend)
-        cache_classes = [
-            "django.core.cache.backends.base.BaseCache",
-            "django_redis.cache.RedisCache",
-            "django_redis.client.default.DefaultClient",
-            "django.core.cache.backends.redis.RedisCache",
-        ]
-        for cls_path in cache_classes:
-            try:
-                mod_name, _, cls_name = cls_path.rpartition(".")
-                mod = importlib.import_module(mod_name)
-                if hasattr(mod, cls_name):
-                    target_cls = getattr(mod, cls_name)
-                    for op in CACHE_OPS:
-                        if hasattr(target_cls, op):
-                            self.wrap(cls_path, op, make_traced_cache_op(op))
-            except Exception as exc:
-                logger.debug("Django Cache patch skipped for %s: %s", cls_path, exc)
+        self._patch_cache_classes()
 
-        # 5. Django Auth (login, authenticate)
-        try:
-            import django.contrib.auth  # noqa: F401
-            self.wrap("django.contrib.auth", "login", traced_login)
-            self.wrap("django.contrib.auth", "authenticate", traced_authenticate)
-        except Exception as exc:
-            logger.debug("Django Auth instrumentation skipped: %s", exc)
+        # 5. Django Auth (login, authenticate) - defer via when_imported so auth models aren't loaded prematurely
+        self._patch_auth()
 
         # 6. Management commands
         try:
@@ -184,16 +162,69 @@ class DjangoIntegration(BaseIntegration):
         except Exception as exc:
             logger.debug("Django command instrumentation skipped: %s", exc)
 
+    def _patch_cache_classes(self) -> None:
+        from .cache import CACHE_OPS, make_traced_cache_op
+
+        def _patch_cls(cls_path: str) -> None:
+            try:
+                mod_name, _, cls_name = cls_path.rpartition(".")
+                mod = importlib.import_module(mod_name)
+                if hasattr(mod, cls_name):
+                    target_cls = getattr(mod, cls_name)
+                    for op in CACHE_OPS:
+                        if hasattr(target_cls, op):
+                            self.wrap(cls_path, op, make_traced_cache_op(op))
+            except Exception as exc:
+                logger.debug("Django Cache patch skipped for %s: %s", cls_path, exc)
+
+        # BaseCache is standard Django and safe to patch immediately
+        _patch_cls("django.core.cache.backends.base.BaseCache")
+
+        # Third-party or version-dependent caches: patch if already imported, else defer via when_imported
+        deferred_caches = [
+            ("django_redis.cache", "django_redis.cache.RedisCache"),
+            ("django_redis.client.default", "django_redis.client.default.DefaultClient"),
+            ("django.core.cache.backends.redis", "django.core.cache.backends.redis.RedisCache"),
+        ]
+        import sys
+        for mod_name, cls_path in deferred_caches:
+            if mod_name in sys.modules:
+                _patch_cls(cls_path)
+            else:
+                self.when_imported(mod_name, lambda _m, cp=cls_path: _patch_cls(cp))
+
+    def _patch_auth(self, _module=None) -> None:
+        def _patch(_mod) -> None:
+            try:
+                from .auth import traced_authenticate, traced_login
+                self.wrap("django.contrib.auth", "login", traced_login)
+                self.wrap("django.contrib.auth", "authenticate", traced_authenticate)
+            except Exception as exc:
+                logger.debug("Django Auth instrumentation skipped: %s", exc)
+
+        try:
+            import sys
+            if "django.contrib.auth" in sys.modules:
+                _patch(sys.modules["django.contrib.auth"])
+            else:
+                self.when_imported("django.contrib.auth", _patch)
+        except Exception as exc:
+            logger.debug("Django Auth instrumentation hook skipped: %s", exc)
+
     def _patch_rest_framework(self, wrapper) -> None:
         def _patch(_module) -> None:
             self.wrap("rest_framework.views.APIView", "dispatch", wrapper)
 
         try:
-            from importlib.util import find_spec
+            import sys
+            if "rest_framework.views" in sys.modules:
+                _patch(sys.modules["rest_framework.views"])
+            else:
+                from importlib.util import find_spec
 
-            if find_spec("rest_framework") is None:
-                return
-            self.when_imported("rest_framework.views", _patch)
+                if find_spec("rest_framework") is None:
+                    return
+                self.when_imported("rest_framework.views", _patch)
         except Exception as exc:
             logger.debug("Django REST Framework instrumentation skipped: %s", exc)
 
@@ -206,6 +237,11 @@ class DjangoIntegration(BaseIntegration):
                     delattr(BaseHandler, "_tp_middleware_instrumented")
                 except Exception:
                     pass
+        except Exception:
+            pass
+        try:
+            from .middleware import unpatch_handler_base_import_string
+            unpatch_handler_base_import_string()
         except Exception:
             pass
         self._wrapped_middleware.clear()

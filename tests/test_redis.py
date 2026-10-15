@@ -267,6 +267,12 @@ def test_redis_format_command_args_truncates_at_max_length():
     assert out.endswith("...")
     assert out == "SET k " + "v" * 11 + "..."
 
+    # Large binary payloads (e.g., 100KB) are pre-truncated safely
+    large_bytes = b"\x00\x01\x02" * 30000
+    out_bytes = _tp_trace_format_command_args(("SET", "bin_k", large_bytes))
+    assert len(out_bytes) == 20
+    assert out_bytes.endswith("...")
+
 
 def test_redis_format_command_args_masks_when_enabled():
     """TP_TRACE_REDIS_MASK_COMMAND=true reproduces OTel's 'COMMAND ? ?' reduction."""

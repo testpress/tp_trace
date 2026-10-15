@@ -290,7 +290,7 @@
   "timezone": "browser",
   "title": "Service Overview \u2014 Latency, Throughput & Errors",
   "uid": "generic-service-overview",
-  "version": 1010,
+  "version": 1011,
   "panels": [
     {
       "datasource": {
@@ -380,7 +380,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval]))\nor\nsum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval]))",
+          "expr": "(sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval]))\nor\nsum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval]))) or vector(0)",
           "legendFormat": "Throughput (RPS)",
           "range": true,
           "refId": "A",
@@ -642,7 +642,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.50, sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))\nor\nhistogram_quantile(0.50, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))",
+          "expr": "(histogram_quantile(0.50, sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))\nor\nhistogram_quantile(0.50, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))) or vector(0)",
           "legendFormat": "P50 Latency",
           "range": true,
           "refId": "A"
@@ -654,7 +654,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.95, sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))\nor\nhistogram_quantile(0.95, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))",
+          "expr": "(histogram_quantile(0.95, sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))\nor\nhistogram_quantile(0.95, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))) or vector(0)",
           "legendFormat": "P95 Latency",
           "range": true,
           "refId": "B"
@@ -666,7 +666,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.99, sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))\nor\nhistogram_quantile(0.99, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))",
+          "expr": "(histogram_quantile(0.99, sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))\nor\nhistogram_quantile(0.99, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`(?i)${operation:regex}`}[$__rate_interval])) by (le))) or vector(0)",
           "legendFormat": "P99 Latency",
           "range": true,
           "refId": "C"
