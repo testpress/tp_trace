@@ -26,7 +26,7 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "\u2190 Service Overview",
+      "title": "← Service Overview",
       "tooltip": "Back to Generic Service Overview",
       "type": "link",
       "url": "/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
@@ -53,7 +53,7 @@
       },
       "id": 100,
       "options": {
-        "content": "<div style=\"display: flex; gap: 12px; align-items: center; padding: 6px 0;\">\n  <a href=\"/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}\" style=\"background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 5px 12px; border-radius: 4px; font-weight: 500; font-size: 13px; text-decoration: none;\">\u2190 Service Overview</a>\n  <span style=\"color: #ef4444; font-weight: 600; font-size: 14px; margin-left: 12px;\">Error & Exception Triage for <span style=\"color: #ffffff;\">${service}</span></span>\n</div>",
+        "content": "<div style=\"display: flex; gap: 12px; align-items: center; padding: 6px 0;\">\n  <a href=\"/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}\" style=\"background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 5px 12px; border-radius: 4px; font-weight: 500; font-size: 13px; text-decoration: none;\">← Service Overview</a>\n  <span style=\"color: #ef4444; font-weight: 600; font-size: 14px; margin-left: 12px;\">Error & Exception Triage for <span style=\"color: #ffffff;\">${service}</span></span>\n</div>",
         "defaultContent": "",
         "editorMode": "code",
         "mode": "html"
@@ -123,7 +123,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) or vector(0)",
           "instant": true,
           "legendFormat": "Failed Calls",
           "range": false,
@@ -197,7 +197,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) or vector(0)) / (sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])) > 0 or vector(1))) * 100",
+          "expr": "((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) or vector(0)) / (sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])) > 0 or vector(1))) * 100",
           "instant": true,
           "legendFormat": "Error Rate %",
           "range": false,
@@ -268,7 +268,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count(sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) > 0) or vector(0)",
+          "expr": "count(sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) > 0) or vector(0)",
           "instant": true,
           "legendFormat": "Failing Endpoints",
           "range": false,
@@ -377,7 +377,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__rate_interval])) or vector(0)) / (sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0 or vector(1))) * 100",
+          "expr": "((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__rate_interval])) or vector(0)) / (sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0 or vector(1))) * 100",
           "legendFormat": "Error Rate %",
           "range": true,
           "refId": "A",
@@ -480,7 +480,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"(?i)${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__rate_interval])) by (http_status_code)",
+          "expr": "sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__rate_interval])) by (http_status_code)",
           "legendFormat": "HTTP {{http_status_code}}",
           "range": true,
           "refId": "A",
@@ -770,7 +770,7 @@
             "uid": "tempo"
           },
           "limit": 50,
-          "query": "{ span.normalized.service =~ `(?i)${service:regex}` && (status = error || span.error = true) }",
+          "query": "{ span.normalized.service = \"${service:raw}\" && (status = error || span.error = true) }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -919,14 +919,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
         "multi": false,
         "name": "service",
         "options": [],
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", service_version!=\"0.1.0\", normalized_service!=\"pgbouncer\"}, normalized_service)",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}, normalized_service)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -963,8 +963,8 @@
     ]
   },
   "timezone": "browser",
-  "title": "Application Errors \u2014 Error Rates & Failure Analysis",
+  "title": "Application Errors — Error Rates & Failure Analysis",
   "uid": "generic-service-errors",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
