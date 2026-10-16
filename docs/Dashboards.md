@@ -1,8 +1,8 @@
 # Grafana Dashboards & Navigation Guide
 
-This guide covers the **4 pre-provisioned Grafana APM dashboards** in the
-tp_trace observability stack, explaining how each is structured, how to
-navigate between them, and how to execute end-to-end incident triage.
+This guide covers the Grafana APM dashboards in the `tp_trace` Git Sync source,
+explaining how each is structured, how to navigate between them, and how to
+execute end-to-end incident triage.
 
 > **Why only 4?** The suite originally shipped 8 dashboards — two generic
 > (Service Catalog, Needs Attention) plus six component-specific ones (Django
@@ -221,9 +221,9 @@ Latency Graph (Prometheus)
                                                                                 └── 🐘 SELECT * FROM items (Slow)
 ```
 
-Exemplars require the Prometheus flag `--enable-feature=exemplar-storage`
-(set in `docker-compose.yml`) and the `exemplarTraceIdDestinations` mapping in
-`provisioning/datasources/datasources.yaml`.
+Exemplars require exemplar storage to be enabled in the existing Prometheus
+deployment and an `exemplarTraceIdDestinations` mapping in the existing Grafana
+Prometheus datasource that points to the Tempo datasource.
 
 ### Workflow 3: Diagnosing Slow Database Calls (PgBouncer vs Engine)
 
