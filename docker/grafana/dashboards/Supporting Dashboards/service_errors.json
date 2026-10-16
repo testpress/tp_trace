@@ -770,7 +770,7 @@
             "uid": "tempo"
           },
           "limit": 50,
-          "query": "{ span.normalized.service = \"${service:raw}\" && (status = error || span.error = true) }",
+          "query": "{ (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (status = error || span.error = true) }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"

@@ -25,7 +25,7 @@
       "targetBlank": true,
       "title": "Explore Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:1000,%22query%22:%22%7B%20span.normalized.service%20%3D%20%60${service:raw}%60%20%26%26%20span.normalized.operation%20%3D%20%60${operation:raw}%60%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:1000,%22query%22:%22%7B%20(resource.service.name%20%3D%20${service:doublequote}%20%7C%7C%20span.normalized.service%20%3D%20${service:doublequote})%20%26%26%20(name%20%3D%20${operation:doublequote}%20%7C%7C%20span.normalized.operation%20%3D%20${operation:doublequote})%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
     }
   ],
   "refresh": "30s",
@@ -395,7 +395,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval]) or rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval]))) or vector(0)",
+          "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval])) or sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval]))) or vector(0)",
           "legendFormat": "Hits",
           "range": true,
           "refId": "A",
@@ -407,7 +407,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__rate_interval]) or rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__rate_interval]))) or vector(0)",
+          "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__rate_interval])) or sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}, error=\"true\"}[$__rate_interval]))) or vector(0)",
           "legendFormat": "Errors",
           "range": true,
           "refId": "B",
@@ -774,7 +774,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "((histogram_quantile(0.50, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval]) or rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
+          "expr": "((histogram_quantile(0.50, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le) or sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
           "legendFormat": "p50",
           "range": true,
           "refId": "A"
@@ -786,7 +786,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "((histogram_quantile(0.90, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval]) or rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
+          "expr": "((histogram_quantile(0.90, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le) or sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
           "legendFormat": "p90",
           "range": true,
           "refId": "B"
@@ -798,7 +798,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "((histogram_quantile(0.95, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval]) or rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
+          "expr": "((histogram_quantile(0.95, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le) or sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
           "legendFormat": "p95",
           "range": true,
           "refId": "C"
@@ -810,7 +810,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "((histogram_quantile(0.99, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval]) or rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
+          "expr": "((histogram_quantile(0.99, sum(rate(apm_duration_milliseconds_bucket{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le) or sum(rate(duration_milliseconds_bucket{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=${operation:doublequote}}[$__rate_interval])) by (le)) / 1000)) or vector(0)",
           "legendFormat": "p99",
           "range": true,
           "refId": "D"
@@ -863,8 +863,8 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "TraceID"
+              "id": "byRegexp",
+              "options": "/^(TraceID|traceID|traceId|Trace ID.*)$/"
             },
             "properties": [
               {
@@ -1035,7 +1035,7 @@
             "uid": "tempo"
           },
           "limit": 100,
-          "query": "{ span.normalized.service = `${service:raw}` && span.normalized.operation = `${operation:raw}` } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
+          "query": "{ (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (name = ${operation:doublequote} || span.normalized.operation = ${operation:doublequote}) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -1076,6 +1076,8 @@
               "Target Route (with Query)": true
             },
             "indexByName": {
+              "traceID": 0,
+              "traceId": 0,
               "TraceID": 0,
               "Trace ID (Flamegraph Waterfall)": 0,
               "time": 1,
@@ -1089,17 +1091,22 @@
               "span.http.response.status_code": 3,
               "http.response.status_code": 3,
               "Status Code": 3,
-              "duration": 6,
-              "Duration": 6,
-              "span.url.query": 4,
-              "url.query": 4,
-              "Query Params": 4,
-              "span.db.statement": 5,
-              "db.statement": 5,
-              "Command / Statement": 5
+              "duration": 4,
+              "Duration": 4,
+              "span.url.query": 5,
+              "url.query": 5,
+              "Query Params": 5,
+              "span.db.statement": 6,
+              "db.statement": 6,
+              "Command / Statement": 6
             },
             "renameByName": {
+              "traceID": "Trace ID (Flamegraph Waterfall)",
+              "traceId": "Trace ID (Flamegraph Waterfall)",
               "TraceID": "Trace ID (Flamegraph Waterfall)",
+              "time": "Start time",
+              "startTime": "Start time",
+              "duration": "Duration",
               "span.http.status_code": "Status Code",
               "http.status_code": "Status Code",
               "span.http.response.status_code": "Status Code",
@@ -1123,7 +1130,7 @@
           "keepTime": true,
           "targetBlank": true,
           "title": "Open in Explore (Full Search)",
-          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:1000,%22query%22:%22%7B%20span.normalized.service%20%3D%20%60${service:raw}%60%20%26%26%20span.normalized.operation%20%3D%20%60${operation:raw}%60%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:1000,%22query%22:%22%7B%20(resource.service.name%20%3D%20${service:doublequote}%20%7C%7C%20span.normalized.service%20%3D%20${service:doublequote})%20%26%26%20(name%20%3D%20${operation:doublequote}%20%7C%7C%20span.normalized.operation%20%3D%20${operation:doublequote})%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
         }
       ]
     }
