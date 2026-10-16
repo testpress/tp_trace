@@ -1,27 +1,29 @@
-# Observability Host Deployment (Tempo)
+# Deploy Tempo
 
-Minimal observability service running Grafana Tempo for distributed tracing ingestion and queries. Production configurations (ports, resource limits, storage) are defined directly in `docker-compose.yml`. No `.env` file is required.
+Use this directory to run the Tempo trace store. This is a deployment guide for operators who already have Docker Compose available on the observability host.
 
-## 1. Firewall / Security
+## Before you start
 
-Allow inbound traffic on this observability host:
-- `4327/tcp` (OTLP gRPC) and `4318/tcp` (OTLP HTTP) from your collector / App Server IP (collector trace push).
-- `3200/tcp` (Tempo HTTP query API) from your Grafana server / VPN.
+Allow inbound traffic from the Collector host only:
 
-## 2. Run
+- `4327/tcp` for OTLP/gRPC traces
+- `4328/tcp` for OTLP/HTTP traces
+- `3200/tcp` for Grafana and authorised operators
+
+## Start Tempo
+
+From this directory, run:
 
 ```bash
 docker compose up -d
 ```
 
-Verify:
+Verify that Tempo is ready:
+
 ```bash
 curl -f http://localhost:3200/ready
 ```
 
-## 3. Grafana Integration
+Tempo receives OTLP on container ports `4317` and `4318`; Docker publishes them as host ports `4327` and `4328`. Configure the Collector to send to the published port appropriate to its transport.
 
-Add the Tempo datasource in your existing Grafana:
-- Type: `Tempo`
-- URL: `http://<OBS_SERVER_IP>:3200`
-- Import JSON dashboards from `docker/grafana/dashboards/`.
+For the full endpoint list, see [deployment reference](../docs/reference/deployment.md).
