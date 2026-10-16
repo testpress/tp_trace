@@ -197,7 +197,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) or vector(0)) / (sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])) > 0 or vector(1))) * 100",
+          "expr": "((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__rate_interval])) or vector(0)) / (sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0 or vector(1))) * 100",
           "instant": true,
           "legendFormat": "Error Rate %",
           "range": false,
@@ -268,7 +268,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count(sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__range])) > 0) or vector(0)",
+          "expr": "count(sum by (normalized_operation) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind!=\"SPAN_KIND_INTERNAL\", error=\"true\"}[$__rate_interval])) > 0) or vector(0)",
           "instant": true,
           "legendFormat": "Failing Endpoints",
           "range": false,
@@ -770,7 +770,7 @@
             "uid": "tempo"
           },
           "limit": 50,
-          "query": "{ (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (status = error || span.error = true) }",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (status = error || span.error = true) }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -862,14 +862,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total, project_name)",
+        "definition": "label_values(apm_calls_total{institute_subdomain=~\"${institute:regex}\"}, project_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Project",
         "multi": true,
         "name": "project",
         "options": [],
-        "query": "label_values(apm_calls_total, project_name)",
+        "query": "label_values(apm_calls_total{institute_subdomain=~\"${institute:regex}\"}, project_name)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -919,15 +919,16 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}, normalized_service)",
+        "definition": "query_result((sum by (normalized_service) (increase(apm_calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range])) or sum by (normalized_service) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range]))) > 0)",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
         "multi": false,
         "name": "service",
         "options": [],
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}, normalized_service)",
-        "refresh": 1,
+        "query": "query_result((sum by (normalized_service) (increase(apm_calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range])) or sum by (normalized_service) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range]))) > 0)",
+        "refresh": 2,
+        "regex": "/normalized_service=\"([^\"]+)\"/",
         "sort": 1,
         "type": "query"
       },

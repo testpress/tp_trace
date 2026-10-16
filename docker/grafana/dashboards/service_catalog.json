@@ -1327,7 +1327,7 @@
           "exemplar": false
         }
       ],
-      "title": "+ % Time Spent by Downstream Service",
+      "title": "+ Share of Recorded Span Duration by Downstream Service",
       "type": "timeseries"
     }
   ]

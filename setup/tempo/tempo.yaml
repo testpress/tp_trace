@@ -15,9 +15,17 @@ distributor:
 ingester:
   max_block_duration: 5m
 
+query_frontend:
+  search:
+    # Accept a calendar-month Grafana selection. Tempo still returns only
+    # traces that remain within block_retention.
+    max_duration: 720h
+    # Keep ad-hoc and dashboard searches small enough to remain responsive.
+    max_result_limit: 200
+
 compactor:
   compaction:
-    block_retention: 336h
+    block_retention: 168h
 
 storage:
   trace:

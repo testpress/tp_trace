@@ -106,7 +106,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total, project_name)",
+        "definition": "label_values(apm_calls_total{institute_subdomain=~\"${institute:regex}\"}, project_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Project",
@@ -119,7 +119,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total, project_name)",
+        "query": "label_values(apm_calls_total{institute_subdomain=~\"${institute:regex}\"}, project_name)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -169,7 +169,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}, normalized_service)",
+        "definition": "query_result((sum by (normalized_service) (increase(apm_calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range])) or sum by (normalized_service) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range]))) > 0)",
         "hide": 0,
         "includeAll": false,
         "label": "Service",
@@ -182,8 +182,9 @@
             "value": "django"
           }
         ],
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}, normalized_service)",
-        "refresh": 1,
+        "query": "query_result((sum by (normalized_service) (increase(apm_calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range])) or sum by (normalized_service) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service!=\"pgbouncer\"}[$__range]))) > 0)",
+        "refresh": 2,
+        "regex": "/normalized_service=\"([^\"]+)\"/",
         "sort": 1,
         "type": "query"
       },
@@ -235,7 +236,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", service_version!=\"0.1.0\"}, normalized_operation)",
+        "definition": "query_result((sum by (normalized_operation) (increase(apm_calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", service_version!=\"0.1.0\"}[$__range])) or sum by (normalized_operation) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\"}[$__range]))) > 0)",
         "hide": 0,
         "includeAll": true,
         "label": "Operation",
@@ -248,9 +249,9 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", service_version!=\"0.1.0\"}, normalized_operation)",
+        "query": "query_result((sum by (normalized_operation) (increase(apm_calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", service_version!=\"0.1.0\"}[$__range])) or sum by (normalized_operation) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\"}[$__range]))) > 0)",
         "refresh": 2,
-        "regex": "",
+        "regex": "/normalized_operation=\"([^\"]+)\"/",
         "sort": 1,
         "type": "query"
       },
