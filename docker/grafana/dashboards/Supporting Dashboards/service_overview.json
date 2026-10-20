@@ -290,14 +290,14 @@
   "timezone": "browser",
   "title": "Service Overview — Latency, Throughput & Errors",
   "uid": "generic-service-overview",
-  "version": 1014,
+  "version": 1016,
   "panels": [
     {
       "datasource": {
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Total request volume per second over time",
+      "description": "Total request volume and errors over time for ${service}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -307,19 +307,19 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "req/s",
+            "axisLabel": "req / sec",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "opacity",
+            "drawStyle": "bars",
+            "fillOpacity": 85,
+            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -328,7 +328,7 @@
             "spanNulls": true,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -348,7 +348,38 @@
           },
           "unit": "reqps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hits"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#38bdf8",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef4444",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -357,10 +388,12 @@
         "y": 0
       },
       "id": 6,
+      "interval": "10s",
       "options": {
         "legend": {
           "calcs": [
             "mean",
+            "max",
             "lastNotNull"
           ],
           "displayMode": "table",
@@ -368,8 +401,8 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "pluginVersion": "10.4.1",
@@ -381,13 +414,27 @@
           },
           "editorMode": "code",
           "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__rate_interval]))\nor\nsum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "Throughput (RPS)",
+          "interval": "10s",
+          "legendFormat": "Hits",
           "range": true,
           "refId": "A",
           "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`, error=\"true\"}[$__rate_interval]))\nor\nsum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`, error=\"true\"}[$__rate_interval]))\nor\n(0 * ((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__rate_interval]))\nor\nsum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__rate_interval])))))) or vector(0)",
+          "interval": "10s",
+          "legendFormat": "Errors",
+          "range": true,
+          "refId": "B",
+          "exemplar": false
         }
       ],
-      "title": "Requests Throughput",
+      "title": "Requests and Errors",
       "type": "timeseries"
     },
     {
