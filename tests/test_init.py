@@ -82,6 +82,25 @@ def test_config_from_env_and_kwargs(monkeypatch):
     assert cfg2.headers["api-key"] == "secret123"
 
 
+def test_metrics_export_interval_default_and_overrides(monkeypatch):
+    for name in (
+        "TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS",
+        "TP_DOG_METRICS_EXPORT_INTERVAL_MILLIS",
+        "OTEL_METRIC_EXPORT_INTERVAL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    assert SDKConfig.from_env_and_kwargs().metrics_export_interval_millis == 60000
+
+    monkeypatch.setenv("TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS", "15000")
+    assert SDKConfig.from_env_and_kwargs().metrics_export_interval_millis == 15000
+    assert (
+        SDKConfig.from_env_and_kwargs(metrics_export_interval_millis=30000)
+        .metrics_export_interval_millis
+        == 30000
+    )
+
+
 def test_disabled_mode():
     """Verify that disabled mode prevents spans from being recorded."""
     exporter = InMemorySpanExporter()

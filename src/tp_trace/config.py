@@ -230,7 +230,7 @@ class SDKConfig:
     extract_trace_context: Any = True
     metrics_endpoint: Optional[str] = None
     metrics_enabled: bool = True
-    metrics_export_interval_millis: int = 5000
+    metrics_export_interval_millis: int = 60000
     # Masking -> exposure toggles. Defaults expose infrastructure details
     # (Redis endpoint, Redis command contents, URL query strings), matching
     # dd-trace. Deployments that do NOT own the infra can restore masking.
@@ -391,9 +391,9 @@ class SDKConfig:
                 or os.getenv("TP_DOG_METRICS_EXPORT_INTERVAL_MILLIS")
                 or os.getenv("OTEL_METRIC_EXPORT_INTERVAL")
             )
-            resolved_metrics_interval = int(raw_interval) if raw_interval is not None else 5000
+            resolved_metrics_interval = int(raw_interval) if raw_interval is not None else 60000
         except Exception:
-            resolved_metrics_interval = 5000
+            resolved_metrics_interval = 60000
 
         env_headers = _parse_headers(
             os.getenv("TP_TRACE_HEADERS")

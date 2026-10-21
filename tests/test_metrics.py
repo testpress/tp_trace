@@ -321,6 +321,7 @@ def test_default_init_creates_otlp_metric_reader():
     assert isinstance(reader, PeriodicExportingMetricReader)
     assert isinstance(reader._exporter, SafeMetricExporter)
     assert reader._exporter._endpoint == "http://collector.local:4318/v1/metrics"
+    assert reader._export_interval_millis == 60000
 
 
 def test_metrics_disabled_flag():

@@ -165,7 +165,7 @@ def create_red_metrics_recorder(
                     headers=config.headers or None,
                 )
                 safe_exporter = SafeMetricExporter(raw_exporter, endpoint=otlp_metrics_ep)
-                interval_ms = getattr(config, "metrics_export_interval_millis", 5000)
+                interval_ms = getattr(config, "metrics_export_interval_millis", 60000)
                 reader = PeriodicExportingMetricReader(
                     safe_exporter,
                     export_interval_millis=interval_ms,
