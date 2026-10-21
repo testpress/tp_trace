@@ -22,13 +22,11 @@ from tp_trace.safety import attempt
 logger = logging.getLogger("tp_trace.metrics")
 
 # Explicit bucket boundaries in milliseconds, exactly matching the OTel Collector
-# spanmetrics configuration for backwards compatibility with Grafana APM dashboards:
+# spanmetrics configuration for backwards compatibility with Grafana APM dashboards.
+# Reduced from 11 to 8 explicit boundaries (12 to 9 total buckets including +Inf).
 LATENCY_BUCKETS_MS: List[float] = [
-    2.0,
     5.0,
-    10.0,
     25.0,
-    50.0,
     100.0,
     250.0,
     500.0,
