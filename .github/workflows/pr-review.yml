@@ -62,7 +62,7 @@ jobs:
               when a shared change affects deployment. Do not assume it matches dev/.
             - Read pyproject.toml, applicable AGENTS.md files, and relevant docs before
               judging contracts. Python >=3.8 and Django >=4.2 are supported; CI currently
-              checks Python 3.8, 3.11, and 3.12. Verify these against the PR's actual files.
+              checks Python 3.8 only. Verify these against the PR's actual files.
 
             ## Review method
             - Read the PR description and diff, then inspect relevant callers, tests, and
