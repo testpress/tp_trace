@@ -1,0 +1,173 @@
+---
+name: commit
+description: ALWAYS use this skill when committing code changes — never commit directly without it. Creates commits following conventions with proper conventional commit format and issue references. Trigger on any commit, git commit, save changes, or commit message task.
+---
+
+# Commit Messages
+
+Follow these conventions when creating commits.
+
+## Prerequisites
+
+Before committing, always check the current branch:
+
+```bash
+git branch --show-current
+```
+
+**If you're on `main` or `master`, you MUST create a feature branch first** — unless the user explicitly asked to commit to main. Do not ask the user whether to create a branch; just proceed with branch creation. The `create-branch` skill will still propose a branch name for the user to confirm.
+
+Use the `create-branch` skill to create the branch. After `create-branch` completes, verify the current branch has changed before proceeding:
+
+```bash
+git branch --show-current
+```
+
+If still on `main` or `master` (e.g., the user aborted branch creation), stop — do not commit.
+
+## Format
+
+```
+<type>: <subject>
+
+<body>
+
+<footer>
+```
+
+All lines must stay under 100 characters.
+
+## Commit Types
+
+| Type | Purpose |
+|------|---------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `ref` | Refactoring (no behavior change) |
+| `perf` | Performance improvement |
+| `docs` | Documentation only |
+| `test` | Test additions or corrections |
+| `build` | Build system or dependencies |
+| `ci` | CI configuration |
+| `chore` | Maintenance tasks |
+| `style` | Code formatting (no logic change) |
+| `meta` | Repository metadata |
+| `license` | License changes |
+
+## Subject Line Rules
+
+- Use imperative, present tense: "Add feature" not "Added feature"
+- Capitalize the first letter
+- No period at the end
+- Maximum 70 characters
+
+## Body Guidelines
+
+- Explain **what** and **why**, not how (implementation details are visible in the diff)
+- Use imperative mood and present tense
+- Include motivation for the change
+- Contrast with previous behavior when relevant
+- Use real newlines in commit bodies; never include literal `\n` sequences
+- **Behavior-focused**, not implementation-focused: describe the change in terms of user-visible behavior, not specific code or functions
+- Use bullet points when they improve clarity
+
+**For bug fixes (type `fix`):** Use the Issue → Cause → Fix format:
+- **What was the issue?** – Describe the problem users faced
+- **What caused the issue?** – Explain why it happened
+- **How is it fixed?** – Describe the change that resolves it
+
+## Commit Command Hygiene
+
+When creating commits from the CLI, do not embed escaped newlines like `\n` inside `-m` strings. That produces literal backslash characters in the final commit message.
+
+Prefer one of these patterns:
+
+```bash
+git commit -m "type: Subject" \
+  -m "First paragraph with real line wrapping.
+
+Second paragraph.
+
+Fixes GH-1234"
+```
+
+```bash
+git commit
+```
+
+Use the editor flow when the message needs careful formatting.
+
+## Footer: Issue References
+
+Reference issues in the footer using these patterns:
+
+```
+Fixes GH-1234
+Fixes #1234
+Refs LINEAR-ABC-123
+```
+
+- `Fixes` closes the issue when merged
+- `Refs` links without closing
+
+**For bug fixes (type `fix`):** Always ask the user for a SENTRY issue tag. Include it in the footer as:
+```
+Fixes SENTRY-XXXX
+```
+
+## Examples
+
+### Simple fix
+
+```
+fix: Handle null response in user endpoint
+
+- The user API returned null for deleted accounts, causing a crash in the
+  dashboard when accessing user properties
+- This occurred because deleted accounts were not filtered out before
+  processing the response
+- Fixed by adding a null check before accessing user properties
+
+Fixes GH-5678
+```
+
+### Feature
+
+```
+feat: Add Slack thread replies for alert updates
+
+When an alert is updated or resolved, post a reply to the original
+Slack thread instead of creating a new message. This keeps related
+notifications grouped together.
+
+Refs GH-1234
+```
+
+### Refactor
+
+```
+ref: Extract common validation logic to shared module
+
+Move duplicate validation code from three endpoints into a shared
+validator class. No behavior change.
+```
+
+## Revert Format
+
+```
+revert: feat: Add new endpoint
+
+This reverts commit abc123def456.
+
+Reason: Caused performance regression in production.
+```
+
+## Principles
+
+- Each commit should be a single, stable change
+- Commits should be independently reviewable
+- The repository should be in a working state after each commit
+
+## References
+
+- [Conventional Commits](https://www.conventionalcommits.org/)

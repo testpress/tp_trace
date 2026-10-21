@@ -60,7 +60,7 @@ jobs:
             - grafana/: canonical dashboards and datasource provisioning.
             - setup/: separate deployment configuration; preserve its purpose and check it
               when a shared change affects deployment. Do not assume it matches dev/.
-            - Read pyproject.toml, applicable AGENTS.md files, and relevant docs before
+            - Read pyproject.toml, docs/code-conventions.md, applicable AGENTS.md files, and relevant docs before
               judging contracts. Python >=3.8 and Django >=4.2 are supported; CI currently
               checks Python 3.8 only. Verify these against the PR's actual files.
 

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "commit": {
+      "source": "harinath01/skills",
+      "sourceType": "github",
+      "skillPath": "commit/SKILL.md",
+      "computedHash": "ddd8b2d5772d9cf6a05548cd78d0f5b0dba017dde2d6bdc4de8a591a72a35e45"
+    },
+    "create-branch": {
+      "source": "harinath01/skills",
+      "sourceType": "github",
+      "skillPath": "create-branch/SKILL.md",
+      "computedHash": "dba51a175028d49a9fd817d4ba2f55d63d9338f55e84fd7dd2922d144200b5a3"
+    },
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "computedHash": "ede7254edbd22fcab97a0941511f7d440d8f9a249348fea97c50987ad5501674"
+    },
+    "otel-collector": {
+      "source": "ollygarden/opentelemetry-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/otel-collector/SKILL.md",
+      "computedHash": "664bdb76f6c279aaa8f675ef079948b9c12942cb8b747f638595296ac353c96f"
+    },
+    "otel-ottl": {
+      "source": "ollygarden/opentelemetry-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/otel-ottl/SKILL.md",
+      "computedHash": "760f6d6b8f20715be5b87374678da9bec6322b05cf8d9eb9ee20732e9535ad01"
+    },
+    "otel-python": {
+      "source": "ollygarden/opentelemetry-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/otel-python/SKILL.md",
+      "computedHash": "7a8cd8cbfe6eae0dd0c33ed961ba19673ccd886e5ee31ebacfb66cf84b468bdb"
+    },
+    "otel-semantic-conventions": {
+      "source": "ollygarden/opentelemetry-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/otel-semantic-conventions/SKILL.md",
+      "computedHash": "346f7f4d239eddbf632a6bad1b9050feddc13746ba1dbd75bd81550f4f25fc81"
+    },
+    "otel-telemetrygen": {
+      "source": "ollygarden/opentelemetry-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/otel-telemetrygen/SKILL.md",
+      "computedHash": "72124ea3d21a23feff19c80bc0ef3cccc03cfba9756f660973972dba6203d4a8"
+    }
+  }
+}

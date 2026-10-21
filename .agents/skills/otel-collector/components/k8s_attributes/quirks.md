@@ -1,0 +1,37 @@
+# `k8s_attributes`: known quirks
+
+## No enrichment usually means an association miss
+
+If telemetry passes through with no `k8s.*` attributes added, the record almost never matched a pod. Walk the [pod_association](configuration.md#pod_association) order: the default starts with the `k8s.pod.ip` resource attribute, then the connection IP. Data that arrives without a pod IP and without a usable connection (e.g. through a gateway) matches nothing. Inspect the incoming record with a `debug` exporter **before** the processor to see what it actually carries, then add a `pod_association` on an attribute the data still has (`k8s.pod.uid`, or `k8s.pod.name` + `k8s.namespace.name`). RBAC gaps produce the same symptom — check with `kubectl auth can-i get pods --as=system:serviceaccount:<ns>:otel-collector`.
+
+## Connection-based association breaks after batching or load balancing
+
+The `from: connection` source reads the IP off the incoming gRPC/HTTP connection. Anything that re-originates the connection — a `batch` processor upstream, a load balancer, a gateway hop — drops that context, and connection association silently stops working. When telemetry crosses a network boundary, switch to a `resource_attribute` source (have a passthrough agent stamp `k8s.pod.ip`, or associate on `k8s.pod.uid`/`k8s.pod.name`).
+
+## Memory scales with pods watched — filter
+
+Without a `filter`, a DaemonSet caches metadata for **every pod in the cluster** (~5 KB each), which OOMKills the collector at scale. Set `filter.node_from_env_var: KUBE_NODE_NAME` (DaemonSet) or `filter.namespace` (single-namespace collector). Extracting labels/annotations `from:` a workload adds another watch (+~30% memory) — only extract what you consume.
+
+## Container attributes need a container identifier
+
+`container.image.name`, `container.image.tag`, `k8s.container.name`, etc. are only added when the record already carries a container identifier — `container.id` (recommended) or `k8s.container.name`. For a multi-container pod without one, the processor can't tell which container the data came from. With `k8s.container.name` but no `k8s.container.restart_count`, it may resolve the wrong container instance; add `k8s.container.restart_count` for an accurate `container.id`.
+
+## The `regex` value-extraction field was removed
+
+The old `extract.labels[].regex` / `extract.annotations[].regex` fields (which parsed a **value** out of a label/annotation) no longer exist — the `k8sattr.fieldExtractConfigRegex.disallow` gate that disallowed them went Stable and was then removed. Extract the full value here, then parse it with `transform` and OTTL's `ExtractPatterns`. This is distinct from `key_regex`, which matches label/annotation **keys** and still works.
+
+## Semantic-convention label/annotation format changed in v0.161.0
+
+Since v0.161.0 the `processor.k8sattributes.EmitV1K8sConventions` and `processor.k8sattributes.DontEmitV0K8sConventions` gates are **Beta (enabled by default)**, so label/annotation attributes use the **singular** v1 semconv form (`k8s.pod.label.<key>`, `k8s.node.annotation.<key>`, `k8s.namespace.label.<key>`, …) and the plural v0 form (`k8s.pod.labels.<key>`) is no longer emitted. The same gates switch `container.image.tag` (string) → `container.image.tags` (slice). Upgrading from ≤ v0.160 silently renames these attributes — repoint dashboards/queries, or dual-emit during migration with `--feature-gates=-processor.k8sattributes.DontEmitV0K8sConventions,processor.k8sattributes.EmitV1K8sConventions`; disable both to restore the old names. Enabling `DontEmitV0K8sConventions` without `EmitV1K8sConventions` is a startup error. The gates affect only the **default** `tag_name`; an explicit `tag_name` is unchanged. (The older `k8sattr.labelsAnnotationsSingular.allow` gate was **removed** in v0.155.0.)
+
+The internal-telemetry gates `processor.k8sattributes.telemetry.enableNewFormatMetrics` and
+`processor.k8sattributes.telemetry.disableOldFormatMetrics` are Beta and enabled by default in
+v0.160.0; the new metric names are emitted and old-format metrics are disabled by default.
+
+## Don't use it for sidecars, or outside Kubernetes
+
+For a sidecar, inject pod metadata via the Kubernetes downward API as env vars — it's simpler and needs no RBAC. Outside Kubernetes there is no API to watch; use [`resource_detection`](../resource_detection/README.md) for cloud/host attributes instead. Host-network pods also can't be told apart by IP — associate them on `k8s.pod.name`/`k8s.pod.uid`.
+
+## Stability caveats
+
+Traces, metrics, and logs are Stable since v0.161.0 (the Go module is versioned `v1.x`); profiles are Development. Ongoing efficiency work (e.g. `PartialObjectMetadata` informers, and the `otelcol.k8s.pod.association` internal metric — disabled in v0.151.0, then re-enabled in v0.153.0 with a low-cardinality `pod_identifier` attribute) means behavior and internal metrics still shift between releases — confirm against the upstream README for your exact collector version.

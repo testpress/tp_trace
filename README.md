@@ -28,3 +28,8 @@ The SDK exports OTLP traces to the team's telemetry endpoint. Tempo stores the t
 ## Requirements
 
 Python 3.8 or later is required. The Django integration supports Django 4.2 or later. Each optional integration is enabled only when its library is installed.
+
+## Contributing
+
+- [Code conventions](docs/code-conventions.md)
+- [Agent instructions and maintenance skills](AGENTS.md)
