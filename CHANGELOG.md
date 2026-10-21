@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.5] - 2026-10-21
+
+### Performance
+- Changed the default SDK metrics export interval from 5 seconds to 60 seconds. `TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS` and the explicit configuration argument can override it.
+- Reduced the HTTP duration histogram from 11 to 8 explicit boundaries (12 to 9 bucket series including `+Inf`).
+- Optimized Grafana queries to focus on active telemetry and avoid duplicate request counts.
+
+### Changed
+- Improved operation filtering and latency visualizations in the Grafana dashboards.
+- Reorganized the documentation around setup, deployment, and investigation workflows.
+
+---
+
 ## [0.1.4] - 2026-10-15
 
 ### Fixed
