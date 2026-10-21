@@ -5,10 +5,12 @@ datasources:
     uid: _IY366MMk
     type: prometheus
     access: proxy
-    url: http://65.21.236.56:9090
+    url: http://prometheus:9090
     isDefault: true
+    version: 3
+    editable: true
     jsonData:
-      timeInterval: 15s
+      timeInterval: 1m
       exemplarTraceIdDestinations:
         - name: trace_id
           datasourceUid: tempo
@@ -17,13 +19,14 @@ datasources:
     uid: tempo
     type: tempo
     access: proxy
-    url: http://65.21.236.56:3200
-
+    url: http://tempo:3200
+    version: 3
+    editable: true
     jsonData:
       httpMethod: GET
       defaultQueryType: search
       tracesToMetrics:
-        datasourceUid: prometheus
+        datasourceUid: _IY366MMk
         tags: [{ key: 'service.name', value: 'project_name' }, { key: 'job' }]
         queries:
           - name: 'Throughput'
@@ -31,10 +34,8 @@ datasources:
           - name: 'Latency (p95)'
             query: 'histogram_quantile(0.95, sum(rate(apm_duration_milliseconds_bucket{$$__tags}[$$__rate_interval])) by (le))'
       serviceMap:
-        datasourceUid: prometheus
+        datasourceUid: _IY366MMk
       search:
         hide: false
       nodeGraph:
         enabled: true
-
-

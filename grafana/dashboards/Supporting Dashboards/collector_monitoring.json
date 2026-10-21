@@ -33,7 +33,7 @@
       "includeVars": false,
       "keepTime": true,
       "targetBlank": false,
-      "title": "\u2190 Back to Service Catalog",
+      "title": "← Back to Service Catalog",
       "type": "link",
       "url": "/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
     },
@@ -7512,7 +7512,7 @@
       "type": "text"
     }
   ],
-  "refresh": "10s",
+  "refresh": "30s",
   "schemaVersion": 42,
   "style": "dark",
   "tags": [
@@ -7555,7 +7555,7 @@
         "type": "custom"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -7674,7 +7674,7 @@
         "type": "interval"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "allowCustomValue": true,
         "current": {},
         "datasource": {
@@ -7698,7 +7698,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "allowCustomValue": true,
         "current": {},
         "datasource": {
@@ -7722,7 +7722,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "allowCustomValue": true,
         "current": {},
         "datasource": {
@@ -7987,7 +7987,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "OpenTelemetry Collector \u2014 Health, Resource Usage & Metrics",
+  "title": "OpenTelemetry Collector — Health, Resource Usage & Metrics",
   "uid": "tp-trace-otel-collector-health",
   "version": 6
 }

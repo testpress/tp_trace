@@ -1,6 +1,6 @@
 # Dashboards reference
 
-The repository-root Compose file provisions Grafana. Its data sources are Prometheus and Tempo. The dashboard files are in `docker/grafana/dashboards/`.
+The repository-root Compose file provisions Grafana. Its data sources are Prometheus and Tempo. The dashboard files are in `grafana/dashboards/`.
 
 | Dashboard | Purpose |
 |---|---|

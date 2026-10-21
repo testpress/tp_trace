@@ -1,0 +1,33 @@
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+ingester:
+  max_block_duration: 5m
+
+query_frontend:
+  search:
+    max_duration: 720h
+    max_result_limit: 200
+
+compactor:
+  compaction:
+    block_retention: 168h
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/lib/tempo/traces
+    wal:
+      path: /var/lib/tempo/wal

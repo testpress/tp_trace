@@ -1,0 +1,277 @@
+name: tp-trace-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tp-postgres
+    restart: on-failure:5
+    environment:
+      POSTGRES_DB: django_otel
+      POSTGRES_USER: django
+      POSTGRES_PASSWORD: django
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django -d django_otel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      tp-net:
+        aliases:
+          - postgres
+
+  slave1db:
+    image: postgres:16-alpine
+    container_name: tp-slave1db
+    restart: on-failure:5
+    environment:
+      POSTGRES_DB: django_otel_slave1
+      POSTGRES_USER: django
+      POSTGRES_PASSWORD: django
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:5434:5432"
+    volumes:
+      - slave1_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django -d django_otel_slave1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      tp-net:
+        aliases:
+          - slave1db
+          - slave1
+
+  slave2db:
+    image: postgres:16-alpine
+    container_name: tp-slave2db
+    restart: on-failure:5
+    environment:
+      POSTGRES_DB: django_otel_slave2
+      POSTGRES_USER: django
+      POSTGRES_PASSWORD: django
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:5435:5432"
+    volumes:
+      - slave2_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django -d django_otel_slave2"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      tp-net:
+        aliases:
+          - slave2db
+          - slave2
+
+  slave3db:
+    image: postgres:16-alpine
+    container_name: tp-slave3db
+    restart: on-failure:5
+    environment:
+      POSTGRES_DB: django_otel_slave3
+      POSTGRES_USER: django
+      POSTGRES_PASSWORD: django
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:5436:5432"
+    volumes:
+      - slave3_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django -d django_otel_slave3"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      tp-net:
+        aliases:
+          - slave3db
+          - slave3
+
+  external-api:
+    image: mccutchen/go-httpbin:v2.14.0
+    container_name: tp-external-api
+    restart: on-failure:5
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:8080:8080"
+    networks:
+      tp-net:
+        aliases:
+          - external-api
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${REDIS_PORT:-6379}:6379"
+    container_name: tp-redis
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      tp-net:
+        aliases:
+          - redis
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: tp-tempo
+    restart: on-failure:5
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/lib/tempo
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:3200:3200"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3200/ready || exit 1"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+    networks:
+      tp-net:
+        aliases:
+          - tempo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.119.0
+    container_name: tp-otel-collector
+    restart: on-failure:5
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      tempo:
+        condition: service_healthy
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_GRPC_PORT:-4317}:4317"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_HTTP_PORT:-4318}:4318"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:8888:8888"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:13133:13133"
+    networks:
+      tp-net:
+        aliases:
+          - collector
+          - otel-collector
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: tp-prometheus
+    restart: on-failure:5
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-remote-write-receiver"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:9090:9090"
+    depends_on:
+      - otel-collector
+    networks:
+      tp-net:
+        aliases:
+          - prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    container_name: tp-grafana
+    restart: on-failure:5
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor,tempoServiceMap
+      GF_PANELS_DISABLE_SANITIZE_HTML: "true"
+      GF_INSTALL_PLUGINS: marcusolsson-dynamictext-panel
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: marcusolsson-dynamictext-panel
+    volumes:
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      tp-net:
+        aliases:
+          - grafana
+
+  sample-app:
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 30s
+    build:
+      context: ..
+      dockerfile: sample-app/Dockerfile
+    container_name: tp-sample-app
+    restart: on-failure:5
+    environment:
+      DJANGO_DB_HOST: postgres
+      DJANGO_DB_PORT: "5432"
+      SLAVE1_DB_HOST: slave1db
+      SLAVE1_DB_PORT: "5432"
+      SLAVE2_DB_HOST: slave2db
+      SLAVE2_DB_PORT: "5432"
+      SLAVE3_DB_HOST: slave3db
+      SLAVE3_DB_PORT: "5432"
+      EXTERNAL_API_URL: http://external-api:8080/get
+      DJANGO_REDIS_URL: redis://redis:6379/1
+      DJANGO_DEV_APP_PORT: ${APP_PORT:-8002}
+      TP_TRACE_ENDPOINT: http://otel-collector:4318
+      GUNICORN_WORKERS: "2"
+    volumes:
+      - ../sample-app/api:/app/api
+      - ../sample-app/config:/app/config
+      - ../src:/app/src
+    command: ["sh", "-c", "python manage.py setup_databases && exec gunicorn config.wsgi:application --config gunicorn.conf.py"]
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${APP_PORT:-8002}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      slave1db:
+        condition: service_healthy
+      slave2db:
+        condition: service_healthy
+      slave3db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      external-api:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    networks:
+      tp-net:
+        aliases:
+          - sample-app
+
+networks:
+  tp-net:
+    name: tp-dev-net
+
+volumes:
+  postgres_data:
+  slave1_data:
+  slave2_data:
+  slave3_data:
+  tempo_data:
+  prometheus_data:
+  grafana_data:

@@ -2,6 +2,7 @@ import threading
 import time
 
 import requests
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection, transaction
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
@@ -517,7 +518,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 class ExternalCallView(APIView):
     def get(self, request):
-        url = request.query_params.get("url", "https://httpbin.org/get")
+        url = request.query_params.get("url", settings.EXTERNAL_API_URL)
         timeout = int(request.query_params.get("timeout", 5))
         try:
             resp = requests.get(url, timeout=timeout)

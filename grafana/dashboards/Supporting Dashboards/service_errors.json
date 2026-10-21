@@ -818,7 +818,7 @@
   "templating": {
     "list": [
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -852,7 +852,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "All",
@@ -875,7 +875,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -909,7 +909,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "django",
@@ -947,7 +947,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {

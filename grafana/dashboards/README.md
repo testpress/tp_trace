@@ -16,7 +16,7 @@ For instrumentation and implementation details, see the [tp_trace repository](ht
 
 This directory is the Git Sync source of truth. Configure the existing Grafana
 instance to sync this repository and point its dashboard path at
-`docker/grafana/dashboards`. Keep the `Supporting Dashboards/` directory in the
+`grafana/dashboards`. Keep the `Supporting Dashboards/` directory in the
 same relative location: it contains the folders and drill-down dashboards used
 by the Service Catalog.
 

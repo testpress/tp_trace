@@ -117,7 +117,7 @@
         "type": "datasource"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -151,7 +151,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -185,7 +185,7 @@
         "type": "query"
       },
       {
-        "allValue": null,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -233,7 +233,7 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {

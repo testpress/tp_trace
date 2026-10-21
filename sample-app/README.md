@@ -1,6 +1,6 @@
 # tp_trace sample Django application
 
-This directory is a Django application used to exercise the SDK's integrations. It is not a self-contained observability deployment. Provision Prometheus and the Collector through the team's Ansible repository, deploy Tempo from [`setup/`](../setup/), and configure the application with the collector endpoint.
+This directory is a Django application used to exercise the SDK's integrations. To run it with local PostgreSQL, Redis, the Collector, Tempo, Prometheus, and Grafana, follow the [development setup](../dev/README.md).
 
 The application contains examples for PostgreSQL, replicas, PgBouncer, Redis, outbound HTTP, Boto3/MinIO, errors, slow requests, and Django templates.
 

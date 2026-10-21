@@ -12,6 +12,40 @@ class Command(BaseCommand):
         db_aliases = list(settings.DATABASES.keys())
         self.stdout.write(f"Setting up databases: {db_aliases}")
 
+        # Ensure target databases exist in PostgreSQL
+        try:
+            import psycopg2
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+            for alias in db_aliases:
+                db_cfg = settings.DATABASES.get(alias, {})
+                if db_cfg.get("ENGINE") == "django.db.backends.postgresql":
+                    target_db_name = db_cfg.get("NAME")
+                    host = db_cfg.get("HOST", "postgres")
+                    port = db_cfg.get("PORT", "5432")
+                    user = db_cfg.get("USER", "django")
+                    password = db_cfg.get("PASSWORD", "django")
+                    try:
+                        conn = psycopg2.connect(
+                            dbname="postgres",
+                            user=user,
+                            password=password,
+                            host=host,
+                            port=port,
+                        )
+                        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+                        with conn.cursor() as cur:
+                            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target_db_name,))
+                            if not cur.fetchone():
+                                self.stdout.write(f"Creating database '{target_db_name}' on {host}:{port}...")
+                                cur.execute(f'CREATE DATABASE "{target_db_name}"')
+                        conn.close()
+                    except Exception as conn_err:
+                        # Database may already exist or connecting via default db name
+                        pass
+        except Exception as e:
+            self.stderr.write(f"Notice: could not auto-create databases ({e}); continuing.")
+
+
         for db in db_aliases:
             self.stdout.write(f"Running migrations for database '{db}'...")
             try:

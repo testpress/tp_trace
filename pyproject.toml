@@ -25,6 +25,8 @@ django = [
 ]
 dev = [
     "pytest>=7.0.0",
+    "botocore>=1.37.38",
+    "build>=1.0.0",
     "requests>=2.25.0",
     # Redis client for the Redis integration tests: the wiring tests need the
     # package, and the end-to-end tests additionally run against a local
@@ -47,8 +49,3 @@ testpaths = ["tests"]
 # Keep bare `pytest`/`pytest .` from wandering outside the suite if another
 # throwaway scripts directory (or a vendored copy of tests) is ever added.
 norecursedirs = ["scratch", "*.egg", ".*", "build", "dist", "node_modules"]
-
-[dependency-groups]
-dev = [
-    "botocore>=1.37.38",
-]

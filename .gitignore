@@ -13,4 +13,7 @@ scratch/
 .env.local
 .plan/
 build/
+dist/
+.coverage
+htmlcov/
 

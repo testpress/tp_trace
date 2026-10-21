@@ -28,7 +28,13 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-CSRF_TRUSTED_ORIGINS = ["http://localhost:8001", "http://127.0.0.1:8001"]
+_dev_app_port = os.environ.get("DJANGO_DEV_APP_PORT", "8002")
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
+    f"http://localhost:{_dev_app_port}",
+    f"http://127.0.0.1:{_dev_app_port}",
+]
 
 
 # Application definition

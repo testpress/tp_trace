@@ -41,7 +41,7 @@ def setup_telemetry():
             sample_rate=1.0,
             endpoint_sample_rules={
                 "/api/s3-storage/": 1.0,
-                "/api/multi-db/" : 0
+                "/api/multi-db/": 1.0
             },
         )
         logger.info("tp_trace initialized with auto-patching")

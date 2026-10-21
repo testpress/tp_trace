@@ -1,23 +1,4 @@
-services:
-  grafana:
-    image: grafana/grafana:13.2.3
-    container_name: tp-grafana
-    ports:
-      - "3000:3000"
-    environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
-      GF_AUTH_DISABLE_LOGIN_FORM: "false"
-      GF_SECURITY_ALLOW_EMBEDDING: "true"
-      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor,tempoServiceMap
-      GF_PANELS_DISABLE_SANITIZE_HTML: "true"
-      GF_INSTALL_PLUGINS: marcusolsson-dynamictext-panel
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: marcusolsson-dynamictext-panel
-    volumes:
-      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
+name: tp-trace-dev
 
-volumes:
-  grafana_data:
+include:
+  - path: dev/docker-compose.yml

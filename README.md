@@ -6,6 +6,7 @@ The SDK exports OTLP traces to the team's telemetry endpoint. Tempo stores the t
 
 ## Start here
 
+- [Run the local development stack](dev/README.md)
 - [Tutorial: see your first trace](docs/tutorials/first-trace.md)
 - [How-to: configure tp_trace](docs/how-to/configure-tp-trace.md)
 - [How-to: investigate a slow or failing request](docs/how-to/investigate-a-request.md)

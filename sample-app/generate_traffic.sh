@@ -16,7 +16,7 @@
 
 set -e
 
-BASE_URL="${BASE_URL:-http://localhost:8001}"
+BASE_URL="${BASE_URL:-http://localhost:8002}"
 MODE="loop"
 DURATION=0
 SLEEP_DELAY=0.3
@@ -161,7 +161,7 @@ while [[ "$#" -gt 0 ]]; do
     echo "  -s, --sleep SEC   Delay between request cycles in seconds (default: 0.3)"
     echo "  -c, --concurrency N  Run N parallel workers (default: 1)"
     echo "  -n, --count N        Run exactly N requests then exit (default: unlimited)"
-    echo "  -u, --url URL     Base URL (default: http://localhost:8001)"
+    echo "  -u, --url URL     Base URL (default: http://localhost:8002)"
     echo "  -v, --verbose     Print response body snippets"
     echo "  -h, --help        Show this help message"
     echo ""

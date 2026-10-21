@@ -14,3 +14,11 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 application = get_wsgi_application()
+
+# Gunicorn does not serve Django's static assets. This sample uses Django's
+# development handler when DEBUG is enabled so the admin works locally.
+from django.conf import settings
+from django.contrib.staticfiles.handlers import StaticFilesHandler
+
+if settings.DEBUG:
+    application = StaticFilesHandler(application)
