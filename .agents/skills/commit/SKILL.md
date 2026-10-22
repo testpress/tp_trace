@@ -25,6 +25,29 @@ git branch --show-current
 
 If still on `main` or `master` (e.g., the user aborted branch creation), stop — do not commit.
 
+## Version Tagging
+
+Version numbers live in exactly two files:
+
+- `pyproject.toml` — `version = "X.Y.Z"` (packaging metadata)
+- `src/tp_trace/version.py` — `__version__ = "X.Y.Z"` (runtime value)
+
+Do not hand-edit either file during normal feature work. Version bumps and tags
+are release work, handled by the `release.yml` GitHub Actions workflow (see
+`AGENTS.md`). `CHANGELOG.md` is also human-maintained and is not rewritten by
+the workflow.
+
+Pre-release tags mark in-progress work on a release track:
+
+- Tag format: `vX.Y.Z-rc.N` (also `alpha`, `beta`).
+- Tag the commit that introduces the change, e.g.
+  `git tag -a "v0.1.7-rc.1" -m "Pre-release for v0.1.7"`.
+- On release, the pre-release tag is superseded by the final `vX.Y.Z` tag that
+  the release workflow creates and pushes.
+- Push tags explicitly: `git push origin "vX.Y.Z-rc.N"`.
+
+Do not create final `vX.Y.Z` tags by hand — the release workflow owns them.
+
 ## Format
 
 ```

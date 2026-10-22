@@ -20,6 +20,24 @@ or later. Check `pyproject.toml` for the declared dependency contracts.
 - Preserve existing user changes and persistent development data.
 - Version and changelog updates belong to explicit release work.
 
+## Releases
+
+The release workflow is manual via GitHub Actions (`workflow_dispatch`):
+
+- Choose `bump_type`: `patch`, `minor`, or `major`.
+- The workflow reads the current version from `pyproject.toml`, computes the
+  bumped version (major/minor/patch), updates it with `sed` in
+  `pyproject.toml` and `src/tp_trace/version.py`, commits the bump, creates an
+  annotated git tag, and pushes both.
+- It then builds with `uv build` and publishes to PyPI with `uv publish`.
+- A `dry_run` option skips tag creation and publishing.
+- Changelog edits are human-maintained; the workflow does not touch
+  `CHANGELOG.md`.
+
+Pre-release tagging convention: every commit on a release track maintains a
+pre-release tag (e.g. `vX.Y.Z-rc.1`); on release the pre-release tag is advanced
+and the final version tag (`vX.Y.Z`) is cut.
+
 ## Telemetry safety
 
 Telemetry failures must never prevent application execution, execute application
