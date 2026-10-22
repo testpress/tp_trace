@@ -48,6 +48,12 @@
       "sourceType": "github",
       "skillPath": "skills/otel-telemetrygen/SKILL.md",
       "computedHash": "72124ea3d21a23feff19c80bc0ef3cccc03cfba9756f660973972dba6203d4a8"
+    },
+    "pr-description-writer": {
+      "source": "mohitagw15856/pm-claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pr-description-writer/SKILL.md",
+      "computedHash": "ab4f110f55c278916db85592fd71c75bbdd4f3ef3176548520f0b48135887cf6"
     }
   }
 }
