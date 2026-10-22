@@ -31,7 +31,7 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
     concurrency:
-      group: pr-review-${{ env.PR_NUMBER }}
+      group: pr-review-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: true
 
     permissions:
