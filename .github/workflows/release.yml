@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: 'Dry run - do not publish or create tag'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # id-token: write needed for PyPI trusted publishing
+    permissions:
+      contents: write
+      id-token: write
+
+    env:
+      BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Get current version
+        id: get_version
+        run: |
+          CURRENT_VERSION=$(sed -n 's/^version = "\([0-9.]*\)"$/\1/p' pyproject.toml | head -n1)
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "ERROR: Could not extract version from pyproject.toml"
+            exit 1
+          fi
+          echo "Current version: $CURRENT_VERSION"
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: calc_version
+        run: |
+          CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
+          BUMP_TYPE="${{ env.BUMP_TYPE }}"
+
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+
+          case "$BUMP_TYPE" in
+            major)
+              NEW_VERSION="$((major + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="$major.$((minor + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="$major.$minor.$((patch + 1))"
+              ;;
+            *)
+              echo "Invalid bump type: $BUMP_TYPE"
+              exit 1
+              ;;
+          esac
+
+          echo "New version: $NEW_VERSION"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update pyproject.toml with new version using sed
+        run: |
+          CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
+          NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
+
+          echo "Updating pyproject.toml from $CURRENT_VERSION to $NEW_VERSION"
+          sed -i "s/^version = \"$CURRENT_VERSION\"$/version = \"$NEW_VERSION\"/" pyproject.toml
+
+          UPDATED_VERSION=$(sed -n 's/^version = "\([0-9.]*\)"$/\1/p' pyproject.toml | head -n1)
+          if [ "$UPDATED_VERSION" != "$NEW_VERSION" ]; then
+            echo "Failed to update pyproject.toml. Current: $UPDATED_VERSION, Expected: $NEW_VERSION"
+            exit 1
+          fi
+          echo "pyproject.toml updated successfully to $UPDATED_VERSION"
+
+      - name: Update src/tp_trace/version.py with new version using sed
+        run: |
+          CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
+          NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
+
+          echo "Updating src/tp_trace/version.py from $CURRENT_VERSION to $NEW_VERSION"
+          sed -i "s/__version__ = \"$CURRENT_VERSION\"/__version__ = \"$NEW_VERSION\"/" src/tp_trace/version.py
+
+          UPDATED_VERSION=$(sed -n 's/__version__ = "\([0-9.]*\)"/\1/p' src/tp_trace/version.py | head -n1)
+          if [ "$UPDATED_VERSION" != "$NEW_VERSION" ]; then
+            echo "Failed to update src/tp_trace/version.py. Current: $UPDATED_VERSION, Expected: $NEW_VERSION"
+            exit 1
+          fi
+          echo "src/tp_trace/version.py updated successfully to $UPDATED_VERSION"
+
+      - name: Build package
+        run: |
+          uv build
+
+      - name: Validate package
+        run: |
+          echo "Package files:"
+          ls -la dist/
+
+      - name: Configure git and create local bump commit
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
+          CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pyproject.toml src/tp_trace/version.py
+          git commit -m "chore: Release v$NEW_VERSION" -m "Bump version from $CURRENT_VERSION to $NEW_VERSION"
+
+      - name: Verify branch push permissions (dry run)
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          git push --dry-run origin HEAD:main
+
+      - name: Publish package (dry run)
+        if: ${{ env.DRY_RUN == 'true' }}
+        run: |
+          uv publish --dry-run
+
+      - name: Publish package
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          uv publish --trusted-publishing always
+
+      - name: Push release commit and create tag
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
+
+          git push origin HEAD:main
+          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
+          git push origin "v$NEW_VERSION"
