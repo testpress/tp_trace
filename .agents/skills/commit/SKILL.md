@@ -32,7 +32,6 @@ If still on `main` or `master` (e.g., the user aborted branch creation), stop â€
 
 <body>
 
-<footer>
 ```
 
 All lines must stay under 100 characters.
@@ -88,7 +87,6 @@ git commit -m "type: Subject" \
 
 Second paragraph.
 
-Fixes GH-1234"
 ```
 
 ```bash
@@ -97,23 +95,6 @@ git commit
 
 Use the editor flow when the message needs careful formatting.
 
-## Footer: Issue References
-
-Reference issues in the footer using these patterns:
-
-```
-Fixes GH-1234
-Fixes #1234
-Refs LINEAR-ABC-123
-```
-
-- `Fixes` closes the issue when merged
-- `Refs` links without closing
-
-**For bug fixes (type `fix`):** Always ask the user for a SENTRY issue tag. Include it in the footer as:
-```
-Fixes SENTRY-XXXX
-```
 
 ## Examples
 
@@ -128,7 +109,6 @@ fix: Handle null response in user endpoint
   processing the response
 - Fixed by adding a null check before accessing user properties
 
-Fixes GH-5678
 ```
 
 ### Feature
@@ -140,7 +120,6 @@ When an alert is updated or resolved, post a reply to the original
 Slack thread instead of creating a new message. This keeps related
 notifications grouped together.
 
-Refs GH-1234
 ```
 
 ### Refactor
