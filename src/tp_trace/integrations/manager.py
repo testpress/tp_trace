@@ -16,6 +16,11 @@ _BUILTIN_INTEGRATIONS: Dict[str, str] = {
     "redis": "tp_trace.integrations.redis.RedisIntegration",
     "requests": "tp_trace.integrations.requests.RequestsIntegration",
     "boto": "tp_trace.integrations.boto.BotoIntegration",
+    "celery": "tp_trace.integrations.celery.CeleryIntegration",
+}
+
+_INTEGRATION_DEFAULTS: Dict[str, bool] = {
+    "celery": True,
 }
 
 _INTEGRATION_ALIASES: Dict[str, str] = {
@@ -108,7 +113,7 @@ class IntegrationManager:
             else:
                 user_overrides.setdefault(canonical, bool(value))
 
-        canonical_order = ["django", "postgres", "redis", "requests", "boto"]
+        canonical_order = ["django", "postgres", "redis", "requests", "boto", "celery"]
         seen_canonical = set()
         all_keys = [k for k in canonical_order if k in self._registered_classes]
         all_keys += [k for k in self._registered_classes if k not in self._aliases and k not in all_keys]
@@ -122,7 +127,7 @@ class IntegrationManager:
             if entry is None:
                 continue
 
-            if not user_overrides.get(canonical, True):
+            if not user_overrides.get(canonical, _INTEGRATION_DEFAULTS.get(canonical, True)):
                 logger.debug("Integration '%s' is disabled by configuration.", canonical)
                 continue
 

@@ -22,6 +22,29 @@ def _ensure_normalized_attributes(span: Any) -> None:
             target_dict = attrs
 
         if target_dict is not None:
+            is_owned_celery = bool(target_dict.get("tp_trace.celery.owned") or (attrs and attrs.get("tp_trace.celery.owned")))
+            if is_owned_celery:
+                for bad_key in (
+                    "http.method",
+                    "http.request.method",
+                    "http.route",
+                    "http.route_template",
+                    "django.route",
+                ):
+                    if bad_key in target_dict:
+                        try:
+                            del target_dict[bad_key]
+                        except Exception:
+                            pass
+                if not target_dict.get("normalized.service"):
+                    target_dict["normalized.service"] = "celery"
+                if not target_dict.get("normalized.operation"):
+                    from opentelemetry.trace import SpanKind
+
+                    action = "apply_async" if getattr(span, "kind", None) == SpanKind.PRODUCER else "run"
+                    target_dict["normalized.operation"] = f"celery.{action}.unknown"
+                return
+
             if not target_dict.get("normalized.service"):
                 svc = (
                     target_dict.get("peer.service")

@@ -11,9 +11,18 @@ import os
 
 logger = logging.getLogger("config.otel")
 
+_BOOTSTRAPPED = False
+_INITIALIZING = False
+
 
 def setup_telemetry():
     """Initialize tp_trace with auto-patching. Idempotent, fail-safe."""
+    global _BOOTSTRAPPED, _INITIALIZING
+    if _BOOTSTRAPPED:
+        return True
+    if _INITIALIZING:
+        return False
+
     disabled = os.environ.get("TP_TRACE_DISABLED", "").lower()
     if disabled in ("1", "true", "yes"):
         logger.info("tp_trace disabled via TP_TRACE_DISABLED")
@@ -23,6 +32,7 @@ def setup_telemetry():
     except ImportError:
         logger.info("tp_trace not installed; observability disabled")
         return False
+    _INITIALIZING = True
     try:
         # Minimal init — auto_patch=True (default) detects all installed integrations.
         # Project (application) name, environment, endpoint resolve from env vars:
@@ -33,19 +43,23 @@ def setup_telemetry():
         tp_trace.init(
             project_name="otel-sample",
             cluster_name="Dummy",
+            integrations={"celery": True},
             tags={
                 "server_location": "us-east-1",
                 "team": "core-backend",
-                "test": "HEHE"
+                "test": "HEHE",
             },
             sample_rate=1.0,
             endpoint_sample_rules={
                 "/api/s3-storage/": 1.0,
-                "/api/multi-db/": 1.0
+                "/api/multi-db/": 1.0,
             },
         )
+        _BOOTSTRAPPED = True
         logger.info("tp_trace initialized with auto-patching")
         return True
     except Exception:
         logger.exception("tp_trace initialization failed; continuing without observability")
         return False
+    finally:
+        _INITIALIZING = False

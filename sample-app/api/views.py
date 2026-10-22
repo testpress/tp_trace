@@ -801,3 +801,40 @@ class DashboardView(TemplateView):
 
         context["categories"] = categories
         return context
+
+
+class CeleryPublishView(APIView):
+    """Publish a background task to Celery without waiting for execution."""
+
+    def post(self, request):
+        if not isinstance(request.data, dict):
+            return Response({"error": "Expected a JSON object"}, status=status.HTTP_400_BAD_REQUEST)
+        raw_val = request.data.get("value", 1)
+        raw_fail = request.data.get("fail", False)
+
+        if isinstance(raw_val, bool) or not isinstance(raw_val, (int, str)):
+            return Response({"error": "Invalid value: must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            value = int(raw_val)
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid value: must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if isinstance(raw_fail, bool):
+            fail = raw_fail
+        elif isinstance(raw_fail, str) and raw_fail.lower() in ("1", "true", "yes", "0", "false", "no"):
+            fail = raw_fail.lower() in ("1", "true", "yes")
+        else:
+            return Response({"error": "Invalid fail flag: must be a boolean"}, status=status.HTTP_400_BAD_REQUEST)
+
+        from api.celery_app import demo_task
+
+        async_result = demo_task.apply_async(kwargs={"value": value, "fail": fail})
+        return Response(
+            {
+                "task_id": async_result.id,
+                "task_name": "sample_app.tasks.demo_task",
+                "value": value,
+                "fail": fail,
+            },
+            status=status.HTTP_200_OK,
+        )

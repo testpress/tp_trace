@@ -211,6 +211,16 @@ LOGGING = {
     },
 }
 
+# Celery configuration
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//")
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "false").lower() in ("1", "true", "yes")
+
+# Register Celery tasks before telemetry initialization so the startup snapshot admits them
+try:
+    import api.celery_app  # noqa: F401
+except ImportError:
+    pass
+
 # tp_trace OpenTelemetry bootstrap (fail-safe; no-op when SDK absent)
 from config.otel import setup_telemetry
 
