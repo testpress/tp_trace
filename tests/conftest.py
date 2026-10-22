@@ -45,7 +45,19 @@ if not settings.configured:
     django.setup()
 
 
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics.export import MetricExportResult
+from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+# Tests that call init() without an explicit exporter still build real OTLP
+# exporters for the default local endpoint. Periodic and shutdown flushes would
+# then open connections to localhost:4318, so the suite must not depend on a
+# collector. Stub the network send for the whole session; the atexit flush runs
+# after per-test fixtures are torn down, so this cannot be a monkeypatch fixture.
+OTLPSpanExporter.export = lambda self, spans: SpanExportResult.SUCCESS
+OTLPMetricExporter.export = lambda self, metrics_data, *args, **kwargs: MetricExportResult.SUCCESS
 
 _orig_init = tp_trace.init
 

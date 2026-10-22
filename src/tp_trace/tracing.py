@@ -9,14 +9,13 @@ from typing import Any, Dict, FrozenSet, Iterator, Optional, Tuple
 from opentelemetry.trace import (
     INVALID_SPAN,
     Context,
-    NonRecordingSpan,
     Span,
     SpanKind,
     StatusCode,
     get_tracer,
 )
 
-from tp_trace.route_context import get_current_method, get_current_route
+from tp_trace.route_context import get_current_route
 from tp_trace.safety import (
     attempt,
     find_exception,
@@ -85,14 +84,14 @@ def _span_lifecycle(
         )
     except Exception:
         logger.debug("tp_trace: could not create span %r; running untraced", name, exc_info=True)
-        yield NonRecordingSpan(INVALID_SPAN)
+        yield INVALID_SPAN
         return
 
     try:
         span = span_cm.__enter__()
     except Exception:
         logger.debug("tp_trace: span %r failed to start; running untraced", name, exc_info=True)
-        yield NonRecordingSpan(INVALID_SPAN)
+        yield INVALID_SPAN
         return
 
     try:

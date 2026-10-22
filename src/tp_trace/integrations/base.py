@@ -15,7 +15,7 @@ logger = logging.getLogger("tp_trace.integrations")
 class BaseIntegration(abc.ABC):
     """
     Abstract base class for all library integrations.
-    
+
     Provides thread-safe monkey-patching via wrapt, deferred import hooks,
     and reversible unwrapping.
     """
@@ -98,7 +98,7 @@ class BaseIntegration(abc.ABC):
             target_obj, attr_name, original = self._wrapped_targets.pop()
             try:
                 current = getattr(target_obj, attr_name, None)
-                if hasattr(current, "__wrapped__"):
+                if current is not None and hasattr(current, "__wrapped__"):
                     setattr(target_obj, attr_name, current.__wrapped__)
                 elif original is not None:
                     setattr(target_obj, attr_name, original)

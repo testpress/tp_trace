@@ -19,10 +19,7 @@ import tp_trace
 from tp_trace.integrations.django import DjangoIntegration
 from tp_trace.metrics import (
     LATENCY_BUCKETS_MS,
-    RedMetricsRecorder,
     get_metrics_recorder,
-    init_metrics,
-    record_request,
 )
 
 

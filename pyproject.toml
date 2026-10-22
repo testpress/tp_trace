@@ -38,6 +38,8 @@ dev = [
     # sample-app / backend target) this resolves to the 4.2 LTS, while newer
     # interpreters get the matching current release.
     "django>=4.2",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0; python_version >= '3.10'",
 ]
 
 [tool.setuptools.packages.find]
@@ -49,3 +51,16 @@ testpaths = ["tests"]
 # Keep bare `pytest`/`pytest .` from wandering outside the suite if another
 # throwaway scripts directory (or a vendored copy of tests) is ever added.
 norecursedirs = ["scratch", "*.egg", ".*", "build", "dist", "node_modules"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E731", "E402"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_configs = true

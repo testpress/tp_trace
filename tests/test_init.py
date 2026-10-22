@@ -1,6 +1,5 @@
 """Unit tests for Phase 1: SDK scaffold, config, and OTel bootstrap."""
 
-import os
 import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -104,7 +103,7 @@ def test_metrics_export_interval_default_and_overrides(monkeypatch):
 def test_disabled_mode():
     """Verify that disabled mode prevents spans from being recorded."""
     exporter = InMemorySpanExporter()
-    provider = tp_trace.init(
+    _ = tp_trace.init(
         project_name="disabled-service",
         disabled=True,
         exporter=exporter,
@@ -407,7 +406,6 @@ def test_safe_span_exporter_rate_limits_warnings(caplog):
 def test_safe_span_exporter_normalizes_real_readable_spans():
     """Verify SafeSpanExporter correctly mutates BoundedAttributes on real ended ReadableSpans."""
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
     from tp_trace.exporter import SafeSpanExporter
 
@@ -507,7 +505,6 @@ def test_middleware_init_class_exists():
 def test_sample_rate_zero():
     """Verify ALWAYS_OFF sampler drops all spans."""
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     from opentelemetry.sdk.trace.sampling import ALWAYS_OFF
 
     exporter = InMemorySpanExporter()
@@ -522,7 +519,6 @@ def test_sample_rate_zero():
 def test_sample_rate_ratio():
     """Verify TraceIdRatioBased(0.5) samples approximately half of root spans."""
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
     exporter = InMemorySpanExporter()

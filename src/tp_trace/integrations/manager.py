@@ -84,11 +84,11 @@ class IntegrationManager:
     ) -> List[str]:
         """
         Apply all enabled integrations based on environment, configuration, and kwargs.
-        
+
         Args:
             config: Active SDKConfig
             **kwargs: Direct overrides for integrations (e.g. django=False, redis=True)
-            
+
         Returns:
             List of successfully instrumented integration names.
         """

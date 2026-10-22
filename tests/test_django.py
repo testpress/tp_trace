@@ -1,8 +1,6 @@
 """Unit tests for Phase 3: Django Integration (Full Waterfall)."""
 
-import os
 import pytest
-from opentelemetry import trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import SpanKind, StatusCode
 
@@ -543,7 +541,6 @@ def test_tags_kwargs_override_env(monkeypatch):
 def test_user_pii_redacted_for_authenticated_request():
     """Verify user PII (emails, usernames) is never attached to spans."""
     from unittest.mock import MagicMock
-    from tp_trace.route_context import get_current_route
 
     exporter = InMemorySpanExporter()
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
@@ -679,7 +676,7 @@ def test_unmatched_route_normalization():
 def test_dynamic_tenant_urlconf_resolution(monkeypatch):
     """Verify multi-tenant apps with dynamic request.urlconf, TENANT_URLCONF, or TP_DOG_EXTRA_URLCONFS resolve correctly."""
     from django.conf import settings
-    from tp_trace.integrations.django.request import _normalize_route, _preresolve_route
+    from tp_trace.integrations.django.request import _preresolve_route
 
     class TenantReq:
         path_info = "/api/v2/posts/"
@@ -778,7 +775,7 @@ def test_django_server_span_respects_query_mode(monkeypatch):
 
     exporter = InMemorySpanExporter()
     cfg = SDKConfig(project_name="test-query-mode", query_mode="expose")
-    provider = tp_trace.init(
+    _ = tp_trace.init(
         project_name="test-query-mode",
         environment="test",
         exporter=exporter,

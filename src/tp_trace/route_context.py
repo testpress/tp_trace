@@ -166,7 +166,7 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
             # Mutate the underlying _attributes dict directly so the fallback values survive into export.
             attrs = getattr(span, "_attributes", None)
             if attrs is None:
-                attrs = getattr(span, "attributes", None)
+                attrs = getattr(span, "attributes", None) or {}
             target_dict = getattr(attrs, "_dict", None)
             if target_dict is None and hasattr(attrs, "__setitem__"):
                 target_dict = attrs

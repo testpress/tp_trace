@@ -44,7 +44,6 @@ if not settings.configured:
     django.setup()
 
 import tp_trace
-from tp_trace.integrations.django import DjangoIntegration
 from tp_trace.integrations.postgres import PostgresIntegration
 
 

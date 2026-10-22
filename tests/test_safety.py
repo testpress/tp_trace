@@ -655,7 +655,7 @@ def test_attempt_getattr_missing_attribute_does_not_log_error(caplog):
 
     with caplog.at_level(logging.DEBUG, logger="tp_trace.safety"):
         val = attempt(getattr, Dummy(), "nonexistent", default=None, _label="dummy.nonexistent")
-    
+
     assert val is None
     assert "tp_trace: telemetry step dummy.nonexistent failed" not in caplog.text
 

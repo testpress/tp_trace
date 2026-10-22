@@ -158,11 +158,11 @@ class SafeMetricExporter(MetricExporter):
         self._error_count = 0
 
     @property
-    def _preferred_temporality(self) -> Any:
+    def _preferred_temporality(self) -> Any:  # type: ignore[override]
         return getattr(self._exporter, "_preferred_temporality", {})
 
     @property
-    def _preferred_aggregation(self) -> Any:
+    def _preferred_aggregation(self) -> Any:  # type: ignore[override]
         return getattr(self._exporter, "_preferred_aggregation", {})
 
     def export(self, metrics_data: Any, timeout_millis: float = 10000, **kwargs: Any) -> Any:

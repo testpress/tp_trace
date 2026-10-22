@@ -1,7 +1,7 @@
 """Custom rule-based sampler for tp_trace SDK v3 supporting endpoint ignoring and custom per-route sampling rates."""
 
 import fnmatch
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace.sampling import (
     Decision,
@@ -10,7 +10,7 @@ from opentelemetry.sdk.trace.sampling import (
     SamplingResult,
     TraceIdRatioBased,
 )
-from opentelemetry.trace import Link, SpanKind, TraceFlags
+from opentelemetry.trace import Link, SpanKind, TraceState
 
 from tp_trace.config import _parse_endpoint_sample_rules, _parse_rate
 
@@ -30,6 +30,7 @@ class TpTraceRuleBasedSampler(Sampler):
         endpoint_sample_rules: Optional[Dict[str, float]] = None,
     ):
         self.global_sample_rate = _parse_rate(global_sample_rate, "global_sample_rate")
+        self.ignore_endpoints: List[str]
         if isinstance(ignore_endpoints, str):
             self.ignore_endpoints = [p.strip() for p in ignore_endpoints.split(",") if p.strip()]
         else:
@@ -48,16 +49,17 @@ class TpTraceRuleBasedSampler(Sampler):
         parent_context: Optional[Context],
         trace_id: int,
         name: str,
-        kind: SpanKind = SpanKind.INTERNAL,
-        attributes: Optional[Dict[str, Any]] = None,
+        kind: Optional[SpanKind] = None,
+        attributes: Optional[Mapping[str, Any]] = None,
         links: Optional[Sequence[Link]] = None,
+        trace_state: Optional[TraceState] = None,
     ) -> SamplingResult:
-        attributes = attributes or {}
+        attr_dict = dict(attributes) if attributes else {}
 
         # Extract candidate target request paths from OpenTelemetry attribute conventions and span name
         candidates = []
         for key in ("http.route", "url.path", "http.target"):
-            val = attributes.get(key)
+            val = attr_dict.get(key)
             if isinstance(val, str) and val.strip():
                 clean = val.split("?")[0].strip()
                 if clean and clean not in candidates:
@@ -85,6 +87,7 @@ class TpTraceRuleBasedSampler(Sampler):
                             kind=kind,
                             attributes=attributes,
                             links=links,
+                            trace_state=trace_state,
                         )
 
         # 3. Fallback to global sample rate
@@ -95,6 +98,7 @@ class TpTraceRuleBasedSampler(Sampler):
             kind=kind,
             attributes=attributes,
             links=links,
+            trace_state=trace_state,
         )
 
     def get_description(self) -> str:
@@ -116,9 +120,10 @@ class RemoteParentAwareSampler(Sampler):
         parent_context: Optional[Context],
         trace_id: int,
         name: str,
-        kind: SpanKind = SpanKind.INTERNAL,
-        attributes: Optional[Dict[str, Any]] = None,
+        kind: Optional[SpanKind] = None,
+        attributes: Optional[Mapping[str, Any]] = None,
         links: Optional[Sequence[Link]] = None,
+        trace_state: Optional[TraceState] = None,
     ) -> SamplingResult:
         res = self.root_sampler.should_sample(
             parent_context=parent_context,
@@ -127,6 +132,7 @@ class RemoteParentAwareSampler(Sampler):
             kind=kind,
             attributes=attributes,
             links=links,
+            trace_state=trace_state,
         )
         if res.decision == Decision.DROP:
             return res
