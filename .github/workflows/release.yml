@@ -25,8 +25,14 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # id-token: write needed for PyPI trusted publishing
     permissions:
       contents: write
+      id-token: write
+
+    env:
+      BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
 
     steps:
       - name: Checkout
@@ -47,7 +53,11 @@ jobs:
       - name: Get current version
         id: get_version
         run: |
-          CURRENT_VERSION=$(sed -n 's/version = "\([0-9.]\+\)"/\1/p' pyproject.toml)
+          CURRENT_VERSION=$(sed -n 's/^version = "\([0-9.]*\)"$/\1/p' pyproject.toml | head -n1)
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "ERROR: Could not extract version from pyproject.toml"
+            exit 1
+          fi
           echo "Current version: $CURRENT_VERSION"
           echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
@@ -55,7 +65,7 @@ jobs:
         id: calc_version
         run: |
           CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
-          BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+          BUMP_TYPE="${{ env.BUMP_TYPE }}"
 
           IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
 
@@ -84,10 +94,9 @@ jobs:
           NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
 
           echo "Updating pyproject.toml from $CURRENT_VERSION to $NEW_VERSION"
-          sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" pyproject.toml
+          sed -i "s/^version = \"$CURRENT_VERSION\"$/version = \"$NEW_VERSION\"/" pyproject.toml
 
-          # Verify the change
-          UPDATED_VERSION=$(sed -n 's/version = "\([0-9.]\+\)"/\1/p' pyproject.toml)
+          UPDATED_VERSION=$(sed -n 's/^version = "\([0-9.]*\)"$/\1/p' pyproject.toml | head -n1)
           if [ "$UPDATED_VERSION" != "$NEW_VERSION" ]; then
             echo "Failed to update pyproject.toml. Current: $UPDATED_VERSION, Expected: $NEW_VERSION"
             exit 1
@@ -102,16 +111,34 @@ jobs:
           echo "Updating src/tp_trace/version.py from $CURRENT_VERSION to $NEW_VERSION"
           sed -i "s/__version__ = \"$CURRENT_VERSION\"/__version__ = \"$NEW_VERSION\"/" src/tp_trace/version.py
 
-          # Verify the change
-          UPDATED_VERSION=$(sed -n 's/__version__ = "\([0-9.]\+\)"/\1/p' src/tp_trace/version.py)
+          UPDATED_VERSION=$(sed -n 's/__version__ = "\([0-9.]*\)"/\1/p' src/tp_trace/version.py | head -n1)
           if [ "$UPDATED_VERSION" != "$NEW_VERSION" ]; then
             echo "Failed to update src/tp_trace/version.py. Current: $UPDATED_VERSION, Expected: $NEW_VERSION"
             exit 1
           fi
           echo "src/tp_trace/version.py updated successfully to $UPDATED_VERSION"
 
-      - name: Create and push tag
-        if: ${{ !inputs.dry_run }}
+      - name: Build package
+        run: |
+          uv build
+
+      - name: Validate package
+        run: |
+          echo "Package files:"
+          ls -la dist/
+
+      - name: Publish package (dry run)
+        if: ${{ env.DRY_RUN == 'true' }}
+        run: |
+          uv publish --dry-run
+
+      - name: Publish package
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          uv publish --trusted-publishing always
+
+      - name: Commit version bump and create tag
+        if: ${{ env.DRY_RUN != 'true' }}
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
           CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
@@ -125,24 +152,5 @@ jobs:
           Bump version from $CURRENT_VERSION to $NEW_VERSION"
 
           git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
-          git push origin main
+          git push origin HEAD:main
           git push origin "v$NEW_VERSION"
-
-      - name: Build package
-        run: |
-          uv build
-
-      - name: Validate package
-        run: |
-          echo "Package files:"
-          ls -la dist/
-
-      - name: Publish package (dry run)
-        if: ${{ inputs.dry_run }}
-        run: |
-          uv publish --dry-run
-
-      - name: Publish package
-        if: ${{ !inputs.dry_run }}
-        run: |
-          uv publish

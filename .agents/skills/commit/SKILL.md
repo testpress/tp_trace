@@ -42,11 +42,11 @@ Pre-release tags mark in-progress work on a release track:
 - Tag format: `vX.Y.Z-rc.N` (also `alpha`, `beta`).
 - Tag the commit that introduces the change, e.g.
   `git tag -a "v0.1.7-rc.1" -m "Pre-release for v0.1.7"`.
-- On release, the pre-release tag is superseded by the final `vX.Y.Z` tag that
-  the release workflow creates and pushes.
+- On release, delete the old pre-release tag and let the release workflow
+  publish the final `vX.Y.Z` tag. The workflow does not parse or advance
+  `-rc` suffix strings.
 - Push tags explicitly: `git push origin "vX.Y.Z-rc.N"`.
-
-Do not create final `vX.Y.Z` tags by hand — the release workflow owns them.
+- Do not create final `vX.Y.Z` tags by hand — the release workflow owns them.
 
 ## Format
 

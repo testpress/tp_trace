@@ -33,10 +33,14 @@ The release workflow is manual via GitHub Actions (`workflow_dispatch`):
 - A `dry_run` option skips tag creation and publishing.
 - Changelog edits are human-maintained; the workflow does not touch
   `CHANGELOG.md`.
+- Tag and push happen **after** a successful build and publish, so a
+  publish failure does not leave a published version tag behind.
 
-Pre-release tagging convention: every commit on a release track maintains a
-pre-release tag (e.g. `vX.Y.Z-rc.1`); on release the pre-release tag is advanced
-and the final version tag (`vX.Y.Z`) is cut.
+Pre-release tagging convention (manual, not handled by the workflow):
+commits on an in-progress release track may carry a pre-release tag (e.g.
+`vX.Y.Z-rc.1`). The release workflow only cuts final `vX.Y.Z` tags; it does
+not parse or advance `-rc` suffix strings. On release, delete the old
+pre-release tag and let the workflow publish the final version.
 
 ## Telemetry safety
 
