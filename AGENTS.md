@@ -4,7 +4,7 @@
 
 tp_trace is a production Python APM library built on OpenTelemetry.
 Changes can affect host application performance and telemetry volume.
-Python 3.10 compatibility is required; the Django integration supports Django 4.2
+Python 3.8 compatibility is required; the Django integration supports Django 4.2
 or later. Check `pyproject.toml` for the declared dependency contracts.
 
 ## Working rules

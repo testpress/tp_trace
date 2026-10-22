@@ -7,7 +7,7 @@ name = "tp_trace"
 version = "0.1.5"
 description = "tp_trace: High-performance Python Observability SDK for OpenTelemetry"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 dependencies = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
@@ -34,10 +34,12 @@ dev = [
     "redis>=3.5.0",
     # tests/conftest.py configures Django, so the documented
     # `pip install -e '.[dev]'` + `pytest` flow needs it here. Unpinned above
-    # 4.2 so the resolver follows the interpreter.
+    # 4.2 so the resolver follows the interpreter: on Python 3.8 (the
+    # sample-app / backend target) this resolves to the 4.2 LTS, while newer
+    # interpreters get the matching current release.
     "django>=4.2",
     "ruff>=0.1.0",
-    "mypy>=1.0.0",
+    "mypy>=1.0.0; python_version >= '3.10'",
 ]
 
 [tool.setuptools.packages.find]
@@ -51,7 +53,7 @@ testpaths = ["tests"]
 norecursedirs = ["scratch", "*.egg", ".*", "build", "dist", "node_modules"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py38"
 line-length = 120
 
 [tool.ruff.lint]

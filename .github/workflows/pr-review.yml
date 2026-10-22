@@ -61,8 +61,8 @@ jobs:
             - setup/: separate deployment configuration; preserve its purpose and check it
               when a shared change affects deployment. Do not assume it matches dev/.
             - Read pyproject.toml, docs/code-conventions.md, applicable AGENTS.md files, and relevant docs before
-              judging contracts. Python >=3.10 and Django >=4.2 are supported; CI
-              checks Python 3.10, 3.11, and 3.12. Verify these against the PR's actual files.
+              judging contracts. Python >=3.8 and Django >=4.2 are supported; CI
+              checks Python 3.8 and extends across 3.10, 3.11, and 3.12. Verify these against the PR's actual files.
 
             ## Review method
             - Read the PR description and diff, then inspect relevant callers, tests, and
@@ -97,7 +97,7 @@ jobs:
               their request counts or error rates are interchangeable.
 
             ## Compatibility and resource lifecycle
-            - Check Python 3.10 syntax/runtime compatibility and dependency constraints across
+            - Check Python 3.8 syntax/runtime compatibility and dependency constraints across
               supported interpreters and optional-library versions.
             - Preserve public APIs, configuration precedence, defaults, and documented legacy
               environment-variable aliases unless a breaking change is explicitly intended.
