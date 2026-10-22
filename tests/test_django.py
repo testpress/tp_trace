@@ -804,10 +804,3 @@ def test_django_server_span_respects_query_mode(monkeypatch):
     assert len(server_spans) == 1
     assert "token=REDACTED" in server_spans[0].attributes["url.full"]
     assert "q=python" in server_spans[0].attributes["url.full"]
-
-
-
-
-
-
-

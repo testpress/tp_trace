@@ -1,0 +1,59 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: bash -c 'CMD=$(command -v ruff || echo "${VIRTUAL_ENV:-.venv}/bin/ruff"); exec "$CMD" check --fix --force-exclude "$@"' --
+        language: system
+        types: [python]
+
+      - id: mypy
+        name: mypy
+        entry: bash -c 'CMD=$(command -v mypy || echo "${VIRTUAL_ENV:-.venv}/bin/mypy"); if [ -x "$CMD" ]; then exec "$CMD" src/; fi' --
+        language: system
+        types: [python]
+        files: ^src/
+        pass_filenames: false
+
+      - id: check-yaml
+        name: check yaml
+        entry: bash -c 'PYTHON=$(command -v python3 || echo "${VIRTUAL_ENV:-.venv}/bin/python"); exec "$PYTHON" -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" "$@"' --
+        language: system
+        types: [yaml]
+
+      - id: check-json
+        name: check json
+        entry: bash -c 'PYTHON=$(command -v python3 || echo "${VIRTUAL_ENV:-.venv}/bin/python"); exec "$PYTHON" -c "import sys, json; [json.load(open(f)) for f in sys.argv[1:]]" "$@"' --
+        language: system
+        types: [json]
+
+      - id: check-toml
+        name: check toml
+        entry: >-
+          bash -c 'PYTHON=$(command -v python3 || echo "${VIRTUAL_ENV:-.venv}/bin/python");
+          exec "$PYTHON" -c "try:
+              import tomllib as t
+          except ImportError:
+              try:
+                  import tomli as t
+              except ImportError:
+                  t = None
+          if t:
+              import sys
+              for f in sys.argv[1:]:
+                  t.load(open(f, \"rb\"))" "$@"' --
+        language: system
+        types: [toml]
+
+      - id: trailing-whitespace
+        name: check trailing whitespace
+        entry: '[ \t]+$'
+        language: pygrep
+        types: [text]
+        exclude: '\.md$'
+
+      - id: check-merge-conflict
+        name: check for merge conflicts
+        entry: '^(<<<<<<<|=======|>>>>>>>)'
+        language: pygrep
+        types: [text]

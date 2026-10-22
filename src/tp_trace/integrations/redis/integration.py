@@ -315,5 +315,3 @@ class RedisIntegration(BaseIntegration):
         _restore_command_formatter()
 
         return super().uninstrument()
-
-

@@ -130,5 +130,3 @@ def tp_trace_response_hook(span: Any, request: Any, response: Any) -> None:
 
 
 tp_dog_response_hook = tp_trace_response_hook
-
-

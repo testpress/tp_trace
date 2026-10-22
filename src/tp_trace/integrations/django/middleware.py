@@ -223,4 +223,3 @@ def make_traced_load_middleware(integration):
         return result
 
     return traced_load_middleware
-

@@ -681,6 +681,3 @@ def test_wrap_application_exception_does_not_log_internal_wrapper_error(caplog):
 
     assert "tp_trace internal wrapper error" not in caplog.text
     integ.unwrap_all()
-
-
-

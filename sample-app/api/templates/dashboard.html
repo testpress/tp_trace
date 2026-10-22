@@ -390,13 +390,13 @@
 
             const bodyField = document.getElementById('body-field');
             let options = { method: currentEndpoint.method };
-            
+
             // Add CSRF token for non-GET requests
             const headers = {};
             if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(currentEndpoint.method)) {
                 headers['X-CSRFToken'] = csrftoken;
             }
-            
+
             if (bodyField.style.display !== 'none') {
                 try {
                     headers['Content-Type'] = 'application/json';

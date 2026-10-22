@@ -19,4 +19,3 @@ htmlcov/
 
 # Share repository instructions even when a developer globally ignores AGENTS.md.
 !/AGENTS.md
-

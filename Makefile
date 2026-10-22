@@ -3,7 +3,7 @@ PYTHON ?= python3
 VENV ?= .venv
 COMPOSE ?= docker compose
 
-.PHONY: help install lint test build check-config up rebuild restart down logs ps smoke traffic
+.PHONY: help install lint test pre-commit build check-config up rebuild restart down logs ps smoke traffic
 
 help: ## Show development commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -16,6 +16,9 @@ install: ## Create a virtualenv and install the SDK with development dependencie
 lint: ## Run linter and typechecker (ruff and mypy)
 	$(VENV)/bin/ruff check src/ tests/
 	$(VENV)/bin/mypy src/
+
+pre-commit: ## Run pre-commit hooks on all files
+	$(VENV)/bin/pre-commit run --all-files
 
 test: ## Run the SDK test suite (ARGS='-k name' to filter)
 	$(VENV)/bin/python -m pytest $(ARGS)
