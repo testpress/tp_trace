@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-
 def load_bootstrap():
     path = Path(__file__).resolve().parents[1] / "sample-app/config/otel.py"
     spec = importlib.util.spec_from_file_location("sample_otel_test", path)
@@ -38,8 +37,10 @@ def test_disabled_bootstrap_can_be_enabled(monkeypatch):
 def test_bootstrap_reentry_does_not_claim_success(monkeypatch):
     monkeypatch.delenv("TP_TRACE_DISABLED", raising=False)
     module = load_bootstrap()
+
     def reenter(**kwargs):
         assert module.setup_telemetry() is False
+
     with patch("tp_trace.init", side_effect=reenter) as initialize:
         assert module.setup_telemetry() is True
         initialize.assert_called_once()

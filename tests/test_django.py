@@ -58,12 +58,14 @@ def sample_throttled_view(request):
 
 class MockViewSet:
     """Simulates a Django REST Framework ViewSet."""
+
     pass
 
 
 def create_drf_view_func(viewset_cls, action_name):
     def view_func(request, *args, **kwargs):
         return JsonResponse({"status": "ok"})
+
     view_func.cls = viewset_cls
     view_func.actions = {"get": action_name}
     return view_func
@@ -81,6 +83,7 @@ urlpatterns = [
 def clean_sdk_and_django():
     tp_trace._reset_for_testing()
     from django.urls import clear_url_caches
+
     settings.ROOT_URLCONF = "tests.test_django"
     clear_url_caches()
     integration = DjangoIntegration()
@@ -96,6 +99,7 @@ def test_request_span_created():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -127,6 +131,7 @@ def test_view_span_resolves_name():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -150,6 +155,7 @@ def test_template_span_created():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -173,6 +179,7 @@ def test_error_500_marks_span():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -195,6 +202,7 @@ def test_w3c_traceparent_propagation():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -225,6 +233,7 @@ def test_w3c_traceparent_ignored_when_extract_disabled():
     )
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -259,6 +268,7 @@ def test_w3c_traceparent_callable_filter():
     )
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -305,6 +315,7 @@ def test_throttled_429_marks_span():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -332,6 +343,7 @@ def test_static_tags_applied_to_request_span():
     )
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -358,6 +370,7 @@ def test_static_tags_applied_to_view_span():
     )
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -393,6 +406,7 @@ def test_on_request_span_callback():
     )
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -411,6 +425,7 @@ def test_on_request_span_callback():
 
 def test_on_request_span_callback_exception_silenced():
     """Verify on_request_span callback exceptions don't crash the request."""
+
     def bad_callback(span, request):
         raise RuntimeError("boom")
 
@@ -423,6 +438,7 @@ def test_on_request_span_callback_exception_silenced():
     )
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -440,6 +456,7 @@ def test_on_request_span_captures_middleware_attributes():
     """Verify on_request_span callback sees attributes attached dynamically by middleware."""
     from types import SimpleNamespace
     from django.core.handlers.wsgi import WSGIHandler
+
     tp_trace._reset_for_testing()
 
     def _tag_institute_subdomain(span, request):
@@ -459,9 +476,11 @@ def test_on_request_span_captures_middleware_attributes():
     handler.load_middleware()
 
     orig_chain = handler._middleware_chain
+
     def middleware_with_institute(request):
         request.institute = SimpleNamespace(subdomain="testpress")
         return orig_chain(request)
+
     handler._middleware_chain = middleware_with_institute
 
     factory = RequestFactory()
@@ -477,9 +496,11 @@ def test_on_request_span_captures_middleware_attributes():
 def test_on_request_span_with_response_argument():
     """Verify on_request_span callback supports optional 3-argument signature."""
     from django.core.handlers.wsgi import WSGIHandler
+
     tp_trace._reset_for_testing()
 
     exporter = InMemorySpanExporter()
+
     def my_callback(span, request, response):
         span.set_attribute("response.content_type", response.get("Content-Type", ""))
 
@@ -546,6 +567,7 @@ def test_user_pii_redacted_for_authenticated_request():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -585,6 +607,7 @@ def test_sensitive_query_parameters_sanitized_in_django_request():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False, query_mode="redact")
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -654,6 +677,7 @@ def test_unmatched_route_normalization():
     tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
 
     from django.core.handlers.wsgi import WSGIHandler
+
     handler = WSGIHandler()
     handler.load_middleware()
 
@@ -782,6 +806,7 @@ def test_django_server_span_respects_query_mode(monkeypatch):
         export_batch=False,
     )
     from tp_trace.integrations.django.request import set_config
+
     set_config(cfg)
 
     def view(req):

@@ -10,6 +10,7 @@ integrations/django/
   view.py          — view span
   template.py      — template span
 """
+
 from .integration import DjangoIntegration
 from .middleware_init import TpTraceMiddleware
 

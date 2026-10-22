@@ -144,7 +144,10 @@ def test_middleware_spans_created():
     spans = exporter.get_finished_spans()
     names = [s.name for s in spans]
     # Middleware spans should be present
-    assert any("middleware" in n or "load_middleware" in n or "SecurityMiddleware" in n or "CommonMiddleware" in n for n in names)
+    assert any(
+        "middleware" in n or "load_middleware" in n or "SecurityMiddleware" in n or "CommonMiddleware" in n
+        for n in names
+    )
     # Check tree structure: view span child of middleware, middleware child of request
     trace_spans = [s for s in spans if s.context.trace_id == spans[0].context.trace_id]
     assert len(trace_spans) >= 2
@@ -154,6 +157,7 @@ def test_middleware_spans_created():
 def test_middleware_module_has_docstring():
     """Verify that middleware module has its intended docstring at module level (P3-3)."""
     import tp_trace.integrations.django.middleware as mw
+
     assert mw.__doc__ is not None
     assert "Middleware spans" in mw.__doc__
 
@@ -271,8 +275,7 @@ def test_route_resolution_uses_path_info_under_subpath_mount():
     assert resp.status_code == 200
 
     assert route_observations == ["/test/route-probe/"], (
-        "child spans would inherit "
-        f"{route_observations} instead of the real route"
+        f"child spans would inherit {route_observations} instead of the real route"
     )
 
 
@@ -422,10 +425,7 @@ def test_nested_template_includes_enabled_by_default():
             (
                 "django.template.loaders.locmem.Loader",
                 {
-                    "parent.html": (
-                        "<h1>Parent</h1>"
-                        "{% include 'child.html' %}"
-                    ),
+                    "parent.html": ("<h1>Parent</h1>{% include 'child.html' %}"),
                     "child.html": "<p>Child</p>",
                 },
             )
@@ -447,7 +447,9 @@ def test_nested_template_includes_enabled_by_default():
 def test_nested_template_suppression_opt_out():
     """Verify nested/included templates can be suppressed via trace_nested_templates=False."""
     exporter = InMemorySpanExporter()
-    tp_trace.init(project_name="django-template-test", exporter=exporter, export_batch=False, trace_nested_templates=False)
+    tp_trace.init(
+        project_name="django-template-test", exporter=exporter, export_batch=False, trace_nested_templates=False
+    )
 
     from django.template import Engine
 
@@ -458,10 +460,7 @@ def test_nested_template_suppression_opt_out():
             (
                 "django.template.loaders.locmem.Loader",
                 {
-                    "parent.html": (
-                        "<h1>Parent</h1>"
-                        "{% include 'child.html' %}"
-                    ),
+                    "parent.html": ("<h1>Parent</h1>{% include 'child.html' %}"),
                     "child.html": "<p>Child</p>",
                 },
             )
@@ -676,7 +675,9 @@ def test_view_cbv_multilevel_nesting():
     spans = exporter.get_finished_spans()
     span_names = {s.name: s for s in spans}
 
-    view_span = next((s for s in spans if "ProfileView" in s.name and "dispatch" not in s.name and "setup" not in s.name), None)
+    view_span = next(
+        (s for s in spans if "ProfileView" in s.name and "dispatch" not in s.name and "setup" not in s.name), None
+    )
     dispatch_span = next((s for s in spans if s.name.endswith(".dispatch")), None)
     get_span = next((s for s in spans if s.name.endswith(".get")), None)
 
@@ -758,6 +759,7 @@ def test_template_query_nesting_waterfall():
     exporter = InMemorySpanExporter()
     tp_trace.init(project_name="template-nesting-test", exporter=exporter, export_batch=False)
     from tp_trace.integrations import get_integration_manager
+
     mgr = get_integration_manager()
     mgr.apply_integrations()
 
@@ -800,6 +802,7 @@ def test_concurrent_template_rendering_thread_safety():
     shared_template.name = "shared/greeting.html"
 
     num_threads = 8
+
     def render_worker(i):
         return shared_template.render(Context({"name": f"User_{i}"}))
 
@@ -907,7 +910,6 @@ def test_cbv_traced_view_dispatch_prevents_dict_pollution():
     assert "get" not in view_inst.__dict__
 
 
-
 def test_unmatched_route_does_not_poison_child_spans():
     """Verify that unresolvable routes never publish __unmatched__ to current_route or child spans."""
     from tp_trace.route_context import get_current_route
@@ -963,13 +965,6 @@ def test_route_enriching_span_processor_on_end_normalizes_readable_span():
     finished = spans[0]
     assert finished.attributes.get("normalized.service") == "postgres"
     assert finished.attributes.get("normalized.operation") == "SELECT * FROM auth_user"
-
-
-
-
-
-
-
 
 
 def test_institute_subdomain_propagated_to_child_spans():

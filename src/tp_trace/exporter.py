@@ -22,7 +22,9 @@ def _ensure_normalized_attributes(span: Any) -> None:
             target_dict = attrs
 
         if target_dict is not None:
-            is_owned_celery = bool(target_dict.get("tp_trace.celery.owned") or (attrs and attrs.get("tp_trace.celery.owned")))
+            is_owned_celery = bool(
+                target_dict.get("tp_trace.celery.owned") or (attrs and attrs.get("tp_trace.celery.owned"))
+            )
             if is_owned_celery:
                 for bad_key in (
                     "http.method",
@@ -90,7 +92,9 @@ def _ensure_normalized_attributes(span: Any) -> None:
                     op = f"{target_dict.get('rpc.service')}.{target_dict.get('rpc.method')}"
                 elif target_dict.get("db.statement"):
                     op = target_dict.get("db.statement")
-                elif target_dict.get("http.method") and (target_dict.get("http.route_template") or target_dict.get("http.route")):
+                elif target_dict.get("http.method") and (
+                    target_dict.get("http.route_template") or target_dict.get("http.route")
+                ):
                     route_val = target_dict.get("http.route_template") or target_dict.get("http.route")
                     op = f"{target_dict.get('http.method')} {route_val}"
                 else:

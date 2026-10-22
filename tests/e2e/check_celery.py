@@ -91,7 +91,6 @@ def extract_spans_from_tempo_batches(batches):
     return spans
 
 
-
 def task_span_pair(spans, task_id):
     """Require exactly one finished producer and consumer for a fresh task."""
     matching = [s for s in spans if s["attributes"].get("celery.task_id") == task_id]
@@ -111,10 +110,7 @@ def counter_snapshot(prometheus, queries):
     snapshot = {}
     for name, query in queries.items():
         series = query_prometheus(prometheus, query)
-        snapshot[name] = {
-            tuple(sorted(item["metric"].items())): float(item["value"][1])
-            for item in series
-        }
+        snapshot[name] = {tuple(sorted(item["metric"].items())): float(item["value"][1]) for item in series}
     return snapshot
 
 
@@ -160,11 +156,14 @@ def worker_logs(since):
     result = subprocess.run(
         ["docker", "compose", "logs", "--no-color", "--since", since, "celery-worker"],
         cwd=str(Path(__file__).resolve().parents[2]),
-        capture_output=True, text=True, timeout=10,
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     if result.returncode:
         raise RuntimeError("Cannot read celery-worker logs; run probe with local Docker access")
     return result.stdout + result.stderr
+
 
 def main():
     env_file = Path(__file__).resolve().parents[2] / ".env"
@@ -187,18 +186,22 @@ def main():
     # Match the sample's real dashboard resource/instance/All-institute filters.
     project = json.dumps(os.getenv("CELERY_PROBE_PROJECT", "otel-sample"))
     cluster = json.dumps(os.getenv("CELERY_PROBE_CLUSTER", "Dummy"))
-    common = (f'project_name={project},cluster_name={cluster},instance!="",'
-              'institute_subdomain=~".*",normalized_service="celery"')
+    common = (
+        f'project_name={project},cluster_name={cluster},instance!="",'
+        'institute_subdomain=~".*",normalized_service="celery"'
+    )
     consumer = common + ',span_kind="SPAN_KIND_CONSUMER",normalized_operation="celery.run.sample_app.tasks.demo_task"'
     queries = {
-        "producer": 'apm_calls_total{' + common + ',span_kind="SPAN_KIND_PRODUCER",normalized_operation="celery.apply_async.sample_app.tasks.demo_task"}',
-        "success": 'apm_calls_total{' + consumer + ',error="false"}',
-        "error": 'apm_calls_total{' + consumer + ',error="true"}',
-        "count": 'apm_duration_milliseconds_count{' + consumer + '}',
-        "sum": 'apm_duration_milliseconds_sum{' + consumer + '}',
-        "inf": 'apm_duration_milliseconds_bucket{' + consumer + ',le="+Inf"}',
-        "finite": 'apm_duration_milliseconds_bucket{' + consumer + ',le="5000"}',
-        "tiny": 'apm_duration_milliseconds_bucket{' + consumer + ',le="5"}',
+        "producer": "apm_calls_total{"
+        + common
+        + ',span_kind="SPAN_KIND_PRODUCER",normalized_operation="celery.apply_async.sample_app.tasks.demo_task"}',
+        "success": "apm_calls_total{" + consumer + ',error="false"}',
+        "error": "apm_calls_total{" + consumer + ',error="true"}',
+        "count": "apm_duration_milliseconds_count{" + consumer + "}",
+        "sum": "apm_duration_milliseconds_sum{" + consumer + "}",
+        "inf": "apm_duration_milliseconds_bucket{" + consumer + ',le="+Inf"}',
+        "finite": "apm_duration_milliseconds_bucket{" + consumer + ',le="5000"}',
+        "tiny": "apm_duration_milliseconds_bucket{" + consumer + ',le="5"}',
     }
     baseline = counter_snapshot(prometheus, queries)
     started = datetime.now(timezone.utc).isoformat()
@@ -294,7 +297,9 @@ def main():
         cattrs = consumer["attributes"]
         assert cattrs.get("normalized.service") == "celery"
         assert cattrs.get("error") in (True, "true"), f"Expected error=True on failed task, got {cattrs.get('error')}"
-        assert "ValueError" in str(cattrs.get("error.type")), f"Expected ValueError error.type, got {cattrs.get('error.type')}"
+        assert "ValueError" in str(cattrs.get("error.type")), (
+            f"Expected ValueError error.type, got {cattrs.get('error.type')}"
+        )
         assert consumer["status"].get("code") in (2, "STATUS_CODE_ERROR", "ERROR")
         return True
 

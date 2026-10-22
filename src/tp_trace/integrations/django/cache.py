@@ -1,4 +1,5 @@
 """Cache spans — wraps django.core.cache.backends.base.BaseCache operations."""
+
 import logging
 from typing import Any, Callable
 
@@ -43,6 +44,7 @@ def _extract_redis_server_info(instance: Any) -> tuple:
             server = server[0]
         if isinstance(server, str) and "://" in server:
             from urllib.parse import urlparse
+
             parsed = urlparse(server)
             return parsed.hostname, parsed.port
     except Exception:
@@ -132,6 +134,7 @@ def make_traced_cache_op(op_name: str):
                         cmd_parts.append(str(a))
 
                 from tp_trace.integrations.redis.integration import _tp_trace_format_command_args
+
                 stmt = _tp_trace_format_command_args(cmd_parts)
                 if stmt:
                     span_attrs["db.statement"] = stmt

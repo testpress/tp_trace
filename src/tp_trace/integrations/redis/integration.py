@@ -131,9 +131,7 @@ def _install_command_formatter() -> None:
         otel_redis_pkg = importlib.import_module("opentelemetry.instrumentation.redis")
         otel_redis_util = importlib.import_module("opentelemetry.instrumentation.redis.util")
         if _otel_original_format_command_args is None:
-            _otel_original_format_command_args = getattr(
-                otel_redis_util, "_format_command_args", None
-            )
+            _otel_original_format_command_args = getattr(otel_redis_util, "_format_command_args", None)
         setattr(otel_redis_pkg, "_format_command_args", _tp_trace_format_command_args)
         setattr(otel_redis_util, "_format_command_args", _tp_trace_format_command_args)
     except Exception as exc:
@@ -223,7 +221,11 @@ def _tp_trace_redis_response_hook(span: Any, instance: Any, response: Any) -> No
                             span.set_attribute("db.operation.name", op_name.upper())
                     else:
                         name = getattr(span, "name", "")
-                        raw_op = name.replace("🔸", "").replace("REDIS:", "").replace("redis:", "").strip().lower() if name else "command"
+                        raw_op = (
+                            name.replace("🔸", "").replace("REDIS:", "").replace("redis:", "").strip().lower()
+                            if name
+                            else "command"
+                        )
                         span.set_attribute("normalized.operation", f"redis.{raw_op}")
     except Exception as exc:
         logger.debug("redis response hook error: %s", exc)

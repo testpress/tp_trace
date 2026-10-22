@@ -1,4 +1,5 @@
 """Template span — wraps django.template.base.Template.render and TemplateResponse.render."""
+
 import fnmatch
 from contextvars import ContextVar
 from typing import Any, Callable, FrozenSet, List, Optional
@@ -11,9 +12,7 @@ from tp_trace.config_access import get_config as _get_config, set_config as set_
 from tp_trace.tracing import traced_span
 
 _in_template_span: ContextVar[bool] = ContextVar("in_template_span", default=False)
-_active_rendering_templates: ContextVar[FrozenSet[int]] = ContextVar(
-    "active_rendering_templates", default=frozenset()
-)
+_active_rendering_templates: ContextVar[FrozenSet[int]] = ContextVar("active_rendering_templates", default=frozenset())
 
 
 def _is_excluded(template_name: str, patterns: Optional[List[str]]) -> bool:

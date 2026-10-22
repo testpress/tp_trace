@@ -77,9 +77,16 @@ class CeleryIntegration(BaseIntegration):
                     return False
 
             for name in (
-                "_trace_prerun", "_trace_postrun", "_trace_before_publish",
-                "_trace_after_publish", "_trace_failure", "_trace_retry",
-                "create_celery_metrics", "_record_histograms", "update_task_duration_time", "_uninstrument",
+                "_trace_prerun",
+                "_trace_postrun",
+                "_trace_before_publish",
+                "_trace_after_publish",
+                "_trace_failure",
+                "_trace_retry",
+                "create_celery_metrics",
+                "_record_histograms",
+                "update_task_duration_time",
+                "_uninstrument",
             ):
                 if not callable(getattr(CeleryInstrumentor, name, None)):
                     logger.warning("tp_trace: CeleryInstrumentor hook '%s' missing, skipping.", name)

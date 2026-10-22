@@ -505,7 +505,6 @@ def test_django_path_is_driver_agnostic():
     assert "from psycopg" not in source
 
 
-
 def test_extract_operation_fallback():
     """Verify operation extraction falls back to QUERY for empty or unknown SQL."""
     from tp_trace.integrations.postgres.cursor import extract_operation
@@ -548,6 +547,7 @@ def test_db_span_carries_alias_and_physical_db_name():
         export_batch=False,
     )
     from tp_trace.integrations import get_integration_manager
+
     mgr = get_integration_manager()
     mgr.apply_integrations()
 
@@ -586,6 +586,7 @@ def test_pgbouncer_single_query_span():
         export_batch=False,
     )
     from tp_trace.integrations import get_integration_manager
+
     mgr = get_integration_manager()
     mgr.apply_integrations()
 
@@ -633,6 +634,7 @@ def test_pgbouncer_connect_span_on_get_new_connection():
         export_batch=False,
     )
     from tp_trace.integrations import get_integration_manager
+
     mgr = get_integration_manager()
     mgr.apply_integrations()
 
@@ -925,9 +927,7 @@ def test_failing_execute_wrapper_runs_statement_exactly_once():
         calls.append(sql)
         raise ValueError("syntax error in SQL")
 
-    conn = MockDatabaseConnection(
-        alias="default", vendor="postgresql", host="db", port=5432, db_name="test_db"
-    )
+    conn = MockDatabaseConnection(alias="default", vendor="postgresql", host="db", port=5432, db_name="test_db")
     context = {"cursor": MockRawCursor(), "connection": conn}
 
     with pytest.raises(ValueError):
@@ -959,9 +959,7 @@ def test_db_statement_and_full_statement_separation():
     """Verify that db.statement contains bounded normalized SQL while db.statement.full contains complete SQL."""
     from tp_trace.integrations.postgres.cursor import _build_db_span_context
 
-    conn = MockDatabaseConnection(
-        alias="default", vendor="postgresql", host="localhost", port=5432, db_name="shop"
-    )
+    conn = MockDatabaseConnection(alias="default", vendor="postgresql", host="localhost", port=5432, db_name="shop")
 
     # 1. Normal query with dynamic IN list and comment
     sql1 = "SELECT /* comment */ id, name FROM large_table WHERE id IN (%s, %s, %s)"

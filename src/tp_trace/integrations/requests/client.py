@@ -49,7 +49,6 @@ def _extract_request_meta(request: Any) -> Tuple[str, str, str, str, int, str]:
     return method, sanitized, scheme, hostname, port, peer_service
 
 
-
 def _apply_request_attributes(span: Any, request: Any) -> None:
     """Set tp_trace attributes on an outgoing requests span. May raise."""
     method, sanitized_url, scheme, hostname, port, peer_service = _extract_request_meta(request)

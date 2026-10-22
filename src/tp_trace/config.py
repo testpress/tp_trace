@@ -31,8 +31,7 @@ def _str_to_bool(val: Any, default: bool = False) -> bool:
     if s in _FALSE_VALUES:
         return False
     raise ValueError(
-        f"tp_trace: cannot parse {val!r} as boolean; "
-        f"accepted values: {sorted(_TRUE_VALUES | _FALSE_VALUES)}"
+        f"tp_trace: cannot parse {val!r} as boolean; accepted values: {sorted(_TRUE_VALUES | _FALSE_VALUES)}"
     )
 
 
@@ -61,10 +60,7 @@ def _parse_query_mode(val: Any) -> str:
     if not mode:
         return "expose"
     if mode not in _QUERY_MODES:
-        raise ValueError(
-            f"tp_trace: cannot parse {val!r} as query_mode; "
-            f"accepted values: {sorted(_QUERY_MODES)}"
-        )
+        raise ValueError(f"tp_trace: cannot parse {val!r} as query_mode; accepted values: {sorted(_QUERY_MODES)}")
     return mode
 
 
@@ -103,20 +99,14 @@ def _parse_endpoint_sample_rules(val: Any) -> Dict[str, float]:
         items = [item.strip() for item in val.split(",") if item.strip()]
         for item in items:
             if "=" not in item:
-                raise ValueError(
-                    f"tp_trace: invalid endpoint sample rule {item!r}; expected format 'pattern=rate'"
-                )
+                raise ValueError(f"tp_trace: invalid endpoint sample rule {item!r}; expected format 'pattern=rate'")
             pattern, rate_str = item.split("=", 1)
             pattern = pattern.strip()
             if not pattern:
-                raise ValueError(
-                    f"tp_trace: invalid endpoint sample rule {item!r}; pattern cannot be empty"
-                )
+                raise ValueError(f"tp_trace: invalid endpoint sample rule {item!r}; pattern cannot be empty")
             rate_str = rate_str.strip()
             if not rate_str:
-                raise ValueError(
-                    f"tp_trace: invalid endpoint sample rule {item!r}; rate cannot be empty"
-                )
+                raise ValueError(f"tp_trace: invalid endpoint sample rule {item!r}; rate cannot be empty")
             rate = _parse_rate(rate_str, field_name=f"endpoint_sample_rules[{pattern!r}]")
             rules[pattern] = rate
         return rules
@@ -124,9 +114,7 @@ def _parse_endpoint_sample_rules(val: Any) -> Dict[str, float]:
     if isinstance(val, dict):
         for pattern, rate_val in val.items():
             if not isinstance(pattern, str) or not pattern.strip():
-                raise ValueError(
-                    f"tp_trace: invalid endpoint pattern {pattern!r}; pattern must be a non-empty string"
-                )
+                raise ValueError(f"tp_trace: invalid endpoint pattern {pattern!r}; pattern must be a non-empty string")
             pattern_clean = pattern.strip()
             rate = _parse_rate(rate_val, field_name=f"endpoint_sample_rules[{pattern_clean!r}]")
             rules[pattern_clean] = rate
@@ -141,6 +129,7 @@ def _detect_django_project_name() -> Optional[str]:
     """Try to auto-detect project name from Django settings."""
     try:
         from django.conf import settings
+
         # Check common Django settings for project/app name
         return (
             getattr(settings, "TP_TRACE_PROJECT_NAME", None)
@@ -155,6 +144,7 @@ def _detect_django_env() -> Optional[str]:
     """Try to auto-detect environment from Django settings."""
     try:
         from django.conf import settings
+
         return (
             getattr(settings, "TP_TRACE_ENVIRONMENT", None)
             or getattr(settings, "ENVIRONMENT", None)
@@ -168,6 +158,7 @@ def _detect_django_cluster_name() -> Optional[str]:
     """Try to auto-detect cluster name from Django settings."""
     try:
         from django.conf import settings
+
         return (
             getattr(settings, "TP_TRACE_CLUSTER_NAME", None)
             or getattr(settings, "TP_TRACE_CLUSTER", None)
@@ -377,10 +368,7 @@ class SDKConfig:
         except Exception:
             resolved_metrics_interval = 60000
 
-        env_headers = _parse_headers(
-            os.getenv("TP_TRACE_HEADERS")
-            or os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
-        )
+        env_headers = _parse_headers(os.getenv("TP_TRACE_HEADERS") or os.getenv("OTEL_EXPORTER_OTLP_HEADERS"))
         merged_headers = dict(env_headers)
         if headers:
             merged_headers.update(headers)
@@ -389,9 +377,7 @@ class SDKConfig:
         raw_rate = (
             sample_rate
             if sample_rate is not None
-            else os.getenv("TP_TRACE_SAMPLE_RATE")
-            or os.getenv("OTEL_TRACES_SAMPLER_ARG")
-            or os.getenv("SAMPLE_RATE")
+            else os.getenv("TP_TRACE_SAMPLE_RATE") or os.getenv("OTEL_TRACES_SAMPLER_ARG") or os.getenv("SAMPLE_RATE")
         )
         resolved_sample_rate = _parse_rate(raw_rate, field_name="sample_rate") if raw_rate is not None else 1.0
 
@@ -400,8 +386,7 @@ class SDKConfig:
             resolved_disabled = bool(disabled)
         else:
             resolved_disabled = _str_to_bool(
-                os.getenv("TP_TRACE_DISABLED")
-                or os.getenv("OTEL_SDK_DISABLED"),
+                os.getenv("TP_TRACE_DISABLED") or os.getenv("OTEL_SDK_DISABLED"),
                 default=False,
             )
 
@@ -410,8 +395,7 @@ class SDKConfig:
             resolved_debug = bool(debug)
         else:
             resolved_debug = _str_to_bool(
-                os.getenv("TP_TRACE_DEBUG")
-                or os.getenv("OTEL_LOG_LEVEL") == "debug",
+                os.getenv("TP_TRACE_DEBUG") or os.getenv("OTEL_LOG_LEVEL") == "debug",
                 default=False,
             )
 
@@ -471,17 +455,35 @@ class SDKConfig:
 
         # Merge custom arbitrary extra kwargs (e.g. server_location="us-east-1", team="core")
         KNOWN_EXTRA_KEYS = {
-            "trace_nested_templates", "template_instrumentation", "TEMPLATE_INSTRUMENTATION",
-            "template_enabled", "template_exclude", "tags",
+            "trace_nested_templates",
+            "template_instrumentation",
+            "TEMPLATE_INSTRUMENTATION",
+            "template_enabled",
+            "template_exclude",
+            "tags",
             # Retired knobs, still listed so a stale caller cannot turn them into
             # a resource tag via the custom-extra-kwargs merge below.
             "db_two_tier_spans",
-            "on_request_span", "ignore_endpoints", "IGNORE_ENDPOINTS",
-            "endpoint_sample_rules", "endpoint_rules", "sample_rules", "ENDPOINT_SAMPLE_RULES",
-            "service", "service_name", "cluster",
-            "db_role_map", "DB_ROLE_MAP", "trusted_proxies", "TRUSTED_PROXIES",
-            "cache_enabled", "CACHE_ENABLED", "auto_patch", "AUTO_PATCH",
-            "extract_trace_context", "EXTRACT_TRACE_CONTEXT",
+            "on_request_span",
+            "ignore_endpoints",
+            "IGNORE_ENDPOINTS",
+            "endpoint_sample_rules",
+            "endpoint_rules",
+            "sample_rules",
+            "ENDPOINT_SAMPLE_RULES",
+            "service",
+            "service_name",
+            "cluster",
+            "db_role_map",
+            "DB_ROLE_MAP",
+            "trusted_proxies",
+            "TRUSTED_PROXIES",
+            "cache_enabled",
+            "CACHE_ENABLED",
+            "auto_patch",
+            "AUTO_PATCH",
+            "extract_trace_context",
+            "EXTRACT_TRACE_CONTEXT",
         }
         for k, v in extra.items():
             if k not in KNOWN_EXTRA_KEYS and not k.startswith("_"):
@@ -545,7 +547,9 @@ class SDKConfig:
             else:
                 resolved_trusted_proxies = list(kwarg_proxies)
         elif "TP_TRACE_TRUSTED_PROXIES" in os.environ:
-            resolved_trusted_proxies = [p.strip() for p in os.environ["TP_TRACE_TRUSTED_PROXIES"].split(",") if p.strip()]
+            resolved_trusted_proxies = [
+                p.strip() for p in os.environ["TP_TRACE_TRUSTED_PROXIES"].split(",") if p.strip()
+            ]
         else:
             resolved_trusted_proxies = []
 
@@ -584,7 +588,11 @@ class SDKConfig:
         kwarg_extract = (
             extract_trace_context
             if extract_trace_context is not None
-            else (extra.get("extract_trace_context") if "extract_trace_context" in extra else extra.get("EXTRACT_TRACE_CONTEXT"))
+            else (
+                extra.get("extract_trace_context")
+                if "extract_trace_context" in extra
+                else extra.get("EXTRACT_TRACE_CONTEXT")
+            )
         )
         if kwarg_extract is not None:
             if callable(kwarg_extract):
@@ -593,7 +601,11 @@ class SDKConfig:
                 resolved_extract = _str_to_bool(kwarg_extract, default=True)
         elif "TP_TRACE_EXTRACT_TRACE_CONTEXT" in os.environ:
             resolved_extract = _str_to_bool(os.environ["TP_TRACE_EXTRACT_TRACE_CONTEXT"], default=True)
-        elif "OTEL_PROPAGATORS" in os.environ and os.environ["OTEL_PROPAGATORS"].strip().lower() in ("none", "off", "0"):
+        elif "OTEL_PROPAGATORS" in os.environ and os.environ["OTEL_PROPAGATORS"].strip().lower() in (
+            "none",
+            "off",
+            "0",
+        ):
             resolved_extract = False
         else:
             resolved_extract = True
@@ -614,17 +626,11 @@ class SDKConfig:
             resolved_redis_mask_command = False
 
         raw_cmd_max_length = (
-            redis_cmd_max_length
-            if redis_cmd_max_length is not None
-            else os.getenv("TP_TRACE_REDIS_CMD_MAX_LENGTH")
+            redis_cmd_max_length if redis_cmd_max_length is not None else os.getenv("TP_TRACE_REDIS_CMD_MAX_LENGTH")
         )
         resolved_cmd_max_length = _parse_cmd_max_length(raw_cmd_max_length)
 
-        raw_query_mode = (
-            query_mode
-            if query_mode is not None
-            else os.getenv("TP_TRACE_QUERY_MODE")
-        )
+        raw_query_mode = query_mode if query_mode is not None else os.getenv("TP_TRACE_QUERY_MODE")
         resolved_query_mode = _parse_query_mode(raw_query_mode)
 
         return cls(

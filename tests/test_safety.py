@@ -103,9 +103,7 @@ def test_pre_app_telemetry_failure_still_runs_execute_wrapper():
     original = cur._build_db_span_context
     cur._build_db_span_context = _boom
     try:
-        cur.tp_trace_django_db_execute_wrapper(
-            execute, "SELECT 1", None, False, {"cursor": Cur(), "connection": None}
-        )
+        cur.tp_trace_django_db_execute_wrapper(execute, "SELECT 1", None, False, {"cursor": Cur(), "connection": None})
     finally:
         cur._build_db_span_context = original
 
@@ -482,9 +480,7 @@ def test_server_span_records_exception_exactly_once():
     with pytest.raises(ValueError):
         req_mod.traced_get_response(app, None, (Req(),), {})
 
-    exception_events = [
-        e for s in exporter.get_finished_spans() for e in s.events if e.name == "exception"
-    ]
+    exception_events = [e for s in exporter.get_finished_spans() for e in s.events if e.name == "exception"]
     assert len(exception_events) == 1
 
 
@@ -507,9 +503,7 @@ def test_django_native_wrapper_rowcount_fault_preserves_result():
         return "RESULT"
 
     context = {"connection": object(), "cursor": ClosedCursor()}
-    result = cur.tp_trace_django_db_execute_wrapper(
-        execute, "SELECT 1", None, False, context
-    )
+    result = cur.tp_trace_django_db_execute_wrapper(execute, "SELECT 1", None, False, context)
 
     assert result == "RESULT"
     assert len(calls) == 1
@@ -568,6 +562,7 @@ def test_traced_span_preserves_app_exception_when_telemetry_fails():
 
 def test_sanitize_sql_dollar_quoted_strings():
     from tp_trace.sanitize import sanitize_sql
+
     assert sanitize_sql("SELECT $$alice@example.com$$") == "SELECT ?"
     assert sanitize_sql("SELECT $tag$super_secret$tag$ FROM table") == "SELECT ? FROM table"
     # Unclosed dollar quote fails closed
@@ -577,6 +572,7 @@ def test_sanitize_sql_dollar_quoted_strings():
 
 def test_sanitize_url_fail_closed():
     from tp_trace.sanitize import sanitize_url
+
     # Normal url sanitize strips sensitive query param
     assert "token=REDACTED" in sanitize_url("https://api.example.com/v1?token=secret123")
 
@@ -587,6 +583,7 @@ def test_sanitize_url_fail_closed():
 
     # Mock urlparse raising an exception
     import urllib.parse
+
     orig = urllib.parse.urlparse
     urllib.parse.urlparse = lambda *a, **k: (_ for _ in ()).throw(ValueError("malformed URL"))
     try:

@@ -60,7 +60,7 @@ def extract_query_summary(sql: Optional[str]) -> str:
     op = extract_operation(cleaned)
     match = _TABLE_RE.search(cleaned)
     if match:
-        table = match.group(1).replace('"', '').replace('`', '')
+        table = match.group(1).replace('"', "").replace("`", "")
         return f"{op} {table}"
     words = cleaned.split()
     if len(words) >= 2 and words[0].upper() in _KNOWN_SQL_OPS:
@@ -139,7 +139,9 @@ def _build_db_span_context(
     sanitized_sql = sanitize_sql(sql)
     metric_sql = normalize_sql_for_metric(sanitized_sql)
     op = extract_operation(sanitized_sql)
-    db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service = _extract_django_db_meta(instance_or_conn)
+    db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service = _extract_django_db_meta(
+        instance_or_conn
+    )
     summary = extract_query_summary(sanitized_sql)
     is_pgbouncer = is_pgbouncer_connection(db_host, db_port)
 
@@ -178,7 +180,6 @@ def _build_db_span_context(
     return span_name, span_attrs
 
 
-
 def _emit_db_span(span_name: str, span_attrs: dict, execute_fn: Callable, cursor_obj: Any) -> Any:
     with traced_span(
         span_name,
@@ -188,13 +189,12 @@ def _emit_db_span(span_name: str, span_attrs: dict, execute_fn: Callable, cursor
     ) as span:
         with suppress_db_instrumentation():
             result = execute_fn()
-        rowcount = attempt(
-            getattr, cursor_obj, "rowcount", default=None, _label="db.rowcount"
-        )
+        rowcount = attempt(getattr, cursor_obj, "rowcount", default=None, _label="db.rowcount")
         if isinstance(rowcount, int) and rowcount >= 0:
             safe_set_attribute(span, "db.row_count", rowcount)
             safe_set_attribute(span, "db.response.returned_rows", rowcount)
         return result
+
 
 def tp_trace_django_db_execute_wrapper(
     execute: Callable,
@@ -216,9 +216,7 @@ def tp_trace_django_db_execute_wrapper(
             if not should_trace:
                 return execute(sql, params, many, context)
 
-            db_ctx = attempt(
-                _build_db_span_context, sql, conn, default=UNTRACED, _label="db_span_context"
-            )
+            db_ctx = attempt(_build_db_span_context, sql, conn, default=UNTRACED, _label="db_span_context")
             if db_ctx is UNTRACED:
                 # Telemetry could not be built. The statement must still run.
                 return execute(sql, params, many, context)
@@ -252,9 +250,7 @@ def traced_django_cursor_exec(
                 return wrapped(*args, **kwargs)
 
             sql = args[0] if args else kwargs.get("sql", "")
-            db_ctx = attempt(
-                _build_db_span_context, sql, instance, default=UNTRACED, _label="db_span_context"
-            )
+            db_ctx = attempt(_build_db_span_context, sql, instance, default=UNTRACED, _label="db_span_context")
             if db_ctx is UNTRACED:
                 # Telemetry could not be built. The statement must still run.
                 return wrapped(*args, **kwargs)

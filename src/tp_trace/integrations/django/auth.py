@@ -1,4 +1,5 @@
 """Auth spans — wraps django.contrib.auth login/authenticate operations."""
+
 import logging
 from typing import Any, Callable
 

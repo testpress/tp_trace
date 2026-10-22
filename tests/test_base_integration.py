@@ -33,6 +33,7 @@ def integration():
 
 def _wrap_as_trace(integration, obj, method):
     """Wrap using the same shape every real integration uses."""
+
     def _wrapper(wrapped, instance, args, kwargs):
         with traced_span(f"span.{method}", attributes={"k": "v"}) as span:
             result = wrapped(*args, **kwargs)
@@ -76,6 +77,7 @@ def test_successful_method_runs_exactly_once(integration):
 
 def test_exception_is_not_swallowed(integration):
     """A host exception must propagate, not be absorbed by the safety net."""
+
     class Service:
         def do_work(self):
             raise KeyError("missing")
@@ -93,6 +95,7 @@ def test_unwrap_restores_original(integration):
     Real integrations pass the *class* as the wrap target, so that is the
     shape exercised here.
     """
+
     class Service:
         def do_work(self):
             return "ok"

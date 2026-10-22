@@ -29,10 +29,12 @@ def _inspect_and_propagate_request_tags(request: Any) -> None:
             subdomain = getattr(institute, "subdomain", None)
             if subdomain:
                 from tp_trace.route_context import set_request_tag
+
                 set_request_tag("institute.subdomain", str(subdomain))
                 set_request_tag("institute", str(subdomain))
     except Exception:
         pass
+
 
 _HOOK_METHODS = (
     "__call__",
@@ -145,6 +147,7 @@ def unpatch_handler_base_import_string() -> None:
     global _orig_handler_base_import_string
     try:
         import django.core.handlers.base as handler_base
+
         if getattr(handler_base, "_tp_import_string_patched", False):
             if _orig_handler_base_import_string is not None:
                 handler_base.import_string = _orig_handler_base_import_string

@@ -190,6 +190,7 @@ def suppress_instrumentation() -> Iterator[None]:
             _SUPPRESS_INSTRUMENTATION_KEY,
             _SUPPRESS_INSTRUMENTATION_KEY_PLAIN,
         )
+
         keys.extend([_SUPPRESS_INSTRUMENTATION_KEY, _SUPPRESS_INSTRUMENTATION_KEY_PLAIN])
     except Exception:
         pass

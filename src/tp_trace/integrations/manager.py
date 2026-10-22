@@ -43,9 +43,7 @@ class IntegrationManager:
     """Manages discovery, lifecycle, and activation of framework integrations."""
 
     def __init__(self) -> None:
-        self._registered_classes: Dict[str, Union[Type[BaseIntegration], str]] = dict(
-            _BUILTIN_INTEGRATIONS
-        )
+        self._registered_classes: Dict[str, Union[Type[BaseIntegration], str]] = dict(_BUILTIN_INTEGRATIONS)
         self._aliases: Dict[str, str] = dict(_INTEGRATION_ALIASES)
         for alias, canonical in self._aliases.items():
             if canonical in _BUILTIN_INTEGRATIONS and alias not in self._registered_classes:

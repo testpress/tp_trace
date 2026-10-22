@@ -92,11 +92,7 @@ def test_metrics_export_interval_default_and_overrides(monkeypatch):
 
     monkeypatch.setenv("TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS", "15000")
     assert SDKConfig.from_env_and_kwargs().metrics_export_interval_millis == 15000
-    assert (
-        SDKConfig.from_env_and_kwargs(metrics_export_interval_millis=30000)
-        .metrics_export_interval_millis
-        == 30000
-    )
+    assert SDKConfig.from_env_and_kwargs(metrics_export_interval_millis=30000).metrics_export_interval_millis == 30000
 
 
 def test_legacy_tp_dog_env_vars_are_ignored(monkeypatch):
@@ -341,9 +337,7 @@ def test_sanitize_sql():
 def test_sanitize_sql_collapses_in_list_arity():
     """IN list length must not create a distinct label per batch size."""
     short = sanitize_sql("SELECT * FROM api_product WHERE id IN (1, 2, 3)")
-    long = sanitize_sql(
-        "SELECT * FROM api_product WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)"
-    )
+    long = sanitize_sql("SELECT * FROM api_product WHERE id IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)")
     single = sanitize_sql("SELECT * FROM api_product WHERE id IN (7)")
 
     assert short == "SELECT * FROM api_product WHERE id IN (?)"
@@ -351,12 +345,8 @@ def test_sanitize_sql_collapses_in_list_arity():
     assert short == long == single
 
     # Whitespace and newline variants collapse too.
-    assert sanitize_sql("SELECT 1 FROM t WHERE id IN\n  (1,\n   2)") == (
-        "SELECT ? FROM t WHERE id IN (?)"
-    )
-    assert sanitize_sql("SELECT 1 FROM t WHERE id IN(1, 2)") == (
-        "SELECT ? FROM t WHERE id IN (?)"
-    )
+    assert sanitize_sql("SELECT 1 FROM t WHERE id IN\n  (1,\n   2)") == ("SELECT ? FROM t WHERE id IN (?)")
+    assert sanitize_sql("SELECT 1 FROM t WHERE id IN(1, 2)") == ("SELECT ? FROM t WHERE id IN (?)")
 
 
 def test_sanitize_sql_preserves_in_subquery_and_composites():
@@ -364,23 +354,17 @@ def test_sanitize_sql_preserves_in_subquery_and_composites():
     # A subquery is not a placeholder list and must not be collapsed to "IN (?)",
     # which would merge it with a plain value list and mis-map the query.
     subquery = "SELECT * FROM t WHERE id IN (SELECT user_id FROM orders WHERE total > 100)"
-    assert sanitize_sql(subquery) == (
-        "SELECT * FROM t WHERE id IN (SELECT user_id FROM orders WHERE total > ?)"
-    )
+    assert sanitize_sql(subquery) == ("SELECT * FROM t WHERE id IN (SELECT user_id FROM orders WHERE total > ?)")
 
     # Composite / nested element: inner parens mean the list is not provably flat.
     composite = "SELECT * FROM t WHERE (a, b) IN ((1, 2), (3, 4))"
     assert sanitize_sql(composite) == "SELECT * FROM t WHERE (a, b) IN ((?, ?), (?, ?))"
 
     # NOT IN collapses consistently with IN, keeping the NOT operator.
-    assert sanitize_sql("SELECT * FROM t WHERE id NOT IN (1, 2, 3)") == (
-        "SELECT * FROM t WHERE id NOT IN (?)"
-    )
+    assert sanitize_sql("SELECT * FROM t WHERE id NOT IN (1, 2, 3)") == ("SELECT * FROM t WHERE id NOT IN (?)")
 
     # A function call that merely ends in "in" must not be treated as a predicate.
-    assert sanitize_sql("SELECT checkin FROM t WHERE id = 1") == (
-        "SELECT checkin FROM t WHERE id = ?"
-    )
+    assert sanitize_sql("SELECT checkin FROM t WHERE id = 1") == ("SELECT checkin FROM t WHERE id = ?")
 
     # An empty IN list has no placeholders and is left alone.
     assert sanitize_sql("SELECT * FROM t WHERE id IN ()") == "SELECT * FROM t WHERE id IN ()"
@@ -394,9 +378,7 @@ def test_sanitize_sql_in_collapse_preserves_case_and_structure():
     )
     # A string literal containing "IN (1, 2)" is redacted before list collapsing,
     # so it must not be rewritten.
-    assert sanitize_sql("SELECT * FROM t WHERE note = 'keep IN (1, 2) here'") == (
-        "SELECT * FROM t WHERE note = ?"
-    )
+    assert sanitize_sql("SELECT * FROM t WHERE note = 'keep IN (1, 2) here'") == ("SELECT * FROM t WHERE note = ?")
 
 
 class DummyTarget:
@@ -562,7 +544,6 @@ def test_safe_span_exporter_normalizes_real_readable_spans():
     assert exported_span.attributes.get("normalized.operation") == "SELECT * FROM users"
 
 
-
 def test_unreachable_collector_never_crashes_application():
     """Verify that tracing with an unreachable collector endpoint NEVER crashes or raises."""
     # Point to a dead/non-existent port on localhost
@@ -581,8 +562,6 @@ def test_unreachable_collector_never_crashes_application():
     provider.force_flush()
     # Shutdown must not raise
     provider.shutdown()
-
-
 
 
 def test_auto_patch_true_instruments_installed_integrations():
@@ -635,6 +614,7 @@ def test_auto_patch_respects_integrations_config():
 def test_middleware_init_class_exists():
     """Verify TpTraceMiddleware can be imported."""
     from tp_trace.integrations.django.middleware_init import TpTraceMiddleware
+
     assert TpTraceMiddleware is not None
 
 
@@ -671,6 +651,7 @@ def test_sample_rate_ratio():
 def test_str_to_bool_validation():
     import pytest
     from tp_trace.config import _str_to_bool
+
     assert _str_to_bool("true") is True
     assert _str_to_bool("1") is True
     assert _str_to_bool("false") is False

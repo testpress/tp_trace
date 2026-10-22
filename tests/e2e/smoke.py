@@ -1,4 +1,5 @@
 """Host-to-collector-to-storage smoke test; uses only the Python standard library."""
+
 import json
 import os
 from pathlib import Path
@@ -79,38 +80,87 @@ def main():
     print("PASS sample app: four databases, HTTP dependency, cache, S3 storage", flush=True)
     for uid in ("tempo", "_IY366MMk"):
         assert request(grafana + "/api/datasources/uid/" + uid + "/health")["status"] == "OK"
-    expected = {json.loads(p.read_text())["uid"] for p in
-                (Path(__file__).resolve().parents[2] / "grafana/dashboards").rglob("*.json")
-                if p.name != "_folder.json"}
+    expected = {
+        json.loads(p.read_text())["uid"]
+        for p in (Path(__file__).resolve().parents[2] / "grafana/dashboards").rglob("*.json")
+        if p.name != "_folder.json"
+    }
     actual = {item["uid"] for item in request(grafana + "/api/search?type=dash-db")}
     assert expected <= actual, "Missing dashboards: {}".format(expected - actual)
     print("PASS Grafana datasources and {} dashboards".format(len(expected)), flush=True)
     trace_id = uuid.uuid4().hex
     now = time.time_ns()
     resource = {"attributes": [{"key": "service.name", "value": {"stringValue": "host-smoke"}}]}
-    result = request(collector + "/v1/traces", {"resourceSpans": [{
-        "resource": resource, "scopeSpans": [{"scope": {"name": "dev-smoke"}, "spans": [{
-            "traceId": trace_id, "spanId": uuid.uuid4().hex[:16], "name": "host-smoke",
-            "kind": 2, "startTimeUnixNano": str(now - 10000000), "endTimeUnixNano": str(now),
-            "status": {"code": 1},
-        }]}]}]})
+    result = request(
+        collector + "/v1/traces",
+        {
+            "resourceSpans": [
+                {
+                    "resource": resource,
+                    "scopeSpans": [
+                        {
+                            "scope": {"name": "dev-smoke"},
+                            "spans": [
+                                {
+                                    "traceId": trace_id,
+                                    "spanId": uuid.uuid4().hex[:16],
+                                    "name": "host-smoke",
+                                    "kind": 2,
+                                    "startTimeUnixNano": str(now - 10000000),
+                                    "endTimeUnixNano": str(now),
+                                    "status": {"code": 1},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        },
+    )
     assert not result.get("partialSuccess"), result
     metric = "dev_smoke_" + trace_id
-    result = request(collector + "/v1/metrics", {"resourceMetrics": [{
-        "resource": resource, "scopeMetrics": [{"scope": {"name": "dev-smoke"}, "metrics": [{
-            "name": metric, "gauge": {"dataPoints": [{"timeUnixNano": str(now), "asDouble": 42}]},
-        }]}]}]})
+    result = request(
+        collector + "/v1/metrics",
+        {
+            "resourceMetrics": [
+                {
+                    "resource": resource,
+                    "scopeMetrics": [
+                        {
+                            "scope": {"name": "dev-smoke"},
+                            "metrics": [
+                                {
+                                    "name": metric,
+                                    "gauge": {"dataPoints": [{"timeUnixNano": str(now), "asDouble": 42}]},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        },
+    )
     assert not result.get("partialSuccess"), result
-    eventually("host trace stored in Tempo: " + trace_id,
-               lambda: bool(request(tempo + "/api/traces/" + trace_id).get("batches")))
-    eventually("sample application trace stored in Tempo: " + app_trace_id,
-               lambda: bool(request(tempo + "/api/traces/" + app_trace_id).get("batches")))
-    eventually("host metric stored in Prometheus",
-               lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({"query": metric}))["data"]["result"]))
-    eventually("span metrics generated",
-               lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({
-                   "query": 'apm_calls_total{service_name="host-smoke"}'
-               }))["data"]["result"]))
+    eventually(
+        "host trace stored in Tempo: " + trace_id,
+        lambda: bool(request(tempo + "/api/traces/" + trace_id).get("batches")),
+    )
+    eventually(
+        "sample application trace stored in Tempo: " + app_trace_id,
+        lambda: bool(request(tempo + "/api/traces/" + app_trace_id).get("batches")),
+    )
+    eventually(
+        "host metric stored in Prometheus",
+        lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({"query": metric}))["data"]["result"]),
+    )
+    eventually(
+        "span metrics generated",
+        lambda: bool(
+            request(prometheus + "/api/v1/query?" + urlencode({"query": 'apm_calls_total{service_name="host-smoke"}'}))[
+                "data"
+            ]["result"]
+        ),
+    )
 
 
 if __name__ == "__main__":

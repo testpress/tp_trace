@@ -17,6 +17,9 @@ lint: ## Run linter and typechecker (ruff and mypy)
 	$(VENV)/bin/ruff check src/ tests/
 	$(VENV)/bin/mypy src/
 
+format: ## Format Python source and tests
+	$(VENV)/bin/ruff format src/ tests/
+
 pre-commit: ## Run pre-commit hooks on all files
 	$(VENV)/bin/pre-commit run --all-files
 

@@ -22,6 +22,7 @@ class RequestsIntegration(BaseIntegration):
 
     def _apply_patch(self) -> None:
         from .client import set_config, tp_trace_request_hook, tp_trace_response_hook
+
         set_config(self._config)
 
         try:

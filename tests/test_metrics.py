@@ -109,8 +109,7 @@ def test_red_metrics_independent_of_trace_sampling(sample_rate):
 
     total_recorded_calls = sum(pt.value for pt in calls_points)
     assert total_recorded_calls == num_requests, (
-        f"Expected {num_requests} recorded calls at sample_rate={sample_rate}, "
-        f"but got {total_recorded_calls}"
+        f"Expected {num_requests} recorded calls at sample_rate={sample_rate}, but got {total_recorded_calls}"
     )
 
     # Verify duration histogram points

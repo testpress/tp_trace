@@ -27,12 +27,8 @@ from opentelemetry.trace import Span, SpanKind
 
 from tp_trace.safety import safe_update_name
 
-current_route: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
-    "tp_trace.http_route", default=None
-)
-current_method: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
-    "tp_trace.http_method", default=None
-)
+current_route: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("tp_trace.http_route", default=None)
+current_method: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("tp_trace.http_method", default=None)
 
 
 def get_current_route() -> Optional[str]:
@@ -78,9 +74,8 @@ def reset_request_route(tokens: Optional[Tuple[Any, Any]]) -> None:
     except Exception:
         current_method.set(None)
 
-current_tags: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar(
-    "tp_trace.tags", default=None
-)
+
+current_tags: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar("tp_trace.tags", default=None)
 
 
 def get_current_tags() -> dict:
@@ -112,7 +107,6 @@ def reset_request_tags(token: Optional[contextvars.Token] = None) -> None:
             current_tags.set(None)
     except Exception:
         pass
-
 
 
 class RouteEnrichingSpanProcessor(SpanProcessor):
@@ -152,9 +146,7 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                 span_kind = getattr(span, "kind", None)
                 if span_kind is None and hasattr(span, "_kind"):
                     span_kind = getattr(span, "_kind", None)
-                expected_kind = (
-                    SpanKind.PRODUCER if celery_meta.action == "apply_async" else SpanKind.CONSUMER
-                )
+                expected_kind = SpanKind.PRODUCER if celery_meta.action == "apply_async" else SpanKind.CONSUMER
                 if scope_name == "opentelemetry.instrumentation.celery" and span_kind == expected_kind:
                     span.set_attribute("tp_trace.celery.owned", True)
                     span.set_attribute("normalized.service", "celery")
@@ -168,10 +160,7 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
             if span_kind is None and hasattr(span, "_kind"):
                 span_kind = getattr(span, "_kind", None)
             is_client_or_internal = span_kind in (SpanKind.CLIENT, SpanKind.INTERNAL)
-            is_db_or_cache = bool(
-                existing.get("db.system")
-                or existing.get("db.name")
-            )
+            is_db_or_cache = bool(existing.get("db.system") or existing.get("db.name"))
             route = get_current_route()
             if route and route != "__unmatched__":
                 if not existing.get("django.route"):
@@ -222,7 +211,11 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                     return
 
                 # Remove accidental http.method / http.route from database/cache spans
-                if target_dict.get("db.system") or attrs.get("db.system") or target_dict.get("normalized.service") in ("redis", "postgres", "pgbouncer"):
+                if (
+                    target_dict.get("db.system")
+                    or attrs.get("db.system")
+                    or target_dict.get("normalized.service") in ("redis", "postgres", "pgbouncer")
+                ):
                     for bad_key in ("http.method", "http.request.method", "http.route"):
                         if bad_key in target_dict:
                             try:

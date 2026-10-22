@@ -21,7 +21,9 @@ def _tp_trace_boto_request_hook(span: Any, service: str, operation: str, params:
             if hasattr(span, "set_attribute"):
                 norm_svc = "aws-s3" if str(service).lower() == "s3" else f"aws-{str(service).lower()}"
                 span.set_attribute("normalized.service", norm_svc)
-                span.set_attribute("normalized.operation", f"{service}.{operation}" if service and operation else (name or "aws.call"))
+                span.set_attribute(
+                    "normalized.operation", f"{service}.{operation}" if service and operation else (name or "aws.call")
+                )
     except Exception:
         logger.debug("boto hook error", exc_info=True)
 

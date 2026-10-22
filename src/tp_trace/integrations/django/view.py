@@ -46,8 +46,8 @@ def _bind_response_parent(response: Any) -> None:
 @functools.lru_cache(maxsize=512)
 def _to_snake_case(name: str) -> str:
     """Convert CamelCase view class name to snake_case (memoized for high throughput)."""
-    s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+    s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any) -> Any:
@@ -65,9 +65,7 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
     ) as span:
         _apply_tags(span)
         method = attempt(getattr, request, "method", default="GET", _label="request.method")
-        pre_route = attempt(
-            _normalize_route, request, initial_route, default=initial_route, _label="normalize_route"
-        )
+        pre_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
         if pre_route and pre_route != "__unmatched__":
             set_request_route(pre_route, method)
 
@@ -84,9 +82,7 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         # degrades independently so a failure here cannot affect what the
         # application returned.
         raw_view_name = attempt(_resolve_view_name, request, method, default="view", _label="view_name")
-        norm_route = attempt(
-            _normalize_route, request, initial_route, default=initial_route, _label="normalize_route"
-        )
+        norm_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
         if norm_route and norm_route != "__unmatched__":
             set_request_route(norm_route, method)
 
@@ -152,9 +148,7 @@ def _build_dispatch_plan(instance: Any, wrapped: Callable, args: Any, kwargs: An
     wrapping each lookup and risking a half-applied plan that blocks dispatch.
     """
     view_cls = attempt(getattr, instance.__class__, "__name__", default="View", _label="view_cls")
-    view_module = attempt(
-        getattr, instance.__class__, "__module__", default="", _label="view_module"
-    )
+    view_module = attempt(getattr, instance.__class__, "__module__", default="", _label="view_module")
     full_view_name = attempt(
         lambda: f"{view_module}.{view_cls}" if view_module else view_cls,
         default=view_cls,
@@ -183,9 +177,7 @@ def _build_dispatch_plan(instance: Any, wrapped: Callable, args: Any, kwargs: An
     handler_method = action if action and hasattr(instance, action) else method
     handler = attempt(getattr, instance, handler_method, default=None, _label="view.handler")
     if not (handler and callable(handler) and not getattr(handler, "_tp_traced", False)):
-        return _DispatchPlan(
-            span_name=dispatch_span_name, attrs=dispatch_attrs, action=action, handler=None
-        )
+        return _DispatchPlan(span_name=dispatch_span_name, attrs=dispatch_attrs, action=action, handler=None)
 
     snake_cls = attempt(_to_snake_case, view_cls, default=view_cls, _label="view.snake")
     handler_span_name = (
@@ -222,13 +214,13 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
     try:
         # Planning is a single guarded phase: a failure anywhere in it falls back to
         # a plain dispatch rather than partially instrumenting the view.
-        plan = attempt(
-            _build_dispatch_plan, instance, wrapped, args, kwargs, default=UNTRACED, _label="dispatch_plan"
-        )
+        plan = attempt(_build_dispatch_plan, instance, wrapped, args, kwargs, default=UNTRACED, _label="dispatch_plan")
         if plan is UNTRACED:
             return wrapped(*args, **kwargs)
 
-        with traced_span(plan.span_name, kind=SpanKind.INTERNAL, attributes=plan.attrs, tracer_name="tp_trace.django") as dispatch_span:
+        with traced_span(
+            plan.span_name, kind=SpanKind.INTERNAL, attributes=plan.attrs, tracer_name="tp_trace.django"
+        ) as dispatch_span:
             _apply_tags(dispatch_span)
             if plan.action:
                 safe_set_attribute(dispatch_span, "django.view.action", str(plan.action))
@@ -236,7 +228,11 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
             request = args[0] if args else kwargs.get("request")
             if request:
                 norm_route = attempt(
-                    _normalize_route, request, getattr(request, "path", "/"), default="__unmatched__", _label="normalize_route"
+                    _normalize_route,
+                    request,
+                    getattr(request, "path", "/"),
+                    default="__unmatched__",
+                    _label="normalize_route",
                 )
                 if norm_route and norm_route != "__unmatched__":
                     req_method = attempt(getattr, request, "method", default="GET", _label="request.method")
@@ -255,7 +251,9 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
             method = plan.method
 
             def _traced_handler(*h_args, **h_kwargs):
-                with traced_span(handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django"):
+                with traced_span(
+                    handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django"
+                ):
                     h_res = handler(*h_args, **h_kwargs)
                     attempt(_bind_response_parent, h_res, _label="bind_response_parent")
                     return h_res

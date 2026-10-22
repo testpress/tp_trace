@@ -132,7 +132,6 @@ def test_non_redis_cache_not_misclassified(memory_exporter):
     assert "peer.service" not in spans[0].attributes
 
 
-
 def test_redis_integration_apply_patch_and_uninstrument(monkeypatch):
     """Verify RedisIntegration instruments and uninstruments cleanly."""
     import sys
@@ -146,6 +145,7 @@ def test_redis_integration_apply_patch_and_uninstrument(monkeypatch):
     monkeypatch.setitem(sys.modules, "redis", dummy_redis)
 
     import importlib
+
     otel_redis = importlib.import_module("opentelemetry.instrumentation.redis")
 
     integ = RedisIntegration()
@@ -444,7 +444,8 @@ def test_redis_live_span_exposes_endpoint_command_and_db_index(memory_exporter, 
     live_redis_client.get(key)
 
     spans = [
-        s for s in memory_exporter.get_finished_spans()
+        s
+        for s in memory_exporter.get_finished_spans()
         if s.kind == SpanKind.CLIENT and s.attributes.get("db.system") == "redis"
     ]
     get_span = next(s for s in spans if s.attributes.get("db.statement") == f"GET {key}")
@@ -467,7 +468,8 @@ def test_redis_live_pipeline_span_exposes_full_commands(memory_exporter, live_re
     pipe.execute()
 
     pipe_span = next(
-        s for s in memory_exporter.get_finished_spans()
+        s
+        for s in memory_exporter.get_finished_spans()
         if s.kind == SpanKind.CLIENT and "db.redis.pipeline_length" in s.attributes
     )
     statement = pipe_span.attributes["db.statement"]
@@ -492,7 +494,8 @@ def test_redis_live_masking_toggles_restore_old_behavior(live_redis_client):
     live_redis_client.set(key, "v")
 
     span = next(
-        s for s in exporter.get_finished_spans()
+        s
+        for s in exporter.get_finished_spans()
         if s.kind == SpanKind.CLIENT and s.attributes.get("db.system") == "redis"
     )
     assert span.attributes["db.statement"] == "SET ? ?"
@@ -620,6 +623,7 @@ def test_cache_set_many_suppresses_pipeline_driver_instrumentation(memory_export
             return ["OK", "OK"]
 
     called = []
+
     def dummy_execute(pipe):
         called.append(True)
         return pipe.execute()

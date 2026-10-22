@@ -1,4 +1,5 @@
 """DjangoIntegration — orchestrates request/middleware/view/template/cache/auth patches."""
+
 import importlib
 import logging
 from typing import Optional
@@ -98,7 +99,14 @@ class DjangoIntegration(BaseIntegration):
         from .template import traced_template_render, traced_template_response_render
         from .view import traced_get_response as traced_view, traced_view_dispatch, traced_view_setup
 
-        from . import cache as _cache, request as _request, template as _template, view as _view, middleware as _middleware
+        from . import (
+            cache as _cache,
+            request as _request,
+            template as _template,
+            view as _view,
+            middleware as _middleware,
+        )
+
         _template.set_config(self._config)
         _cache.set_config(self._config)
         _request.set_config(self._config)
@@ -119,6 +127,7 @@ class DjangoIntegration(BaseIntegration):
         self.wrap("django.core.handlers.base.BaseHandler", "_get_response", traced_view)
         try:
             from django.views.generic.base import View  # noqa: F401
+
             self.wrap("django.views.generic.base.View", "setup", traced_view_setup)
             self.wrap("django.views.generic.base.View", "dispatch", traced_view_dispatch)
         except Exception as exc:
@@ -130,11 +139,13 @@ class DjangoIntegration(BaseIntegration):
         self.wrap("django.template.base.Template", "render", traced_template_render)
         try:
             import django.template.backends.django  # noqa: F401
+
             self.wrap("django.template.backends.django.Template", "render", traced_template_render)
         except Exception as exc:
             logger.debug("Django backend Template instrumentation skipped: %s", exc)
         try:
             from django.template.response import SimpleTemplateResponse  # noqa: F401
+
             self.wrap("django.template.response.SimpleTemplateResponse", "render", traced_template_response_render)
         except Exception as exc:
             logger.debug("Django SimpleTemplateResponse instrumentation skipped: %s", exc)
@@ -186,6 +197,7 @@ class DjangoIntegration(BaseIntegration):
             ("django.core.cache.backends.redis", "django.core.cache.backends.redis.RedisCache"),
         ]
         import sys
+
         for mod_name, cls_path in deferred_caches:
             if mod_name in sys.modules:
                 _patch_cls(cls_path)
@@ -196,6 +208,7 @@ class DjangoIntegration(BaseIntegration):
         def _patch(_mod) -> None:
             try:
                 from .auth import traced_authenticate, traced_login
+
                 self.wrap("django.contrib.auth", "login", traced_login)
                 self.wrap("django.contrib.auth", "authenticate", traced_authenticate)
             except Exception as exc:
@@ -203,6 +216,7 @@ class DjangoIntegration(BaseIntegration):
 
         try:
             import sys
+
             if "django.contrib.auth" in sys.modules:
                 _patch(sys.modules["django.contrib.auth"])
             else:
@@ -216,6 +230,7 @@ class DjangoIntegration(BaseIntegration):
 
         try:
             import sys
+
             if "rest_framework.views" in sys.modules:
                 _patch(sys.modules["rest_framework.views"])
             else:
@@ -240,6 +255,7 @@ class DjangoIntegration(BaseIntegration):
             pass
         try:
             from .middleware import unpatch_handler_base_import_string
+
             unpatch_handler_base_import_string()
         except Exception:
             pass

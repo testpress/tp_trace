@@ -96,16 +96,8 @@ class RedMetricsRecorder:
         """
         try:
             cfg = self.config
-            resolved_project = (
-                project_name
-                or (cfg.project_name if cfg else None)
-                or "default"
-            )
-            resolved_cluster = (
-                cluster_name
-                or (cfg.cluster_name if cfg else None)
-                or ""
-            )
+            resolved_project = project_name or (cfg.project_name if cfg else None) or "default"
+            resolved_cluster = cluster_name or (cfg.cluster_name if cfg else None) or ""
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
@@ -167,7 +159,9 @@ def create_red_metrics_recorder(
                     export_timeout_millis=interval_ms,
                 )
                 readers.append(reader)
-                logger.info("tp_trace: Configured OTLP metrics export to %s (interval=%dms)", otlp_metrics_ep, interval_ms)
+                logger.info(
+                    "tp_trace: Configured OTLP metrics export to %s (interval=%dms)", otlp_metrics_ep, interval_ms
+                )
             except Exception as exc:
                 logger.warning("tp_trace: Failed to configure OTLPMetricExporter: %s", exc)
     else:
@@ -176,9 +170,7 @@ def create_red_metrics_recorder(
     # Configure latency histogram view with explicit APM buckets
     latency_view = View(
         instrument_name="duration_milliseconds",
-        aggregation=ExplicitBucketHistogramAggregation(
-            boundaries=LATENCY_BUCKETS_MS
-        ),
+        aggregation=ExplicitBucketHistogramAggregation(boundaries=LATENCY_BUCKETS_MS),
     )
 
     if resource is None:

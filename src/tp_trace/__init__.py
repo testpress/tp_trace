@@ -163,6 +163,7 @@ def init(
         try:
             import socket
             import os
+
             resource_data.setdefault("service.instance.id", f"{socket.gethostname()}-{os.getpid()}")
         except Exception:
             pass
@@ -174,6 +175,7 @@ def init(
             sampler = ALWAYS_OFF
         else:
             from tp_trace.sampler import create_tp_trace_sampler
+
             sampler = create_tp_trace_sampler(
                 global_sample_rate=config.sample_rate,
                 ignore_endpoints=config.ignore_endpoints,
@@ -256,6 +258,7 @@ def init(
         # Initialize independent RED metrics recorder
         try:
             from tp_trace.metrics import init_metrics
+
             init_metrics(config=config, metric_readers=metric_readers, resource=resource)
         except Exception as exc:
             logger.debug("tp_trace: Failed to initialize independent RED metrics: %s", exc)
@@ -263,6 +266,7 @@ def init(
         # Register shutdown on process exit exactly once
         global _ATEXIT_REGISTERED
         if not _ATEXIT_REGISTERED:
+
             def _shutdown():
                 global _ACTIVE_PROVIDER
                 try:
@@ -272,6 +276,7 @@ def init(
                     pass
                 try:
                     from tp_trace.metrics import get_metrics_recorder
+
                     rec = get_metrics_recorder()
                     if rec is not None and rec.meter_provider is not None:
                         rec.meter_provider.shutdown()
@@ -331,21 +336,22 @@ def _reset_for_testing() -> None:
                 pass
         try:
             from tp_trace.metrics import set_metrics_recorder
+
             set_metrics_recorder(None)
         except Exception:
             pass
         try:
             from tp_trace.integrations.django.request import _CALLBACK_ARITY_CACHE
+
             _CALLBACK_ARITY_CACHE.clear()
         except Exception:
             pass
 
 
-
-
 def set_tag(key: str, value: Any) -> None:
     """Set an attribute on the active span AND propagate it to all downstream child spans (DB, Redis, HTTP)."""
     from tp_trace.route_context import set_request_tag
+
     set_request_tag(key, value)
     span = get_current_span()
     if span and hasattr(span, "set_attribute"):
@@ -358,6 +364,7 @@ def set_tag(key: str, value: Any) -> None:
 def set_attribute(key: str, value: Any) -> None:
     """Alias for set_tag."""
     set_tag(key, value)
+
 
 __all__ = [
     "set_tag",

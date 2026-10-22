@@ -20,10 +20,14 @@ def test_ignore_endpoints_wildcard_matching():
     res2 = sampler.should_sample(None, 12345, "GET /healthz", attributes={"http.target": "/healthz?foo=bar"})
     assert res2.decision == Decision.DROP
 
-    res3 = sampler.should_sample(None, 12345, "GET /app/static/main.css", attributes={"url.path": "/app/static/main.css"})
+    res3 = sampler.should_sample(
+        None, 12345, "GET /app/static/main.css", attributes={"url.path": "/app/static/main.css"}
+    )
     assert res3.decision == Decision.DROP
 
-    res4 = sampler.should_sample(None, 12345, "GET /api/products/health/", attributes={"http.target": "/api/products/health/"})
+    res4 = sampler.should_sample(
+        None, 12345, "GET /api/products/health/", attributes={"http.target": "/api/products/health/"}
+    )
     assert res4.decision == Decision.DROP
 
     # Non-ignored path -> RECORD_AND_SAMPLE (global_sample_rate=1.0)
@@ -37,7 +41,7 @@ def test_endpoint_sample_rules_custom_ratios():
         global_sample_rate=0.0,  # Drop all by default
         endpoint_sample_rules={
             "/api/checkout/*": 1.0,  # Always sample checkout
-            "/api/health": 0.0,      # Always drop health
+            "/api/health": 0.0,  # Always drop health
         },
     )
 
@@ -133,14 +137,14 @@ def test_parameterized_route_template_matching():
 @pytest.mark.parametrize(
     "malformed_rule",
     [
-        "/api/checkout/*",            # Missing '='
-        "=/api/checkout/*",           # Empty pattern
-        "/api/checkout/*=",           # Empty rate
-        "/api/checkout/*=abc",         # Non-numeric rate
-        "/api/checkout/*=1.5",         # Rate > 1.0
-        "/api/checkout/*=-0.1",        # Rate < 0.0
-        "/api/checkout/*=nan",         # Non-finite rate
-        "/api/checkout/*=inf",         # Non-finite rate
+        "/api/checkout/*",  # Missing '='
+        "=/api/checkout/*",  # Empty pattern
+        "/api/checkout/*=",  # Empty rate
+        "/api/checkout/*=abc",  # Non-numeric rate
+        "/api/checkout/*=1.5",  # Rate > 1.0
+        "/api/checkout/*=-0.1",  # Rate < 0.0
+        "/api/checkout/*=nan",  # Non-finite rate
+        "/api/checkout/*=inf",  # Non-finite rate
     ],
 )
 def test_endpoint_sample_rules_validation_env_var(monkeypatch, malformed_rule):
@@ -153,14 +157,14 @@ def test_endpoint_sample_rules_validation_env_var(monkeypatch, malformed_rule):
 @pytest.mark.parametrize(
     "invalid_rules",
     [
-        {"/api/checkout/*": 1.5},      # Rate > 1.0
-        {"/api/checkout/*": -0.5},     # Rate < 0.0
+        {"/api/checkout/*": 1.5},  # Rate > 1.0
+        {"/api/checkout/*": -0.5},  # Rate < 0.0
         {"/api/checkout/*": "notnum"},  # Non-numeric
         {"/api/checkout/*": float("nan")},  # NaN
-        {"": 0.5},                     # Empty pattern string
-        {"   ": 0.5},                  # Blank pattern string
-        {123: 0.5},                    # Non-string pattern
-        [("/api/*", 0.5)],             # Invalid type (list instead of dict/str)
+        {"": 0.5},  # Empty pattern string
+        {"   ": 0.5},  # Blank pattern string
+        {123: 0.5},  # Non-string pattern
+        [("/api/*", 0.5)],  # Invalid type (list instead of dict/str)
     ],
 )
 def test_endpoint_sample_rules_validation_kwargs(invalid_rules):

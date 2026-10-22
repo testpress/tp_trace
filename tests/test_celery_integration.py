@@ -105,9 +105,7 @@ def test_celery_integration_manager_defaults():
     mgr.uninstrument_all()
 
     # Explicit enable remains supported
-    instrumented = mgr.apply_integrations(
-        config=tp_trace.SDKConfig(project_name="test", integrations={"celery": True})
-    )
+    instrumented = mgr.apply_integrations(config=tp_trace.SDKConfig(project_name="test", integrations={"celery": True}))
     assert "celery" in instrumented
     mgr.uninstrument_all()
 
@@ -120,11 +118,14 @@ def test_celery_integration_manager_defaults():
     mgr.uninstrument_all()
 
 
-@pytest.mark.parametrize("kwargs, enabled", [
-    ({}, True),
-    ({"integrations": {"celery": False}}, False),
-    ({"auto_patch": False}, False),
-])
+@pytest.mark.parametrize(
+    "kwargs, enabled",
+    [
+        ({}, True),
+        ({"integrations": {"celery": False}}, False),
+        ({"auto_patch": False}, False),
+    ],
+)
 def test_init_celery_default_and_opt_out(kwargs, enabled):
     """The public init path enables installed Celery and honors both opt-outs."""
     from tp_trace.integrations import get_integration_manager
@@ -424,7 +425,9 @@ def test_broker_publication_failure_cleanup(test_celery_app, memory_exporter):
 
     tracer = trace.get_tracer("test")
     with tracer.start_as_current_span("parent_request") as parent:
-        with patch.object(kombu.messaging.Producer, "_publish", autospec=True, side_effect=RuntimeError("Broker unavailable")):
+        with patch.object(
+            kombu.messaging.Producer, "_publish", autospec=True, side_effect=RuntimeError("Broker unavailable")
+        ):
             with pytest.raises(RuntimeError, match="Broker unavailable"):
                 broker_fail.apply_async()
 
@@ -516,6 +519,7 @@ def test_publish_failure_with_cached_sender(test_celery_app, cached_sender):
 
     error = RuntimeError("broker unavailable")
     from opentelemetry import context
+
     original = context.get_current()
     try:
         with trace.get_tracer("test").start_as_current_span("parent") as parent:
@@ -571,10 +575,19 @@ def test_prerun_span_creation_failure_restores_context(test_celery_app, memory_e
         context.attach(original)
 
 
-@pytest.mark.parametrize("missing", [
-    "_trace_prerun", "_trace_postrun", "_trace_before_publish", "_trace_after_publish",
-    "_trace_failure", "_trace_retry", "create_celery_metrics", "_record_histograms",
-])
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "_trace_prerun",
+        "_trace_postrun",
+        "_trace_before_publish",
+        "_trace_after_publish",
+        "_trace_failure",
+        "_trace_retry",
+        "create_celery_metrics",
+        "_record_histograms",
+    ],
+)
 def test_compatibility_requires_all_upstream_hooks(monkeypatch, missing):
     monkeypatch.delattr(CeleryInstrumentor, missing)
     integration = CeleryIntegration()
@@ -584,6 +597,7 @@ def test_compatibility_requires_all_upstream_hooks(monkeypatch, missing):
 
 def test_compatibility_requires_retry_reason(monkeypatch):
     from opentelemetry.instrumentation.celery import utils
+
     monkeypatch.delattr(utils, "retrieve_reason")
     assert CeleryIntegration()._check_compatibility() is False
 
@@ -652,6 +666,7 @@ def test_future_application_finalization_admits_tasks_and_disconnects():
 def test_snapshot_observes_already_finalized_application():
     app = Celery("already-finalized", fixups=[])
     try:
+
         @app.task(name="regression.already_registered")
         def task():
             return 42
@@ -741,7 +756,6 @@ def test_failed_activation_removes_owned_receivers_and_allows_retry(monkeypatch)
         assert integration.instrument() is True
     finally:
         integration.uninstrument()
-
 
 
 def test_partial_signal_activation_is_rolled_back(monkeypatch):

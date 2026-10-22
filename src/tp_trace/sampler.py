@@ -40,8 +40,7 @@ class TpTraceRuleBasedSampler(Sampler):
         # Pre-instantiate ratio samplers for fast lookup
         self._global_ratio_sampler = TraceIdRatioBased(self.global_sample_rate)
         self._rule_ratio_samplers: Dict[str, TraceIdRatioBased] = {
-            pattern: TraceIdRatioBased(rate)
-            for pattern, rate in self.endpoint_sample_rules.items()
+            pattern: TraceIdRatioBased(rate) for pattern, rate in self.endpoint_sample_rules.items()
         }
 
     def should_sample(

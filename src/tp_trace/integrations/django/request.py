@@ -14,7 +14,14 @@ from opentelemetry.propagate import extract
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.safety import attempt, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
 from tp_trace.sanitize import sanitize_url
-from tp_trace.route_context import get_current_route, get_current_tags, reset_request_route, set_request_route, reset_request_tags, set_request_tag
+from tp_trace.route_context import (
+    get_current_route,
+    get_current_tags,
+    reset_request_route,
+    set_request_route,
+    reset_request_tags,
+    set_request_tag,
+)
 from tp_trace.tracing import reentrant_guard
 
 logger = logging.getLogger("tp_trace.integrations.django")
@@ -45,7 +52,6 @@ def _callback_takes_response(callback: Any) -> bool:
             return False
 
 
-
 def _apply_static_tags(span: Any) -> None:
     """Apply static tags configured on SDKConfig."""
     cfg = attempt(_get_config, default=None, _label="request_config")
@@ -58,6 +64,7 @@ def _apply_request_callback(span: Any, request: Any = None, response: Any = None
     cfg = attempt(_get_config, default=None, _label="request_config")
     callback = getattr(cfg, "on_request_span", None)
     if callback and request is not None:
+
         def _invoke() -> None:
             if response is not None and _callback_takes_response(callback):
                 callback(span, request, response)
@@ -81,7 +88,9 @@ def _apply_request_callback(span: Any, request: Any = None, response: Any = None
 def _apply_custom_tags(span: Any, request: Any = None, on_request_span: Any = None) -> None:
     """Apply static tags and the user callback. Self-contained: never raises."""
     _apply_static_tags(span)
-    callback = on_request_span or getattr(attempt(_get_config, default=None, _label="request_config"), "on_request_span", None)
+    callback = on_request_span or getattr(
+        attempt(_get_config, default=None, _label="request_config"), "on_request_span", None
+    )
     if callback and request is not None:
         attempt(callback, span, request, _label="on_request_span")
 
@@ -433,9 +442,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
         # RouteEnrichingSpanProcessor, poisons every child span in the request.
         # A per-request URLconf set by middleware is honoured too.
         resolve_path = getattr(request, "path_info", None) or path
-        preresolved_route = _preresolve_route(
-            resolve_path, getattr(request, "urlconf", None), request=request
-        )
+        preresolved_route = _preresolve_route(resolve_path, getattr(request, "urlconf", None), request=request)
         if preresolved_route and preresolved_route != "__unmatched__":
             span_attrs["http.route_template"] = preresolved_route
 
@@ -499,7 +506,11 @@ def traced_get_response(wrapped, instance, args, kwargs):
                         if (not route_for_metrics or route_for_metrics == "__unmatched__")
                         else f"{method} {route_for_metrics}"
                     )
-                    final_route = str(status_code) if (not route_for_metrics or route_for_metrics == "__unmatched__") else route_for_metrics
+                    final_route = (
+                        str(status_code)
+                        if (not route_for_metrics or route_for_metrics == "__unmatched__")
+                        else route_for_metrics
+                    )
                     attempt(span.update_name, final_span_name, _label="update_span_name")
                     safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
                     safe_set_attribute(span, "http.route_template", final_route)
@@ -517,9 +528,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     _apply_request_callback(span, request)
                     raise
                 else:
-                    status_code = attempt(
-                        getattr, response, "status_code", default=200, _label="response.status_code"
-                    )
+                    status_code = attempt(getattr, response, "status_code", default=200, _label="response.status_code")
                     norm_route = attempt(
                         _normalize_route, request, path, default="__unmatched__", _label="normalize_route"
                     )
@@ -537,9 +546,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     )
                     final_route = str(status_code) if (not norm_route or norm_route == "__unmatched__") else norm_route
                     attempt(span.update_name, final_span_name, _label="update_span_name")
-                    view_name = attempt(
-                        _resolve_view_name, request, method, default="view", _label="view_name"
-                    )
+                    view_name = attempt(_resolve_view_name, request, method, default="view", _label="view_name")
 
                     safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
                     safe_set_attribute(span, "http.route_template", final_route)
@@ -568,6 +575,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
                             return
                         try:
                             from django.utils.functional import SimpleLazyObject
+
                             if isinstance(user, SimpleLazyObject):
                                 if hasattr(request, "_cached_user"):
                                     user = request._cached_user
@@ -604,9 +612,8 @@ def traced_get_response(wrapped, instance, args, kwargs):
                         safe_set_attribute(span, "error", False)
                         safe_set_status(span, StatusCode.OK)
 
-                    if span_ctx is not None and (
-                        hasattr(response, "headers") or hasattr(response, "__setitem__")
-                    ):
+                    if span_ctx is not None and (hasattr(response, "headers") or hasattr(response, "__setitem__")):
+
                         def _set_headers() -> None:
                             response["X-Trace-ID"] = trace_id_hex
                             response["X-Span-ID"] = span_id_hex
@@ -624,6 +631,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     safe_set_attribute(span, "http.request.duration_ms", duration_ms)
                     try:
                         from tp_trace.metrics import record_request
+
                         record_request(
                             method=method,
                             route=final_route,
@@ -641,6 +649,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
             if not metric_recorded:
                 try:
                     from tp_trace.metrics import record_request
+
                     duration_ms = (time.monotonic() - start) * 1000.0
                     record_request(
                         method=method,

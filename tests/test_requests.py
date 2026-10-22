@@ -200,7 +200,6 @@ def test_requests_integration_lifecycle(memory_exporter):
     integ.uninstrument()
 
 
-
 def test_requests_integration_manager_registration():
     from tp_trace.integrations import get_integration_manager
 

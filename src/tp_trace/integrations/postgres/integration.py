@@ -106,6 +106,7 @@ class PostgresIntegration(BaseIntegration):
 
     def _apply_patch(self) -> None:
         from . import cursor as _cursor
+
         _cursor.set_config(self._config)
 
         # 0. Measure actual client-to-PgBouncer connection establishment
@@ -129,12 +130,18 @@ class PostgresIntegration(BaseIntegration):
 
             if getattr(apps, "ready", False):
                 for conn in connections.all(initialized_only=True):
-                    if hasattr(conn, "execute_wrappers") and tp_trace_django_db_execute_wrapper not in conn.execute_wrappers:
+                    if (
+                        hasattr(conn, "execute_wrappers")
+                        and tp_trace_django_db_execute_wrapper not in conn.execute_wrappers
+                    ):
                         conn.execute_wrappers.append(tp_trace_django_db_execute_wrapper)
 
             # Also listen for new connections
             def _on_connection_created(sender, connection, **kwargs):
-                if hasattr(connection, "execute_wrappers") and tp_trace_django_db_execute_wrapper not in connection.execute_wrappers:
+                if (
+                    hasattr(connection, "execute_wrappers")
+                    and tp_trace_django_db_execute_wrapper not in connection.execute_wrappers
+                ):
                     connection.execute_wrappers.append(tp_trace_django_db_execute_wrapper)
 
             self._connection_created_handler = _on_connection_created

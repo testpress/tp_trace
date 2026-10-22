@@ -16,6 +16,7 @@ Or set TP_TRACE_DISABLED=1 to disable tracing entirely.
 
 This is an alternative to calling tp_trace.init() directly in settings.py.
 """
+
 import logging
 import os
 
@@ -54,10 +55,7 @@ class TpTraceMiddleware:
             return
 
         # Check if disabled
-        disabled_val = (
-            os.environ.get("TP_TRACE_DISABLED")
-            or os.environ.get("OTEL_SDK_DISABLED", "")
-        )
+        disabled_val = os.environ.get("TP_TRACE_DISABLED") or os.environ.get("OTEL_SDK_DISABLED", "")
         if disabled_val.lower() in ("1", "true", "yes"):
             logger.debug("tp_trace disabled via environment variable")
             _initialized = True
@@ -72,12 +70,9 @@ class TpTraceMiddleware:
 
         try:
             tp_trace.init(
-                project_name=os.environ.get("TP_TRACE_PROJECT_NAME")
-                or os.environ.get("OTEL_SERVICE_NAME"),
-                environment=os.environ.get("TP_TRACE_ENVIRONMENT")
-                or os.environ.get("OTEL_ENVIRONMENT"),
-                endpoint=os.environ.get("TP_TRACE_ENDPOINT")
-                or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"),
+                project_name=os.environ.get("TP_TRACE_PROJECT_NAME") or os.environ.get("OTEL_SERVICE_NAME"),
+                environment=os.environ.get("TP_TRACE_ENVIRONMENT") or os.environ.get("OTEL_ENVIRONMENT"),
+                endpoint=os.environ.get("TP_TRACE_ENDPOINT") or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"),
                 # auto_patch=True is the default — all installed integrations
                 # (Django, PostgreSQL, Redis, requests) are auto-detected
             )
