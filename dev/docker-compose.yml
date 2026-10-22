@@ -119,6 +119,30 @@ services:
         aliases:
           - redis
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: tp-minio
+    restart: on-failure:5
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: mock_access_key
+      MINIO_ROOT_PASSWORD: mock_secret_key
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${MINIO_PORT:-9002}:9000"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${MINIO_CONSOLE_PORT:-9003}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      tp-net:
+        aliases:
+          - minio
+
   tempo:
     image: grafana/tempo:2.4.1
     container_name: tp-tempo
@@ -235,6 +259,7 @@ services:
       DJANGO_REDIS_URL: redis://redis:6379/1
       DJANGO_DEV_APP_PORT: ${APP_PORT:-8002}
       TP_TRACE_ENDPOINT: http://otel-collector:4318
+      S3_ENDPOINT_URL: http://minio:9000
       GUNICORN_WORKERS: "2"
     volumes:
       - ../sample-app/api:/app/api
@@ -254,6 +279,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
       external-api:
         condition: service_started
       otel-collector:
@@ -272,6 +299,7 @@ volumes:
   slave1_data:
   slave2_data:
   slave3_data:
+  minio_data:
   tempo_data:
   prometheus_data:
   grafana_data:

@@ -62,6 +62,9 @@ def main():
         conn.sendall(b"*1\r\n$4\r\nPING\r\n")
         assert conn.recv(128).startswith(b"+PONG"), "Redis PING failed"
     print("PASS host Redis PING", flush=True)
+    minio_port = int(os.getenv("MINIO_PORT", "9002"))
+    with socket.create_connection((host, minio_port), timeout=5):
+        print("PASS host MinIO port reachable", flush=True)
     app_trace_id = uuid.uuid4().hex
     headers = {"traceparent": "00-{}-{}-01".format(app_trace_id, uuid.uuid4().hex[:16])}
     for db in ("default", "slave1", "slave2", "slave3"):
@@ -70,8 +73,10 @@ def main():
     assert request(app + "/api/external/", headers=headers)["status_code"] == 200
     request(app + "/api/cache-stats/")
     request(app + "/api/products/cache/", headers=headers)
+    s3_result = request(app + "/api/s3-storage/", headers=headers)
+    assert s3_result.get("ok") is True and s3_result.get("status") == "success", s3_result
     assert "body" in request(app + "/static/admin/css/base.css")
-    print("PASS sample app: four databases, HTTP dependency, cache", flush=True)
+    print("PASS sample app: four databases, HTTP dependency, cache, S3 storage", flush=True)
     for uid in ("tempo", "_IY366MMk"):
         assert request(grafana + "/api/datasources/uid/" + uid + "/health")["status"] == "OK"
     expected = {json.loads(p.read_text())["uid"] for p in
