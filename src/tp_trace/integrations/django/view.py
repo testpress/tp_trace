@@ -14,7 +14,7 @@ from tp_trace.safety import UNTRACED, attempt, safe_enrich, safe_set_attribute, 
 from tp_trace.tracing import traced_span
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 
-from .request import _normalize_route, _resolve_view_name
+from .request import _format_view_from_match, _normalize_route, _resolve_view_name
 
 _in_view_dispatch: ContextVar[bool] = ContextVar("in_view_dispatch", default=False)
 
@@ -68,8 +68,9 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         pre_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
         if pre_route and pre_route != "__unmatched__":
             set_request_route(pre_route, method)
-        initial_view = attempt(_resolve_view_name, request, method, default=None, _label="view_name")
-        view_token = set_request_view(initial_view) if initial_view and initial_view != "view" else None
+        match = getattr(request, "resolver_match", None)
+        resolved_view = attempt(_format_view_from_match, match, method, default=None, _label="view_format") if match else None
+        view_token = set_request_view(resolved_view) if resolved_view else None
 
         try:
             response = wrapped(*args, **kwargs)

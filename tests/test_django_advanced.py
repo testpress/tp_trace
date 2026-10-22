@@ -1181,3 +1181,83 @@ def test_current_view_context_propagation():
     observed_view = traced_view_dispatch(lambda *a, **k: inst.dispatch(*a, **k), inst, (req,), {})
     assert observed_view == f"{SampleCBV.__module__}.{SampleCBV.__name__}.get"
     assert get_current_view() is None
+
+
+def test_set_view_does_not_leak_across_unresolved_requests():
+    """Verify set_view() inside an unresolvable route request does not leak into subsequent requests."""
+    from tp_trace.route_context import get_current_view
+    from tp_trace.integrations.django.request import traced_get_response
+
+    assert get_current_view() is None
+
+    factory = RequestFactory()
+    req = factory.get("/unmatched/path/without/view/")
+
+    observed_in_handler = None
+
+    def handler_calling_set_view(request):
+        nonlocal observed_in_handler
+        token = tp_trace.set_view("custom.manual.view")
+        observed_in_handler = get_current_view()
+        assert token is not None
+        return HttpResponse("custom view called", status=200)
+
+    resp = traced_get_response(handler_calling_set_view, None, (req,), {})
+    assert resp.status_code == 200
+    assert observed_in_handler == "custom.manual.view"
+    # Crucial: Must be reset back to None after request returns!
+    assert get_current_view() is None
+
+    # Verify manual set_view / reset_view lifecycle
+    t = tp_trace.set_view("ambient.view")
+    assert get_current_view() == "ambient.view"
+    tp_trace.reset_view(t)
+    assert get_current_view() is None
+
+
+def test_unified_view_formatting_fbv_and_cbv():
+    """Verify _format_view_from_match consistently formats FBV, CBV, and ViewSet actions."""
+    from tp_trace.integrations.django.request import _format_view_from_match
+
+    class DummyMatch:
+        def __init__(self, func=None, view_name=None, func_path=None):
+            self.func = func
+            self.view_name = view_name
+            self._func_path = func_path
+
+    # FBV
+    def dummy_fbv(request):
+        pass
+
+    fbv_match = DummyMatch(func=dummy_fbv)
+    assert _format_view_from_match(fbv_match, "GET") == f"{dummy_fbv.__module__}.dummy_fbv"
+
+    # Standard CBV
+    class StandardCBV:
+        def get(self, request):
+            pass
+
+        def post(self, request):
+            pass
+
+    def cbv_as_view():
+        pass
+
+    cbv_as_view.cls = StandardCBV
+    cbv_match = DummyMatch(func=cbv_as_view)
+    assert _format_view_from_match(cbv_match, "GET") == f"{StandardCBV.__module__}.StandardCBV.get"
+    assert _format_view_from_match(cbv_match, "POST") == f"{StandardCBV.__module__}.StandardCBV.post"
+
+    # DRF ViewSet action
+    class DRFViewSet:
+        pass
+
+    def viewset_as_view():
+        pass
+
+    viewset_as_view.cls = DRFViewSet
+    viewset_as_view.actions = {"post": "create", "get": "list"}
+    viewset_match = DummyMatch(func=viewset_as_view)
+    assert _format_view_from_match(viewset_match, "POST") == f"{DRFViewSet.__module__}.DRFViewSet.create"
+    assert _format_view_from_match(viewset_match, "GET") == f"{DRFViewSet.__module__}.DRFViewSet.list"
+

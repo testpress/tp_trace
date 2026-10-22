@@ -366,17 +366,28 @@ def set_attribute(key: str, value: Any) -> None:
     set_tag(key, value)
 
 
-def set_view(view_name: str) -> None:
-    """Set the active view name on the in-flight context and propagate to child spans / Celery tasks."""
+def set_view(view_name: Optional[str]) -> Optional[Any]:
+    """Set the active view name on the in-flight context and propagate to child spans / Celery tasks.
+
+    Returns a token that can be passed to reset_view if manual scope management is needed.
+    """
     from tp_trace.route_context import set_request_view
 
-    set_request_view(view_name)
+    return set_request_view(view_name)
+
+
+def reset_view(token: Optional[Any] = None) -> None:
+    """Reset the active view name on the in-flight context."""
+    from tp_trace.route_context import reset_request_view
+
+    reset_request_view(token)
 
 
 __all__ = [
     "set_tag",
     "set_attribute",
     "set_view",
+    "reset_view",
     "init",
     "patch_all",
     "get_config",

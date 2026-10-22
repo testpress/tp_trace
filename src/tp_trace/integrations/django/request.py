@@ -318,6 +318,8 @@ def _format_view_from_match(match: Any, method: str = "") -> Optional[str]:
         prefix = f"{cls_mod}.{cls_name}" if cls_mod and cls_mod != "builtins" else cls_name
         if isinstance(actions, dict) and req_method and req_method in actions:
             return f"{prefix}.{actions[req_method]}"
+        if req_method and hasattr(cls, req_method):
+            return f"{prefix}.{req_method}"
         return prefix
     if hasattr(match, "_func_path") and match._func_path:
         return str(match._func_path)
@@ -527,7 +529,7 @@ def traced_get_response(wrapped, instance, args, kwargs):
         preresolved_view = _preresolve_view(
             resolve_path, getattr(request, "urlconf", None), request=request, method=method
         )
-        view_token = set_request_view(preresolved_view) if preresolved_view else None
+        view_token = set_request_view(preresolved_view)
         start_span_name = (
             f"{method} {preresolved_route}"
             if (preresolved_route and preresolved_route != "__unmatched__")
@@ -736,7 +738,6 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     )
                 except Exception as metric_exc:
                     logger.debug("Failed to record fallback request metrics: %s", metric_exc)
-            if view_token is not None:
-                reset_request_view(view_token)
+            reset_request_view(view_token)
             reset_request_route(route_token)
             reset_request_tags()

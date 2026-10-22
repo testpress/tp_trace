@@ -133,6 +133,9 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                             if isinstance(req_headers, dict):
                                 trigger_view = req_headers.get("tp_trigger_view")
                             if not trigger_view:
+                                # Fallback for tasks executed eagerly in-process within the same thread
+                                # (e.g. task_always_eager=True in tests or synchronous workflows),
+                                # where task request headers may not have traversed amqp serialization.
                                 try:
                                     from tp_trace.route_context import get_current_view
 
