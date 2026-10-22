@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # id-token: write needed for PyPI trusted publishing
     permissions:
@@ -127,6 +128,23 @@ jobs:
           echo "Package files:"
           ls -la dist/
 
+      - name: Configure git and create local bump commit
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
+          CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pyproject.toml src/tp_trace/version.py
+          git commit -m "chore: Release v$NEW_VERSION" -m "Bump version from $CURRENT_VERSION to $NEW_VERSION"
+
+      - name: Verify branch push permissions (dry run)
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          git push --dry-run origin HEAD:main
+
       - name: Publish package (dry run)
         if: ${{ env.DRY_RUN == 'true' }}
         run: |
@@ -137,20 +155,11 @@ jobs:
         run: |
           uv publish --trusted-publishing always
 
-      - name: Commit version bump and create tag
+      - name: Push release commit and create tag
         if: ${{ env.DRY_RUN != 'true' }}
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.NEW_VERSION }}"
-          CURRENT_VERSION="${{ steps.get_version.outputs.CURRENT_VERSION }}"
 
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          git add pyproject.toml src/tp_trace/version.py
-          git commit -m "chore: Release v$NEW_VERSION
-
-          Bump version from $CURRENT_VERSION to $NEW_VERSION"
-
-          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
           git push origin HEAD:main
+          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
           git push origin "v$NEW_VERSION"
