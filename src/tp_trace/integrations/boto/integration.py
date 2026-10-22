@@ -38,11 +38,6 @@ def _tp_trace_boto_response_hook(span: Any, service: str, operation: str, result
         logger.debug("boto hook error", exc_info=True)
 
 
-# Backwards compatibility aliases
-_tp_dog_boto_request_hook = _tp_trace_boto_request_hook
-_tp_dog_boto_response_hook = _tp_trace_boto_response_hook
-
-
 class BotoIntegration(BaseIntegration):
     """Deep Boto3 / Botocore instrumentation for S3 (AWS, MinIO, R2, Wasabi) and cloud services."""
 

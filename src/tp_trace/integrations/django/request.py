@@ -268,7 +268,7 @@ def _preresolve_route(path: str, urlconf: Any = None, request: Any = None) -> st
             if extra and extra not in candidates:
                 candidates.append(extra)
 
-        extra_confs = getattr(settings, "TP_TRACE_EXTRA_URLCONFS", None) or getattr(settings, "TP_DOG_EXTRA_URLCONFS", None)
+        extra_confs = getattr(settings, "TP_TRACE_EXTRA_URLCONFS", None)
         if isinstance(extra_confs, (list, tuple)):
             for conf in extra_confs:
                 if conf and conf not in candidates:

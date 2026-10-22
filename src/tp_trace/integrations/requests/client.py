@@ -98,9 +98,6 @@ def tp_trace_request_hook(span: Any, request: Any) -> None:
     attempt(_apply_request_attributes, span, request, _label="request_hook")
 
 
-tp_dog_request_hook = tp_trace_request_hook
-
-
 def _apply_response_attributes(span: Any, response: Any) -> None:
     """Set status and error attributes on a requests span. May raise."""
     status_code = getattr(response, "status_code", None)
@@ -127,6 +124,3 @@ def tp_trace_response_hook(span: Any, request: Any, response: Any) -> None:
         return
 
     attempt(_apply_response_attributes, span, response, _label="response_hook")
-
-
-tp_dog_response_hook = tp_trace_response_hook

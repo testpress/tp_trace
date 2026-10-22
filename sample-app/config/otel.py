@@ -14,7 +14,7 @@ logger = logging.getLogger("config.otel")
 
 def setup_telemetry():
     """Initialize tp_trace with auto-patching. Idempotent, fail-safe."""
-    disabled = os.environ.get("TP_TRACE_DISABLED", os.environ.get("TP_DOG_DISABLED", "")).lower()
+    disabled = os.environ.get("TP_TRACE_DISABLED", "").lower()
     if disabled in ("1", "true", "yes"):
         logger.info("tp_trace disabled via TP_TRACE_DISABLED")
         return False

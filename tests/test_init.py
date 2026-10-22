@@ -84,7 +84,6 @@ def test_config_from_env_and_kwargs(monkeypatch):
 def test_metrics_export_interval_default_and_overrides(monkeypatch):
     for name in (
         "TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS",
-        "TP_DOG_METRICS_EXPORT_INTERVAL_MILLIS",
         "OTEL_METRIC_EXPORT_INTERVAL",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -98,6 +97,143 @@ def test_metrics_export_interval_default_and_overrides(monkeypatch):
         .metrics_export_interval_millis
         == 30000
     )
+
+
+def test_legacy_tp_dog_env_vars_are_ignored(monkeypatch):
+    """Verify retired TP_DOG_* environment variables no longer influence configuration."""
+    canonical_names = (
+        "TP_TRACE_PROJECT_NAME",
+        "TP_TRACE_PROJECT",
+        "TP_TRACE_SERVICE_NAME",
+        "TP_TRACE_CLUSTER_NAME",
+        "TP_TRACE_CLUSTER",
+        "TP_TRACE_ENV",
+        "TP_TRACE_ENVIRONMENT",
+        "TP_TRACE_VERSION",
+        "TP_TRACE_ENDPOINT",
+        "TP_TRACE_TRACES_ENDPOINT",
+        "TP_TRACE_METRICS_ENDPOINT",
+        "TP_TRACE_METRICS_ENABLED",
+        "TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS",
+        "TP_TRACE_HEADERS",
+        "TP_TRACE_SAMPLE_RATE",
+        "TP_TRACE_DISABLED",
+        "TP_TRACE_DEBUG",
+        "TP_TRACE_TAGS",
+        "TP_TRACE_IGNORE_ENDPOINTS",
+        "TP_TRACE_ENDPOINT_SAMPLE_RULES",
+        "TP_TRACE_TRUSTED_PROXIES",
+        "TP_TRACE_DB_ROLE_MAP",
+        "TP_TRACE_AUTO_PATCH",
+        "TP_TRACE_EXTRACT_TRACE_CONTEXT",
+        "TP_TRACE_CACHE_ENABLED",
+        "TP_TRACE_TEMPLATE_EXCLUDE",
+        "TP_TRACE_QUERY_MODE",
+        "TP_TRACE_REDIS_MASK_ENDPOINT",
+        "TP_TRACE_REDIS_MASK_COMMAND",
+        "TP_TRACE_REDIS_CMD_MAX_LENGTH",
+        "OTEL_SERVICE_NAME",
+        "OTEL_PROJECT_NAME",
+        "OTEL_CLUSTER_NAME",
+        "OTEL_ENVIRONMENT",
+        "OTEL_SERVICE_VERSION",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "OTEL_METRIC_EXPORT_INTERVAL",
+        "OTEL_EXPORTER_OTLP_HEADERS",
+        "OTEL_TRACES_SAMPLER_ARG",
+        "OTEL_SDK_DISABLED",
+        "OTEL_LOG_LEVEL",
+        "OTEL_RESOURCE_ATTRIBUTES",
+        "OTEL_PROPAGATORS",
+    )
+    for name in canonical_names:
+        monkeypatch.delenv(name, raising=False)
+
+    legacy_names = (
+        "TP_DOG_PROJECT_NAME",
+        "TP_DOG_PROJECT",
+        "TP_DOG_SERVICE_NAME",
+        "TP_DOG_CLUSTER_NAME",
+        "TP_DOG_CLUSTER",
+        "TP_DOG_ENV",
+        "TP_DOG_ENVIRONMENT",
+        "TP_DOG_VERSION",
+        "TP_DOG_ENDPOINT",
+        "TP_DOG_TRACES_ENDPOINT",
+        "TP_DOG_METRICS_ENDPOINT",
+        "TP_DOG_METRICS_ENABLED",
+        "TP_DOG_METRICS_EXPORT_INTERVAL_MILLIS",
+        "TP_DOG_HEADERS",
+        "TP_DOG_SAMPLE_RATE",
+        "TP_DOG_DISABLED",
+        "TP_DOG_DEBUG",
+        "TP_DOG_TAGS",
+        "TP_DOG_IGNORE_ENDPOINTS",
+        "TP_DOG_ENDPOINT_SAMPLE_RULES",
+        "TP_DOG_TRUSTED_PROXIES",
+        "TP_DOG_DB_ROLE_MAP",
+        "TP_DOG_AUTO_PATCH",
+        "TP_DOG_EXTRACT_TRACE_CONTEXT",
+        "TP_DOG_CACHE_ENABLED",
+        "TP_DOG_TEMPLATE_EXCLUDE",
+        "TP_DOG_QUERY_MODE",
+        "TP_DOG_REDIS_MASK_ENDPOINT",
+        "TP_DOG_REDIS_MASK_COMMAND",
+        "TP_DOG_REDIS_CMD_MAX_LENGTH",
+    )
+    for name in legacy_names:
+        monkeypatch.setenv(name, "1")
+
+    cfg = SDKConfig.from_env_and_kwargs()
+
+    assert cfg.project_name == "unknown-project"
+    assert cfg.cluster_name == "unknown-cluster"
+    assert cfg.environment == "development"
+    assert cfg.endpoint == "http://localhost:4318"
+    assert cfg.traces_endpoint is None
+    assert cfg.metrics_endpoint is None
+    assert cfg.metrics_enabled is True
+    assert cfg.metrics_export_interval_millis == 60000
+    assert cfg.headers == {}
+    assert cfg.sample_rate == 1.0
+    assert cfg.disabled is False
+    assert cfg.debug is False
+    assert cfg.tags == {}
+    assert cfg.ignore_endpoints == []
+    assert cfg.endpoint_sample_rules == {}
+    assert cfg.trusted_proxies == []
+    assert cfg.db_role_map == {}
+    assert cfg.auto_patch is True
+    assert cfg.extract_trace_context is True
+    assert cfg.cache_enabled is True
+    assert cfg.query_mode == "expose"
+    assert cfg.redis_mask_endpoint is False
+    assert cfg.redis_mask_command is False
+
+
+def test_legacy_tp_dog_symbols_are_removed():
+    """Verify retired tp_dog aliases are no longer importable from the SDK."""
+    import tp_trace.integrations.boto.integration as boto_integration
+    import tp_trace.integrations.django as django_integration
+    import tp_trace.integrations.postgres.cursor as postgres_cursor
+    import tp_trace.integrations.postgres.integration as postgres_integration
+    import tp_trace.integrations.redis.integration as redis_integration
+    import tp_trace.integrations.requests.client as requests_client
+    import tp_trace.sampler as sampler
+
+    assert not hasattr(django_integration, "TpDogMiddleware")
+    assert not hasattr(sampler, "TpDogRuleBasedSampler")
+    assert not hasattr(sampler, "create_tp_dog_sampler")
+    assert not hasattr(requests_client, "tp_dog_request_hook")
+    assert not hasattr(requests_client, "tp_dog_response_hook")
+    assert not hasattr(postgres_cursor, "tp_dog_django_db_execute_wrapper")
+    assert not hasattr(postgres_integration, "tp_dog_django_db_execute_wrapper")
+    assert not hasattr(boto_integration, "_tp_dog_boto_request_hook")
+    assert not hasattr(boto_integration, "_tp_dog_boto_response_hook")
+    assert not hasattr(redis_integration, "_tp_dog_redis_request_hook")
+    assert not hasattr(redis_integration, "_tp_dog_redis_response_hook")
 
 
 def test_disabled_mode():
@@ -497,9 +633,9 @@ def test_auto_patch_respects_integrations_config():
 
 
 def test_middleware_init_class_exists():
-    """Verify TpDogMiddleware can be imported."""
-    from tp_trace.integrations.django.middleware_init import TpDogMiddleware
-    assert TpDogMiddleware is not None
+    """Verify TpTraceMiddleware can be imported."""
+    from tp_trace.integrations.django.middleware_init import TpTraceMiddleware
+    assert TpTraceMiddleware is not None
 
 
 def test_sample_rate_zero():

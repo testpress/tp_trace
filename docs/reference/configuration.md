@@ -1,6 +1,6 @@
 # Configuration reference
 
-`tp_trace.init()` accepts explicit keyword arguments. Explicit arguments take precedence over environment variables. `TP_DOG_*` names remain supported as legacy aliases; use `TP_TRACE_*` in new deployments.
+`tp_trace.init()` accepts explicit keyword arguments. Explicit arguments take precedence over environment variables. Configuration is read from `TP_TRACE_*` environment variables, with `OTEL_*` aliases supported where noted.
 
 | Environment variable | `init()` option | Default | Description |
 |---|---|---:|---|

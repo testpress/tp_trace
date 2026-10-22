@@ -48,7 +48,7 @@
 ## Configuration
 
 - Existing environment variables are backwards-compatible interfaces, including
-  supported `TP_TRACE_*`, legacy `TP_DOG_*`, and `OTEL_*` aliases.
+  supported `TP_TRACE_*` and `OTEL_*` aliases.
 - New configuration must have safe defaults.
 - Preserve documented precedence for existing fields. Precedence is field-specific;
   inspect `SDKConfig.from_env_and_kwargs()` rather than assuming a universal order.

@@ -3,12 +3,12 @@
 import pytest
 from opentelemetry.sdk.trace.sampling import Decision
 from tp_trace.config import SDKConfig
-from tp_trace.sampler import TpDogRuleBasedSampler, create_tp_trace_sampler
+from tp_trace.sampler import TpTraceRuleBasedSampler, create_tp_trace_sampler
 
 
 def test_ignore_endpoints_wildcard_matching():
     """Verify ignore_endpoints drops spans matching exact or wildcard path patterns."""
-    sampler = TpDogRuleBasedSampler(
+    sampler = TpTraceRuleBasedSampler(
         global_sample_rate=1.0,
         ignore_endpoints=["/health*", "*/static/*", "/api/products/health/"],
     )
@@ -33,7 +33,7 @@ def test_ignore_endpoints_wildcard_matching():
 
 def test_endpoint_sample_rules_custom_ratios():
     """Verify endpoint_sample_rules applies custom per-route sampling ratios."""
-    sampler = TpDogRuleBasedSampler(
+    sampler = TpTraceRuleBasedSampler(
         global_sample_rate=0.0,  # Drop all by default
         endpoint_sample_rules={
             "/api/checkout/*": 1.0,  # Always sample checkout
@@ -67,8 +67,8 @@ def test_config_resolves_sampling_kwargs_and_env(monkeypatch):
     assert cfg.endpoint_sample_rules == {"/api/vip/*": 1.0}
 
     # Test environment variable resolution
-    monkeypatch.setenv("TP_DOG_IGNORE_ENDPOINTS", "/health,/metrics")
-    monkeypatch.setenv("TP_DOG_ENDPOINT_SAMPLE_RULES", "/api/checkout/*=1.0,/api/search/*=0.5")
+    monkeypatch.setenv("TP_TRACE_IGNORE_ENDPOINTS", "/health,/metrics")
+    monkeypatch.setenv("TP_TRACE_ENDPOINT_SAMPLE_RULES", "/api/checkout/*=1.0,/api/search/*=0.5")
 
     cfg_env = SDKConfig.from_env_and_kwargs()
     assert cfg_env.ignore_endpoints == ["/health", "/metrics"]
@@ -86,7 +86,7 @@ def test_create_tp_trace_sampler():
 
 def test_parameterized_route_template_matching():
     """Verify endpoint_sample_rules matches against http.route even when url.path is a concrete URL."""
-    sampler = TpDogRuleBasedSampler(
+    sampler = TpTraceRuleBasedSampler(
         global_sample_rate=0.0,
         endpoint_sample_rules={
             "/api/items/{id}/": 1.0,
@@ -144,8 +144,8 @@ def test_parameterized_route_template_matching():
     ],
 )
 def test_endpoint_sample_rules_validation_env_var(monkeypatch, malformed_rule):
-    """Verify malformed TP_DOG_ENDPOINT_SAMPLE_RULES raises ValueError with descriptive message."""
-    monkeypatch.setenv("TP_DOG_ENDPOINT_SAMPLE_RULES", malformed_rule)
+    """Verify malformed TP_TRACE_ENDPOINT_SAMPLE_RULES raises ValueError with descriptive message."""
+    monkeypatch.setenv("TP_TRACE_ENDPOINT_SAMPLE_RULES", malformed_rule)
     with pytest.raises(ValueError, match="tp_trace:"):
         SDKConfig.from_env_and_kwargs()
 
@@ -170,20 +170,20 @@ def test_endpoint_sample_rules_validation_kwargs(invalid_rules):
 
 
 def test_endpoint_sample_rules_sampler_direct_validation():
-    """Verify TpDogRuleBasedSampler validates global rate and per-route rules directly."""
+    """Verify TpTraceRuleBasedSampler validates global rate and per-route rules directly."""
     # Out of range global sample rate
     with pytest.raises(ValueError, match="global_sample_rate"):
-        TpDogRuleBasedSampler(global_sample_rate=1.5)
+        TpTraceRuleBasedSampler(global_sample_rate=1.5)
 
     with pytest.raises(ValueError, match="global_sample_rate"):
-        TpDogRuleBasedSampler(global_sample_rate=-0.1)
+        TpTraceRuleBasedSampler(global_sample_rate=-0.1)
 
     # Invalid rule in sampler
     with pytest.raises(ValueError, match="endpoint_sample_rules"):
-        TpDogRuleBasedSampler(endpoint_sample_rules={"/api/*": 2.0})
+        TpTraceRuleBasedSampler(endpoint_sample_rules={"/api/*": 2.0})
 
     with pytest.raises(ValueError, match="endpoint_sample_rules"):
-        TpDogRuleBasedSampler(endpoint_sample_rules={"/api/*": "invalid"})
+        TpTraceRuleBasedSampler(endpoint_sample_rules={"/api/*": "invalid"})
 
 
 def test_ignore_endpoints_string_kwarg_and_formatting():
@@ -192,13 +192,13 @@ def test_ignore_endpoints_string_kwarg_and_formatting():
     assert cfg.ignore_endpoints == ["/health", "/metrics", "/readyz"]
 
     # Sampler also accepts comma-separated string
-    sampler = TpDogRuleBasedSampler(ignore_endpoints="/health, /status")
+    sampler = TpTraceRuleBasedSampler(ignore_endpoints="/health, /status")
     assert sampler.ignore_endpoints == ["/health", "/status"]
 
 
 def test_endpoint_sample_rules_empty_dict_overrides_env_var(monkeypatch):
     """Verify passing endpoint_sample_rules={} explicitly overrides rules in environment."""
-    monkeypatch.setenv("TP_DOG_ENDPOINT_SAMPLE_RULES", "/api/checkout/*=1.0,/search/*=0.5")
+    monkeypatch.setenv("TP_TRACE_ENDPOINT_SAMPLE_RULES", "/api/checkout/*=1.0,/search/*=0.5")
     cfg = SDKConfig.from_env_and_kwargs(endpoint_sample_rules={})
     assert cfg.endpoint_sample_rules == {}
 

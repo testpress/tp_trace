@@ -1,4 +1,4 @@
-"""Django integration package — re-exports DjangoIntegration, TpTraceMiddleware, and TpDogMiddleware.
+"""Django integration package — re-exports DjangoIntegration and TpTraceMiddleware.
 
 Layout follows:
 integrations/django/
@@ -11,6 +11,6 @@ integrations/django/
   template.py      — template span
 """
 from .integration import DjangoIntegration
-from .middleware_init import TpTraceMiddleware, TpDogMiddleware
+from .middleware_init import TpTraceMiddleware
 
-__all__ = ["DjangoIntegration", "TpTraceMiddleware", "TpDogMiddleware"]
+__all__ = ["DjangoIntegration", "TpTraceMiddleware"]

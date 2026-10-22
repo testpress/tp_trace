@@ -144,7 +144,6 @@ def _detect_django_project_name() -> Optional[str]:
         # Check common Django settings for project/app name
         return (
             getattr(settings, "TP_TRACE_PROJECT_NAME", None)
-            or getattr(settings, "TP_DOG_PROJECT_NAME", None)
             or getattr(settings, "OTEL_PROJECT_NAME", None)
             or getattr(settings, "PROJECT_NAME", None)
         )
@@ -158,7 +157,6 @@ def _detect_django_env() -> Optional[str]:
         from django.conf import settings
         return (
             getattr(settings, "TP_TRACE_ENVIRONMENT", None)
-            or getattr(settings, "TP_DOG_ENVIRONMENT", None)
             or getattr(settings, "ENVIRONMENT", None)
             or getattr(settings, "ENV", None)
         )
@@ -173,8 +171,6 @@ def _detect_django_cluster_name() -> Optional[str]:
         return (
             getattr(settings, "TP_TRACE_CLUSTER_NAME", None)
             or getattr(settings, "TP_TRACE_CLUSTER", None)
-            or getattr(settings, "TP_DOG_CLUSTER_NAME", None)
-            or getattr(settings, "TP_DOG_CLUSTER", None)
             or getattr(settings, "OTEL_CLUSTER_NAME", None)
             or getattr(settings, "CLUSTER_NAME", None)
         )
@@ -280,7 +276,6 @@ class SDKConfig:
             ("service_name=", extra.get("service_name")),
             ("service=", extra.get("service")),
             ("TP_TRACE_SERVICE_NAME", os.getenv("TP_TRACE_SERVICE_NAME")),
-            ("TP_DOG_SERVICE_NAME", os.getenv("TP_DOG_SERVICE_NAME")),
             ("OTEL_SERVICE_NAME", os.getenv("OTEL_SERVICE_NAME")),
         ):
             _name, _value = _alias
@@ -299,9 +294,6 @@ class SDKConfig:
             or os.getenv("TP_TRACE_PROJECT_NAME")
             or os.getenv("TP_TRACE_PROJECT")
             or os.getenv("TP_TRACE_SERVICE_NAME")
-            or os.getenv("TP_DOG_PROJECT_NAME")
-            or os.getenv("TP_DOG_PROJECT")
-            or os.getenv("TP_DOG_SERVICE_NAME")
             or os.getenv("OTEL_SERVICE_NAME")
             or os.getenv("OTEL_PROJECT_NAME")
             or _detect_django_project_name()
@@ -313,8 +305,6 @@ class SDKConfig:
             cluster_name
             or os.getenv("TP_TRACE_CLUSTER_NAME")
             or os.getenv("TP_TRACE_CLUSTER")
-            or os.getenv("TP_DOG_CLUSTER_NAME")
-            or os.getenv("TP_DOG_CLUSTER")
             or os.getenv("OTEL_CLUSTER_NAME")
             or _detect_django_cluster_name()
             or "unknown-cluster"
@@ -325,8 +315,6 @@ class SDKConfig:
             environment
             or os.getenv("TP_TRACE_ENV")
             or os.getenv("TP_TRACE_ENVIRONMENT")
-            or os.getenv("TP_DOG_ENV")
-            or os.getenv("TP_DOG_ENVIRONMENT")
             or os.getenv("OTEL_ENVIRONMENT")
             or os.getenv("DEPLOYMENT_ENVIRONMENT")
             or os.getenv("ENVIRONMENT")
@@ -339,7 +327,6 @@ class SDKConfig:
         resolved_version = (
             version
             or os.getenv("TP_TRACE_VERSION")
-            or os.getenv("TP_DOG_VERSION")
             or os.getenv("OTEL_SERVICE_VERSION")
             or os.getenv("SERVICE_VERSION")
             or __version__
@@ -349,7 +336,6 @@ class SDKConfig:
         resolved_endpoint = (
             endpoint
             or os.getenv("TP_TRACE_ENDPOINT")
-            or os.getenv("TP_DOG_ENDPOINT")
             or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
             or "http://localhost:4318"
         )
@@ -357,7 +343,6 @@ class SDKConfig:
         resolved_traces_endpoint = (
             traces_endpoint
             or os.getenv("TP_TRACE_TRACES_ENDPOINT")
-            or os.getenv("TP_DOG_TRACES_ENDPOINT")
             or os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
             or None
         )
@@ -366,7 +351,6 @@ class SDKConfig:
             metrics_endpoint
             or extra.get("metrics_endpoint")
             or os.getenv("TP_TRACE_METRICS_ENDPOINT")
-            or os.getenv("TP_DOG_METRICS_ENDPOINT")
             or os.getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
             or None
         )
@@ -377,8 +361,7 @@ class SDKConfig:
             resolved_metrics_enabled = bool(extra["metrics_enabled"])
         else:
             resolved_metrics_enabled = _str_to_bool(
-                os.getenv("TP_TRACE_METRICS_ENABLED")
-                or os.getenv("TP_DOG_METRICS_ENABLED"),
+                os.getenv("TP_TRACE_METRICS_ENABLED"),
                 default=True,
             )
 
@@ -388,7 +371,6 @@ class SDKConfig:
                 if metrics_export_interval_millis is not None
                 else extra.get("metrics_export_interval_millis")
                 or os.getenv("TP_TRACE_METRICS_EXPORT_INTERVAL_MILLIS")
-                or os.getenv("TP_DOG_METRICS_EXPORT_INTERVAL_MILLIS")
                 or os.getenv("OTEL_METRIC_EXPORT_INTERVAL")
             )
             resolved_metrics_interval = int(raw_interval) if raw_interval is not None else 60000
@@ -397,7 +379,6 @@ class SDKConfig:
 
         env_headers = _parse_headers(
             os.getenv("TP_TRACE_HEADERS")
-            or os.getenv("TP_DOG_HEADERS")
             or os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
         )
         merged_headers = dict(env_headers)
@@ -409,7 +390,6 @@ class SDKConfig:
             sample_rate
             if sample_rate is not None
             else os.getenv("TP_TRACE_SAMPLE_RATE")
-            or os.getenv("TP_DOG_SAMPLE_RATE")
             or os.getenv("OTEL_TRACES_SAMPLER_ARG")
             or os.getenv("SAMPLE_RATE")
         )
@@ -421,7 +401,6 @@ class SDKConfig:
         else:
             resolved_disabled = _str_to_bool(
                 os.getenv("TP_TRACE_DISABLED")
-                or os.getenv("TP_DOG_DISABLED")
                 or os.getenv("OTEL_SDK_DISABLED"),
                 default=False,
             )
@@ -432,7 +411,6 @@ class SDKConfig:
         else:
             resolved_debug = _str_to_bool(
                 os.getenv("TP_TRACE_DEBUG")
-                or os.getenv("TP_DOG_DEBUG")
                 or os.getenv("OTEL_LOG_LEVEL") == "debug",
                 default=False,
             )
@@ -447,7 +425,6 @@ class SDKConfig:
         else:
             resolved_trace_nested = _str_to_bool(
                 os.getenv("TP_TRACE_DJANGO_TRACE_NESTED_TEMPLATES")
-                or os.getenv("TP_DOG_DJANGO_TRACE_NESTED_TEMPLATES")
                 or os.getenv("OTEL_PYTHON_DJANGO_TRACE_NESTED_TEMPLATES"),
                 default=True,
             )
@@ -466,10 +443,6 @@ class SDKConfig:
                 resolved_template_exclude = [
                     p.strip() for p in os.environ["TP_TRACE_TEMPLATE_EXCLUDE"].split(",") if p.strip()
                 ]
-            elif "TP_DOG_TEMPLATE_EXCLUDE" in os.environ:
-                resolved_template_exclude = [
-                    p.strip() for p in os.environ["TP_DOG_TEMPLATE_EXCLUDE"].split(",") if p.strip()
-                ]
             else:
                 resolved_template_exclude = default_exclude
 
@@ -478,8 +451,6 @@ class SDKConfig:
             resolved_cache_enabled = _str_to_bool(extra["cache_enabled"], default=True)
         elif "TP_TRACE_CACHE_ENABLED" in os.environ:
             resolved_cache_enabled = _str_to_bool(os.environ["TP_TRACE_CACHE_ENABLED"], default=True)
-        elif "TP_DOG_CACHE_ENABLED" in os.environ:
-            resolved_cache_enabled = _str_to_bool(os.environ["TP_DOG_CACHE_ENABLED"], default=True)
         else:
             resolved_cache_enabled = True
 
@@ -490,7 +461,7 @@ class SDKConfig:
             resolved_tags = dict(kwarg_tags)
         else:
             resolved_tags = {}
-            env_tags_str = os.getenv("TP_TRACE_TAGS") or os.getenv("TP_DOG_TAGS") or os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+            env_tags_str = os.getenv("TP_TRACE_TAGS") or os.getenv("OTEL_RESOURCE_ATTRIBUTES")
             if env_tags_str:
                 for item in env_tags_str.split(","):
                     item = item.strip()
@@ -537,8 +508,6 @@ class SDKConfig:
                 resolved_ignores = list(kwarg_ignores)
         elif "TP_TRACE_IGNORE_ENDPOINTS" in os.environ:
             resolved_ignores = [p.strip() for p in os.environ["TP_TRACE_IGNORE_ENDPOINTS"].split(",") if p.strip()]
-        elif "TP_DOG_IGNORE_ENDPOINTS" in os.environ:
-            resolved_ignores = [p.strip() for p in os.environ["TP_DOG_IGNORE_ENDPOINTS"].split(",") if p.strip()]
         else:
             resolved_ignores = []
 
@@ -558,8 +527,6 @@ class SDKConfig:
             resolved_rules = _parse_endpoint_sample_rules(kwarg_rules)
         elif "TP_TRACE_ENDPOINT_SAMPLE_RULES" in os.environ:
             resolved_rules = _parse_endpoint_sample_rules(os.environ["TP_TRACE_ENDPOINT_SAMPLE_RULES"])
-        elif "TP_DOG_ENDPOINT_SAMPLE_RULES" in os.environ:
-            resolved_rules = _parse_endpoint_sample_rules(os.environ["TP_DOG_ENDPOINT_SAMPLE_RULES"])
         else:
             resolved_rules = {}
 
@@ -579,8 +546,6 @@ class SDKConfig:
                 resolved_trusted_proxies = list(kwarg_proxies)
         elif "TP_TRACE_TRUSTED_PROXIES" in os.environ:
             resolved_trusted_proxies = [p.strip() for p in os.environ["TP_TRACE_TRUSTED_PROXIES"].split(",") if p.strip()]
-        elif "TP_DOG_TRUSTED_PROXIES" in os.environ:
-            resolved_trusted_proxies = [p.strip() for p in os.environ["TP_DOG_TRUSTED_PROXIES"].split(",") if p.strip()]
         else:
             resolved_trusted_proxies = []
 
@@ -602,13 +567,6 @@ class SDKConfig:
                 if "=" in item:
                     a, r = item.split("=", 1)
                     resolved_db_role_map[a.strip()] = r.strip()
-        elif "TP_DOG_DB_ROLE_MAP" in os.environ:
-            resolved_db_role_map = {}
-            for item in os.environ["TP_DOG_DB_ROLE_MAP"].split(","):
-                item = item.strip()
-                if "=" in item:
-                    a, r = item.split("=", 1)
-                    resolved_db_role_map[a.strip()] = r.strip()
         else:
             resolved_db_role_map = {}
 
@@ -619,8 +577,6 @@ class SDKConfig:
             resolved_auto_patch = _str_to_bool(extra["auto_patch"], default=True)
         elif "TP_TRACE_AUTO_PATCH" in os.environ:
             resolved_auto_patch = _str_to_bool(os.environ["TP_TRACE_AUTO_PATCH"], default=True)
-        elif "TP_DOG_AUTO_PATCH" in os.environ:
-            resolved_auto_patch = _str_to_bool(os.environ["TP_DOG_AUTO_PATCH"], default=True)
         else:
             resolved_auto_patch = True
 
@@ -637,8 +593,6 @@ class SDKConfig:
                 resolved_extract = _str_to_bool(kwarg_extract, default=True)
         elif "TP_TRACE_EXTRACT_TRACE_CONTEXT" in os.environ:
             resolved_extract = _str_to_bool(os.environ["TP_TRACE_EXTRACT_TRACE_CONTEXT"], default=True)
-        elif "TP_DOG_EXTRACT_TRACE_CONTEXT" in os.environ:
-            resolved_extract = _str_to_bool(os.environ["TP_DOG_EXTRACT_TRACE_CONTEXT"], default=True)
         elif "OTEL_PROPAGATORS" in os.environ and os.environ["OTEL_PROPAGATORS"].strip().lower() in ("none", "off", "0"):
             resolved_extract = False
         else:
@@ -649,8 +603,6 @@ class SDKConfig:
             resolved_redis_mask_endpoint = bool(redis_mask_endpoint)
         elif "TP_TRACE_REDIS_MASK_ENDPOINT" in os.environ:
             resolved_redis_mask_endpoint = _str_to_bool(os.environ["TP_TRACE_REDIS_MASK_ENDPOINT"], default=False)
-        elif "TP_DOG_REDIS_MASK_ENDPOINT" in os.environ:
-            resolved_redis_mask_endpoint = _str_to_bool(os.environ["TP_DOG_REDIS_MASK_ENDPOINT"], default=False)
         else:
             resolved_redis_mask_endpoint = False
 
@@ -658,8 +610,6 @@ class SDKConfig:
             resolved_redis_mask_command = bool(redis_mask_command)
         elif "TP_TRACE_REDIS_MASK_COMMAND" in os.environ:
             resolved_redis_mask_command = _str_to_bool(os.environ["TP_TRACE_REDIS_MASK_COMMAND"], default=False)
-        elif "TP_DOG_REDIS_MASK_COMMAND" in os.environ:
-            resolved_redis_mask_command = _str_to_bool(os.environ["TP_DOG_REDIS_MASK_COMMAND"], default=False)
         else:
             resolved_redis_mask_command = False
 
@@ -667,7 +617,6 @@ class SDKConfig:
             redis_cmd_max_length
             if redis_cmd_max_length is not None
             else os.getenv("TP_TRACE_REDIS_CMD_MAX_LENGTH")
-            or os.getenv("TP_DOG_REDIS_CMD_MAX_LENGTH")
         )
         resolved_cmd_max_length = _parse_cmd_max_length(raw_cmd_max_length)
 
@@ -675,7 +624,6 @@ class SDKConfig:
             query_mode
             if query_mode is not None
             else os.getenv("TP_TRACE_QUERY_MODE")
-            or os.getenv("TP_DOG_QUERY_MODE")
         )
         resolved_query_mode = _parse_query_mode(raw_query_mode)
 
