@@ -1,15 +1,14 @@
 """Template span — wraps django.template.base.Template.render and TemplateResponse.render."""
 import fnmatch
 from contextvars import ContextVar
-from typing import Any, Callable, FrozenSet, List, Optional, Tuple
+from typing import Any, Callable, FrozenSet, List, Optional
 
 from opentelemetry.trace import SpanKind, set_span_in_context
 
-from tp_trace.config import DEFAULT_EXCLUDE_PATTERNS, SDKConfig
+from tp_trace.config import DEFAULT_EXCLUDE_PATTERNS
 from tp_trace.safety import UNTRACED, attempt
-from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.tracing import traced_span
-import tp_trace
 
 _in_template_span: ContextVar[bool] = ContextVar("in_template_span", default=False)
 _active_rendering_templates: ContextVar[FrozenSet[int]] = ContextVar(

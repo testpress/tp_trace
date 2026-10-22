@@ -2,7 +2,7 @@
 
 ## General
 
-- Python 3.8 compatibility is required.
+- Python 3.10 compatibility is required.
 - Follow the existing module structure and nearby code style.
 - Prefer simple functions over unnecessary abstractions.
 - Avoid unrelated cleanup while implementing changes.
@@ -13,7 +13,7 @@
 
 - Type new public APIs.
 - Preserve the typing style of existing internal code.
-- Do not introduce syntax or runtime APIs unavailable in Python 3.8 without an
+- Do not introduce syntax or runtime APIs unavailable in Python 3.10 without an
   explicit compatibility path.
 
 ## Logging

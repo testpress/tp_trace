@@ -93,7 +93,6 @@ class DjangoIntegration(BaseIntegration):
             logger.debug("Django is not installed, skipping patch.")
             return
 
-        from .cache import CACHE_OPS, make_traced_cache_op
         from .middleware import make_traced_load_middleware
         from .request import traced_get_response
         from .template import traced_template_render, traced_template_response_render

@@ -4,7 +4,7 @@
 
 tp_trace is a production Python APM library built on OpenTelemetry.
 Changes can affect host application performance and telemetry volume.
-Python 3.8 compatibility is required; the Django integration supports Django 4.2
+Python 3.10 compatibility is required; the Django integration supports Django 4.2
 or later. Check `pyproject.toml` for the declared dependency contracts.
 
 ## Working rules
@@ -54,17 +54,17 @@ Collector configuration:
 
 Before completing a change:
 
-- Run relevant tests and any configured lint/type checks.
+- Run relevant tests and configured lint/type checks (`make lint`).
 - For instrumentation changes, test against the development environment and inspect
   emitted telemetry when applicable.
-- Report unavailable checks and verification gaps. There are currently no
-  repository-configured lint/type checks; do not invent passing results.
+- Report unavailable checks and verification gaps.
 - Never change tests solely to make an incorrect implementation pass.
 
 Useful commands:
 
 | Scope | Command |
 |---|---|
+| Lint & Typecheck | `make lint` |
 | Focused SDK tests | `make test ARGS='tests/test_relevant.py'` |
 | Full SDK suite | `make test` |
 | Packaging | `make build` |

@@ -11,13 +11,11 @@ from urllib.parse import urlparse
 from opentelemetry.trace import SpanKind, StatusCode, get_tracer
 from opentelemetry.propagate import extract
 
-from tp_trace.config import SDKConfig
-from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.safety import attempt, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
 from tp_trace.sanitize import sanitize_url
 from tp_trace.route_context import get_current_route, get_current_tags, reset_request_route, set_request_route, reset_request_tags, set_request_tag
 from tp_trace.tracing import reentrant_guard
-import tp_trace
 
 logger = logging.getLogger("tp_trace.integrations.django")
 

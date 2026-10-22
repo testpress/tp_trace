@@ -6,8 +6,7 @@ from urllib.parse import urlparse
 
 from opentelemetry.trace import StatusCode
 
-from tp_trace.config_access import get_config as _get_config
-from tp_trace.config_access import set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.sanitize import sanitize_url
 from tp_trace.route_context import get_current_route
 from tp_trace.safety import attempt
@@ -18,7 +17,7 @@ logger = logging.getLogger("tp_trace.integrations.requests")
 def _extract_request_meta(request: Any) -> Tuple[str, str, str, str, int, str]:
     """
     Extract method, sanitized URL, scheme, hostname, port, and peer_service from PreparedRequest.
-    
+
     Returns:
         (method, sanitized_url, scheme, hostname, port, peer_service)
     """

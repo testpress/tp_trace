@@ -6,10 +6,8 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 
 import logging
 import os
-import time
 from typing import Any, Dict, List, Optional
 
-from opentelemetry import metrics
 from opentelemetry.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader
@@ -17,7 +15,6 @@ from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, V
 from opentelemetry.sdk.resources import Resource
 
 from tp_trace.config import SDKConfig
-from tp_trace.safety import attempt
 
 logger = logging.getLogger("tp_trace.metrics")
 

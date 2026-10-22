@@ -4,21 +4,16 @@ import logging
 import re
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from opentelemetry.trace import SpanKind, StatusCode, get_tracer
+from opentelemetry.trace import SpanKind
 from opentelemetry.context import (
-    attach,
-    detach,
-    set_value,
     get_value,
     _SUPPRESS_INSTRUMENTATION_KEY,
 )
 
-from tp_trace.config import SDKConfig
-from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.safety import UNTRACED, attempt, safe_set_attribute
 from tp_trace.sanitize import normalize_sql_for_metric, sanitize_sql
 from tp_trace.tracing import reentrant_guard, suppress_instrumentation, traced_span
-import tp_trace
 
 logger = logging.getLogger("tp_trace.integrations.postgres")
 
@@ -75,7 +70,7 @@ def extract_query_summary(sql: Optional[str]) -> str:
 
 def _extract_django_db_meta(instance_or_conn: Any) -> Tuple[str, str, str, str, int, Optional[str], str, str]:
     """Extract connection parameters and role from Django's db connection or CursorWrapper.
-    
+
     Returns:
         (db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service)
     """

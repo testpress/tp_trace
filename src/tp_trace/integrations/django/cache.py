@@ -1,11 +1,11 @@
 """Cache spans — wraps django.core.cache.backends.base.BaseCache operations."""
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from contextvars import ContextVar
 from opentelemetry.trace import SpanKind
 
-from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.safety import attempt, safe_set_attribute
 from tp_trace.tracing import suppress_instrumentation, traced_span
 

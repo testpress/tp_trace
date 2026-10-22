@@ -2,19 +2,17 @@
 
 import functools
 import re
+import weakref
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
 from opentelemetry.trace import SpanKind, get_current_span
 
-from tp_trace.config import SDKConfig
 from tp_trace.route_context import set_request_route
 from tp_trace.safety import UNTRACED, attempt, safe_enrich, safe_set_attribute, safe_update_name
 from tp_trace.tracing import traced_span
-import tp_trace
-
-from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 
 from .request import _normalize_route, _resolve_view_name
 
@@ -31,8 +29,6 @@ def _apply_tags(span):
     if cfg and cfg.tags:
         safe_enrich(span, cfg.tags)
 
-
-import weakref
 
 _RESPONSE_PARENT_SPANS: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
 
@@ -259,12 +255,12 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
             method = plan.method
 
             def _traced_handler(*h_args, **h_kwargs):
-                with traced_span(handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django") as h_span:
+                with traced_span(handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django"):
                     h_res = handler(*h_args, **h_kwargs)
                     attempt(_bind_response_parent, h_res, _label="bind_response_parent")
                     return h_res
 
-            _traced_handler._tp_traced = True
+            setattr(_traced_handler, "_tp_traced", True)
             orig_action_handler = attempt(getattr, instance, handler_method, default=None, _label="orig_action_handler")
             orig_method_handler = (
                 attempt(getattr, instance, method, default=None, _label="orig_method_handler")

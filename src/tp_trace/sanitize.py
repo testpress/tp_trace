@@ -29,7 +29,7 @@ _SENSITIVE_QUERY_KEYS = {
 def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) -> str:
     """
     Sanitize SQL statements by replacing literal values with placeholders.
-    
+
     Replaces:
     - Postgres dollar-quoted strings: $$secret$$ or $tag$secret$tag$ -> ?
     - String literals: 'example' -> ?

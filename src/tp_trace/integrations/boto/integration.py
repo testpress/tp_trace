@@ -22,7 +22,7 @@ def _tp_trace_boto_request_hook(span: Any, service: str, operation: str, params:
                 norm_svc = "aws-s3" if str(service).lower() == "s3" else f"aws-{str(service).lower()}"
                 span.set_attribute("normalized.service", norm_svc)
                 span.set_attribute("normalized.operation", f"{service}.{operation}" if service and operation else (name or "aws.call"))
-    except Exception as exc:
+    except Exception:
         logger.debug("boto hook error", exc_info=True)
 
 
@@ -34,7 +34,7 @@ def _tp_trace_boto_response_hook(span: Any, service: str, operation: str, result
             if name and not name.startswith("🪣") and not name.startswith("☁️"):
                 if hasattr(span, "update_name"):
                     span.update_name(f"{icon} {name}")
-    except Exception as exc:
+    except Exception:
         logger.debug("boto hook error", exc_info=True)
 
 

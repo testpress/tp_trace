@@ -6,7 +6,7 @@ from requests.models import PreparedRequest, Response
 from requests.sessions import Session
 
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from opentelemetry.trace import get_tracer, SpanKind, StatusCode
+from opentelemetry.trace import get_tracer, StatusCode
 
 import tp_trace
 from tp_trace.integrations.requests import RequestsIntegration

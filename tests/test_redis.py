@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from opentelemetry.trace import SpanKind, StatusCode
+from opentelemetry.trace import SpanKind
 
 import tp_trace
 from tp_trace.integrations.redis import RedisIntegration
@@ -612,7 +612,7 @@ def test_cache_suppresses_downstream_driver_instrumentation():
 
 def test_cache_set_many_suppresses_pipeline_driver_instrumentation(memory_exporter):
     """Verify that during set_many pipeline execution, downstream driver spans are suppressed."""
-    from tp_trace.integrations.django.cache import make_traced_cache_op, _in_cache_span
+    from tp_trace.integrations.django.cache import _in_cache_span
     from tp_trace.integrations.redis.integration import _redis_suppress_guard
 
     class DummyPipeline:
@@ -623,8 +623,6 @@ def test_cache_set_many_suppresses_pipeline_driver_instrumentation(memory_export
     def dummy_execute(pipe):
         called.append(True)
         return pipe.execute()
-
-    wrapped_execute = lambda *args, **kwargs: _redis_suppress_guard(DummyPipeline.execute, DummyPipeline(), args, kwargs)
 
     pipe = DummyPipeline()
     token = _in_cache_span.set(True)

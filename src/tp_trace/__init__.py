@@ -7,19 +7,14 @@ Provides complete distributed tracing and request waterfall instrumentation for 
 import atexit
 import logging
 import threading
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider, SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
-from opentelemetry.sdk.trace.sampling import (
-    ALWAYS_OFF,
-    ALWAYS_ON,
-    ParentBased,
-    TraceIdRatioBased,
-)
+from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, Sampler
 from opentelemetry.trace import get_current_span, get_tracer
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.baggage.propagation import W3CBaggagePropagator
@@ -33,6 +28,22 @@ from tp_trace.integrations import BaseIntegration, get_integration_manager
 from tp_trace.sanitize import sanitize_query_string, sanitize_sql, sanitize_url
 from tp_trace.tracing import traced_span
 from tp_trace.version import __version__
+
+__all__ = [
+    "init",
+    "get_config",
+    "patch_all",
+    "traced_span",
+    "sanitize_query_string",
+    "sanitize_sql",
+    "sanitize_url",
+    "__version__",
+    "SDKConfig",
+    "BaseIntegration",
+    "get_integration_manager",
+    "RouteEnrichingSpanProcessor",
+    "SafeSpanExporter",
+]
 
 logger = logging.getLogger("tp_trace")
 
@@ -150,13 +161,15 @@ def init(
         if config.resource_attributes:
             resource_data.update(config.resource_attributes)
         try:
-            import socket, os
+            import socket
+            import os
             resource_data.setdefault("service.instance.id", f"{socket.gethostname()}-{os.getpid()}")
         except Exception:
             pass
         resource = Resource.create(resource_data)
 
         # Configure Sampler
+        sampler: Sampler
         if config.disabled:
             sampler = ALWAYS_OFF
         else:
@@ -285,7 +298,7 @@ def get_config() -> SDKConfig:
     return SDKConfig.from_env_and_kwargs()
 
 
-def patch_all(**kwargs: Any) -> Dict[str, Any]:
+def patch_all(**kwargs: Any) -> List[str]:
     """Auto-detect and apply all installed integrations (Django, PostgreSQL, etc.)."""
     manager = get_integration_manager()
     return manager.apply_integrations(config=get_config(), **kwargs)

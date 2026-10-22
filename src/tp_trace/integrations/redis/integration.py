@@ -134,8 +134,8 @@ def _install_command_formatter() -> None:
             _otel_original_format_command_args = getattr(
                 otel_redis_util, "_format_command_args", None
             )
-        otel_redis_pkg._format_command_args = _tp_trace_format_command_args
-        otel_redis_util._format_command_args = _tp_trace_format_command_args
+        setattr(otel_redis_pkg, "_format_command_args", _tp_trace_format_command_args)
+        setattr(otel_redis_util, "_format_command_args", _tp_trace_format_command_args)
     except Exception as exc:
         logger.debug("Failed to install full redis command formatter: %s", exc)
 
@@ -149,8 +149,8 @@ def _restore_command_formatter() -> None:
     try:
         otel_redis_pkg = importlib.import_module("opentelemetry.instrumentation.redis")
         otel_redis_util = importlib.import_module("opentelemetry.instrumentation.redis.util")
-        otel_redis_pkg._format_command_args = original
-        otel_redis_util._format_command_args = original
+        setattr(otel_redis_pkg, "_format_command_args", original)
+        setattr(otel_redis_util, "_format_command_args", original)
     except Exception as exc:
         logger.debug("Failed to restore redis command formatter: %s", exc)
     _otel_original_format_command_args = None
@@ -190,7 +190,7 @@ def _tp_trace_redis_request_hook(span: Any, instance: Any, args: Any, kwargs: An
                 if _mask_endpoint_enabled():
                     span.set_attribute("net.peer.name", "?")
                     span.set_attribute("net.peer.port", "?")
-    except Exception as exc:
+    except Exception:
         logger.debug("redis hook/guard error", exc_info=True)
 
 
@@ -243,7 +243,7 @@ def _redis_suppress_guard(wrapped: Any, instance: Any, args: Any, kwargs: Any) -
             while hasattr(orig, "__wrapped__"):
                 orig = orig.__wrapped__
             return orig(*args, **kwargs)
-    except Exception as exc:
+    except Exception:
         logger.debug("redis hook/guard error", exc_info=True)
     return wrapped(*args, **kwargs)
 

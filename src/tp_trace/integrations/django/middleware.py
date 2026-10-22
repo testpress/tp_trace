@@ -7,18 +7,16 @@ Produces exact Datadog APM waterfall hierarchy:
   - <module>.<MiddlewareClass>.process_response
 """
 
-import contextlib
+from contextvars import ContextVar
 import functools
 import logging
 from typing import Any, Callable, Optional
 
 from opentelemetry.trace import SpanKind
 
-from tp_trace.config import SDKConfig
-from tp_trace.config_access import get_config as _get_config, set_config
+from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.safety import attempt
 from tp_trace.tracing import traced_span
-import tp_trace
 
 logger = logging.getLogger("tp_trace.integrations.django.middleware")
 
@@ -109,8 +107,6 @@ def _make_traced_middleware_factory(integration, mw_path, factory):
 
     return traced_factory
 
-
-from contextvars import ContextVar
 
 _active_middleware_integration: ContextVar[Optional[Any]] = ContextVar("active_middleware_integration", default=None)
 _orig_handler_base_import_string: Optional[Callable] = None
