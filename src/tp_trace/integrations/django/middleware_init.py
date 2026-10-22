@@ -8,11 +8,11 @@ Add this to your Django settings.py MIDDLEWARE list to auto-initialize tp_trace:
     ]
 
 The middleware reads configuration from environment variables:
-    TP_TRACE_PROJECT_NAME / TP_DOG_PROJECT_NAME / OTEL_SERVICE_NAME — the project (application) name
-    TP_TRACE_ENVIRONMENT / TP_DOG_ENVIRONMENT / OTEL_ENVIRONMENT — deployment environment
-    TP_TRACE_ENDPOINT / TP_DOG_ENDPOINT / OTEL_EXPORTER_OTLP_ENDPOINT — OTLP endpoint
+    TP_TRACE_PROJECT_NAME / OTEL_SERVICE_NAME — the project (application) name
+    TP_TRACE_ENVIRONMENT / OTEL_ENVIRONMENT — deployment environment
+    TP_TRACE_ENDPOINT / OTEL_EXPORTER_OTLP_ENDPOINT — OTLP endpoint
 
-Or set TP_TRACE_DISABLED=1 (or TP_DOG_DISABLED=1) to disable tracing entirely.
+Or set TP_TRACE_DISABLED=1 to disable tracing entirely.
 
 This is an alternative to calling tp_trace.init() directly in settings.py.
 """
@@ -38,10 +38,10 @@ class TpTraceMiddleware:
         ]
 
     Environment variables:
-        TP_TRACE_DISABLED / TP_DOG_DISABLED / OTEL_SDK_DISABLED — set to "1" to disable
-        TP_TRACE_PROJECT_NAME / TP_DOG_PROJECT_NAME / OTEL_SERVICE_NAME — the project (application) name
-        TP_TRACE_ENVIRONMENT / TP_DOG_ENVIRONMENT / OTEL_ENVIRONMENT — deployment environment
-        TP_TRACE_ENDPOINT / TP_DOG_ENDPOINT / OTEL_EXPORTER_OTLP_ENDPOINT — OTLP collector endpoint
+        TP_TRACE_DISABLED / OTEL_SDK_DISABLED — set to "1" to disable
+        TP_TRACE_PROJECT_NAME / OTEL_SERVICE_NAME — the project (application) name
+        TP_TRACE_ENVIRONMENT / OTEL_ENVIRONMENT — deployment environment
+        TP_TRACE_ENDPOINT / OTEL_EXPORTER_OTLP_ENDPOINT — OTLP collector endpoint
     """
 
     def __init__(self, get_response):
@@ -56,7 +56,6 @@ class TpTraceMiddleware:
         # Check if disabled
         disabled_val = (
             os.environ.get("TP_TRACE_DISABLED")
-            or os.environ.get("TP_DOG_DISABLED")
             or os.environ.get("OTEL_SDK_DISABLED", "")
         )
         if disabled_val.lower() in ("1", "true", "yes"):
@@ -74,13 +73,10 @@ class TpTraceMiddleware:
         try:
             tp_trace.init(
                 project_name=os.environ.get("TP_TRACE_PROJECT_NAME")
-                or os.environ.get("TP_DOG_PROJECT_NAME")
                 or os.environ.get("OTEL_SERVICE_NAME"),
                 environment=os.environ.get("TP_TRACE_ENVIRONMENT")
-                or os.environ.get("TP_DOG_ENVIRONMENT")
                 or os.environ.get("OTEL_ENVIRONMENT"),
                 endpoint=os.environ.get("TP_TRACE_ENDPOINT")
-                or os.environ.get("TP_DOG_ENDPOINT")
                 or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"),
                 # auto_patch=True is the default — all installed integrations
                 # (Django, PostgreSQL, Redis, requests) are auto-detected
@@ -98,7 +94,3 @@ class TpTraceMiddleware:
     def process_exception(self, request, exception):
         """Ensure exception tracing is captured even if middleware init fails."""
         return None
-
-
-# Backwards compatibility alias
-TpDogMiddleware = TpTraceMiddleware

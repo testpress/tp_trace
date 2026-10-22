@@ -232,9 +232,6 @@ def tp_trace_django_db_execute_wrapper(
         raise
 
 
-tp_dog_django_db_execute_wrapper = tp_trace_django_db_execute_wrapper
-
-
 def traced_django_cursor_exec(
     wrapped: Callable,
     instance: Any,

@@ -13,7 +13,7 @@ urlpatterns = []
 if not settings.configured:
     settings.configure(
         DEBUG=False,
-        SECRET_KEY="test-secret-key-tp-dog-global",
+        SECRET_KEY="test-secret-key-tp-trace-global",
         ROOT_URLCONF=__name__,
         ALLOWED_HOSTS=["*"],
         DATABASES={

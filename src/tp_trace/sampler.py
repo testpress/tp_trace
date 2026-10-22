@@ -105,10 +105,6 @@ class TpTraceRuleBasedSampler(Sampler):
         return f"TpTraceRuleBasedSampler(global={self.global_sample_rate}, ignores={len(self.ignore_endpoints)}, rules={len(self.endpoint_sample_rules)})"
 
 
-# Backwards compatibility alias
-TpDogRuleBasedSampler = TpTraceRuleBasedSampler
-
-
 class RemoteParentAwareSampler(Sampler):
     """Evaluates ignore_endpoints for remote parents before accepting upstream sampling."""
 
@@ -158,7 +154,3 @@ def create_tp_trace_sampler(
         root=root_sampler,
         remote_parent_sampled=remote_sampler,
     )
-
-
-# Backwards compatibility alias
-create_tp_dog_sampler = create_tp_trace_sampler

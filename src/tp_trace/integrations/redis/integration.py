@@ -229,11 +229,6 @@ def _tp_trace_redis_response_hook(span: Any, instance: Any, response: Any) -> No
         logger.debug("redis response hook error: %s", exc)
 
 
-# Backwards compatibility aliases
-_tp_dog_redis_request_hook = _tp_trace_redis_request_hook
-_tp_dog_redis_response_hook = _tp_trace_redis_response_hook
-
-
 def _redis_suppress_guard(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
     try:
         from opentelemetry.instrumentation.utils import is_instrumentation_enabled

@@ -523,19 +523,19 @@ def test_callback_takes_response_cached():
 
 
 def test_tags_from_env_var(monkeypatch):
-    """Verify tags can be set via TP_DOG_TAGS env var."""
-    monkeypatch.setenv("TP_DOG_TAGS", "org=testpress,institute=karunya")
+    """Verify tags can be set via TP_TRACE_TAGS env var."""
+    monkeypatch.setenv("TP_TRACE_TAGS", "org=testpress,institute=karunya")
     cfg = SDKConfig.from_env_and_kwargs()
     assert cfg.tags == {"org": "testpress", "institute": "karunya"}
-    monkeypatch.delenv("TP_DOG_TAGS")
+    monkeypatch.delenv("TP_TRACE_TAGS")
 
 
 def test_tags_kwargs_override_env(monkeypatch):
     """Verify kwargs tags override env var tags."""
-    monkeypatch.setenv("TP_DOG_TAGS", "org=env_org,env_key=env_val")
+    monkeypatch.setenv("TP_TRACE_TAGS", "org=env_org,env_key=env_val")
     cfg = SDKConfig.from_env_and_kwargs(tags={"org": "kwarg_org", "kwarg_key": "kwarg_val"})
     assert cfg.tags == {"org": "kwarg_org", "kwarg_key": "kwarg_val"}
-    monkeypatch.delenv("TP_DOG_TAGS")
+    monkeypatch.delenv("TP_TRACE_TAGS")
 
 
 def test_user_pii_redacted_for_authenticated_request():
@@ -674,7 +674,7 @@ def test_unmatched_route_normalization():
 
 
 def test_dynamic_tenant_urlconf_resolution(monkeypatch):
-    """Verify multi-tenant apps with dynamic request.urlconf, TENANT_URLCONF, or TP_DOG_EXTRA_URLCONFS resolve correctly."""
+    """Verify multi-tenant apps with dynamic request.urlconf, TENANT_URLCONF, or TP_TRACE_EXTRA_URLCONFS resolve correctly."""
     from django.conf import settings
     from tp_trace.integrations.django.request import _preresolve_route
 
@@ -697,9 +697,9 @@ def test_dynamic_tenant_urlconf_resolution(monkeypatch):
     route = _preresolve_route("/test/sample/", request=req)
     assert route == "/test/sample/"
 
-    # Test discovery via TP_DOG_EXTRA_URLCONFS
+    # Test discovery via TP_TRACE_EXTRA_URLCONFS
     monkeypatch.delattr(settings, "TENANT_URLCONF", raising=False)
-    monkeypatch.setattr(settings, "TP_DOG_EXTRA_URLCONFS", ["tests.test_django"], raising=False)
+    monkeypatch.setattr(settings, "TP_TRACE_EXTRA_URLCONFS", ["tests.test_django"], raising=False)
     route = _preresolve_route("/test/sample/", request=req)
     assert route == "/test/sample/"
 

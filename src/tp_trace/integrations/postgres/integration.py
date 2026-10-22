@@ -21,7 +21,7 @@ import importlib
 import logging
 
 from tp_trace.integrations.base import BaseIntegration
-from .cursor import traced_django_cursor_exec, tp_trace_django_db_execute_wrapper, tp_dog_django_db_execute_wrapper
+from .cursor import traced_django_cursor_exec, tp_trace_django_db_execute_wrapper
 
 logger = logging.getLogger("tp_trace.integrations.postgres")
 
@@ -204,8 +204,6 @@ class PostgresIntegration(BaseIntegration):
                     if hasattr(conn, "execute_wrappers"):
                         if tp_trace_django_db_execute_wrapper in conn.execute_wrappers:
                             conn.execute_wrappers.remove(tp_trace_django_db_execute_wrapper)
-                        elif tp_dog_django_db_execute_wrapper in conn.execute_wrappers:
-                            conn.execute_wrappers.remove(tp_dog_django_db_execute_wrapper)
         except Exception:
             pass
 
