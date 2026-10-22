@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.6] - 2026-10-22
+
+### Added
+- **Celery Distributed Tracing & Task Visibility**:
+  - Automatic tracing for Celery task publication (`celery.apply_async`) and execution (`celery.run`) with W3C distributed trace context propagation.
+  - Collector-derived RED metrics (rate, error, duration) generated via the OpenTelemetry Collector's spanmetrics connector without application process overhead.
+  - Strict task operation cardinality bounding (max 256 admitted task names) to protect Prometheus storage against cardinality explosion.
+  - Added `opentelemetry-instrumentation-celery>=0.54b1` dependency.
+- **Developer Experience & Local Environment**:
+  - Added MinIO S3 service to local development Docker Compose stack for storage testing.
+  - Added pre-commit configuration and `make format` target using `ruff`.
+  - Extended CI test matrix to Python 3.10+ with `ruff` and `mypy` validation while preserving Python 3.8 support.
+
+### Changed
+- **Removed Legacy `tp_dog` Aliases & Configuration**:
+  - Configuration resolves exclusively from `TP_TRACE_*` (and standard `OTEL_*`) environment variables; legacy `TP_DOG_*` variables and settings are no longer supported.
+  - Removed deprecated aliases (`TpDogMiddleware`, `TpDogRuleBasedSampler`, `create_tp_dog_sampler`, and legacy `tp_dog` client hooks).
+
+### Fixed
+- **Dashboard Operation Dropdown & Queries**:
+  - Filtered internal child spans (`SPAN_KIND_INTERNAL`) and non-endpoint operations from the Grafana Operation dropdown.
+  - Fixed regex extraction to prevent SQL query truncation at double quotes in APM dashboards.
+
+---
+
 ## [0.1.5] - 2026-10-21
 
 ### Performance
