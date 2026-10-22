@@ -49,6 +49,3 @@ ps: ## Show stack status
 
 smoke: ## Verify host ingestion, storage, app dependencies, and Grafana
 	$(PYTHON) tests/e2e/smoke.py
-
-traffic: ## Generate sample-app traffic (ARGS='--help' for options; Ctrl+C to stop)
-	bash sample-app/generate_traffic.sh $(ARGS)
