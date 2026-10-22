@@ -1154,3 +1154,30 @@ def test_unmaterialized_simple_lazy_object_user_not_evaluated():
     assert resp.status_code == 200
     # Must NOT have been evaluated!
     assert not evaluated, "request.user was prematurely materialized by SDK telemetry!"
+
+
+def test_current_view_context_propagation():
+    """Verify get_current_view() captures view name during dispatch and resets cleanly."""
+    from tp_trace.route_context import get_current_view
+    from tp_trace.integrations.django.view import traced_view_dispatch
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="view-context-test", exporter=exporter, export_batch=False)
+
+    class SampleCBV:
+        def get(self, request, *args, **kwargs):
+            return get_current_view()
+
+        def dispatch(self, request, *args, **kwargs):
+            handler = getattr(self, request.method.lower())
+            return handler(request, *args, **kwargs)
+
+    factory = RequestFactory()
+    req = factory.get("/api/v1/sample/")
+    inst = SampleCBV()
+
+    assert get_current_view() is None
+
+    observed_view = traced_view_dispatch(lambda *a, **k: inst.dispatch(*a, **k), inst, (req,), {})
+    assert observed_view == f"{SampleCBV.__module__}.{SampleCBV.__name__}.get"
+    assert get_current_view() is None

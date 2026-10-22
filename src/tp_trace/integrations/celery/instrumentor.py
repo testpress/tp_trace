@@ -126,6 +126,21 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                                 rk = delivery_info.get("routing_key")
                                 if rk:
                                     safe_set_attribute(span, "celery.queue", str(rk))
+                            req_headers = getattr(req, "headers", None)
+                            if req_headers is None and isinstance(req, dict):
+                                req_headers = req.get("headers")
+                            trigger_view = None
+                            if isinstance(req_headers, dict):
+                                trigger_view = req_headers.get("tp_trigger_view")
+                            if not trigger_view:
+                                try:
+                                    from tp_trace.route_context import get_current_view
+
+                                    trigger_view = get_current_view()
+                                except Exception:
+                                    pass
+                            if trigger_view:
+                                safe_set_attribute(span, "celery.trigger.view", str(trigger_view))
         except Exception:
             logger.debug("Error during _trace_prerun enrichment", exc_info=True)
 
@@ -150,6 +165,19 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
             span_name="🟣 celery.apply_async",
         )
 
+        trigger_view = None
+        try:
+            from tp_trace.route_context import get_current_view
+
+            trigger_view = get_current_view()
+        except Exception:
+            pass
+
+        if trigger_view:
+            headers = kwargs.get("headers")
+            if isinstance(headers, dict):
+                headers["tp_trigger_view"] = trigger_view
+
         token = set_celery_creation_meta(meta)
         try:
             try:
@@ -171,6 +199,8 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                     safe_update_name(span, "🟣 celery.apply_async")
                     safe_set_attribute(span, "celery.task_id", task_id)
                     safe_set_attribute(span, "celery.task_name", task_name)
+                    if trigger_view:
+                        safe_set_attribute(span, "celery.trigger.view", trigger_view)
 
                     # Extract producer queue
                     queue_name = None

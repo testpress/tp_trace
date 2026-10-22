@@ -24,7 +24,14 @@ from tp_trace.integrations.celery.context import (
     get_bounded_task_label,
     set_admitted_task_names,
 )
-from tp_trace.route_context import set_request_route, set_request_tag
+from tp_trace.route_context import (
+    reset_request_route,
+    reset_request_tags,
+    reset_request_view,
+    set_request_route,
+    set_request_tag,
+    set_request_view,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -215,6 +222,7 @@ def test_task_execution_topology_and_success(test_celery_app, memory_exporter):
 
     tokens = set_request_route("/api/calculate/", "POST")
     set_request_tag("tenant", "test-school")
+    view_token = set_request_view("calculator.views.AddView.post")
 
     try:
         tracer = trace.get_tracer("test")
@@ -222,8 +230,7 @@ def test_task_execution_topology_and_success(test_celery_app, memory_exporter):
             result = add.apply_async((10, 20))
             assert result.get(timeout=5, disable_sync_subtasks=False) == 30
     finally:
-        from tp_trace.route_context import reset_request_route, reset_request_tags
-
+        reset_request_view(view_token)
         reset_request_route(tokens)
         reset_request_tags()
         worker.stop()
@@ -249,6 +256,7 @@ def test_task_execution_topology_and_success(test_celery_app, memory_exporter):
     assert producer.attributes.get("celery.task_name") == "sample.tasks.add"
     assert producer.attributes.get("error") is False
     assert producer.attributes.get("tenant") == "test-school"
+    assert producer.attributes.get("celery.trigger.view") == "calculator.views.AddView.post"
 
     # HTTP routes MUST NOT be on Celery spans
     for bad in ("http.route", "http.method", "http.request.method", "http.route_template", "django.route"):
@@ -262,7 +270,51 @@ def test_task_execution_topology_and_success(test_celery_app, memory_exporter):
     assert consumer.attributes.get("celery.task_name") == "sample.tasks.add"
     assert consumer.attributes.get("celery.task_state") == "SUCCESS"
     assert consumer.attributes.get("error") is False
+    assert consumer.attributes.get("celery.trigger.view") == "calculator.views.AddView.post"
     assert consumer.status.status_code == StatusCode.OK
+
+
+def test_celery_trigger_view_absent_when_no_active_view(test_celery_app, memory_exporter):
+    """Verify celery.trigger.view is omitted when task is published outside a view context."""
+    from tp_trace.integrations.celery.context import set_admitted_task_names
+
+    set_admitted_task_names(["sample.tasks.add"])
+
+    @test_celery_app.task(name="sample.tasks.add")
+    def add(x, y):
+        return x + y
+
+    add.delay(5, 5)
+
+    spans = memory_exporter.get_finished_spans()
+    producer = next((s for s in spans if s.name == "🟣 celery.apply_async"), None)
+    consumer = next((s for s in spans if s.name == "🟣 celery.run"), None)
+
+    if producer:
+        assert "celery.trigger.view" not in producer.attributes
+    if consumer:
+        assert "celery.trigger.view" not in consumer.attributes
+
+
+def test_celery_trigger_view_eager_execution(test_celery_app, memory_exporter):
+    """Verify celery.trigger.view is captured on consumer span during eager execution."""
+    from tp_trace.integrations.celery.context import set_admitted_task_names
+
+    set_admitted_task_names(["sample.tasks.add"])
+
+    @test_celery_app.task(name="sample.tasks.add")
+    def add(x, y):
+        return x + y
+
+    view_token = set_request_view("reports.views.GenerateReportView.post")
+    try:
+        add.delay(3, 7)
+    finally:
+        reset_request_view(view_token)
+
+    spans = memory_exporter.get_finished_spans()
+    consumer = next(s for s in spans if s.name == "🟣 celery.run")
+    assert consumer.attributes.get("celery.trigger.view") == "reports.views.GenerateReportView.post"
 
 
 def test_task_failure_outcomes(test_celery_app, memory_exporter):
