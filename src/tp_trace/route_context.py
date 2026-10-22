@@ -25,6 +25,8 @@ from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 from opentelemetry.trace import Span, SpanKind
 
+from tp_trace.safety import safe_update_name
+
 current_route: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "tp_trace.http_route", default=None
 )
@@ -136,6 +138,31 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                 if v is not None:
                     span.set_attribute(k, v)
 
+            # Check for owned Celery span creation
+            try:
+                from tp_trace.integrations.celery.context import get_celery_creation_meta
+
+                celery_meta = get_celery_creation_meta()
+            except Exception:
+                celery_meta = None
+
+            if celery_meta is not None:
+                scope = getattr(span, "instrumentation_scope", None) or getattr(span, "instrumentation_info", None)
+                scope_name = getattr(scope, "name", None)
+                span_kind = getattr(span, "kind", None)
+                if span_kind is None and hasattr(span, "_kind"):
+                    span_kind = getattr(span, "_kind", None)
+                expected_kind = (
+                    SpanKind.PRODUCER if celery_meta.action == "apply_async" else SpanKind.CONSUMER
+                )
+                if scope_name == "opentelemetry.instrumentation.celery" and span_kind == expected_kind:
+                    span.set_attribute("tp_trace.celery.owned", True)
+                    span.set_attribute("normalized.service", "celery")
+                    span.set_attribute("normalized.operation", celery_meta.bounded_operation)
+                    span.set_attribute("error", False)
+                    safe_update_name(span, celery_meta.span_name)
+                    return
+
             existing = getattr(span, "attributes", None) or {}
             span_kind = getattr(span, "kind", None)
             if span_kind is None and hasattr(span, "_kind"):
@@ -172,6 +199,28 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                 target_dict = attrs
 
             if target_dict is not None:
+                # Check for owned Celery span: defensive normalization and suppression of HTTP attributes
+                is_owned_celery = bool(target_dict.get("tp_trace.celery.owned") or attrs.get("tp_trace.celery.owned"))
+                if is_owned_celery:
+                    for bad_key in (
+                        "http.method",
+                        "http.request.method",
+                        "http.route",
+                        "http.route_template",
+                        "django.route",
+                    ):
+                        if bad_key in target_dict:
+                            try:
+                                del target_dict[bad_key]
+                            except Exception:
+                                pass
+                    if not target_dict.get("normalized.service"):
+                        target_dict["normalized.service"] = "celery"
+                    if not target_dict.get("normalized.operation"):
+                        action = "apply_async" if getattr(span, "kind", None) == SpanKind.PRODUCER else "run"
+                        target_dict["normalized.operation"] = f"celery.{action}.unknown"
+                    return
+
                 # Remove accidental http.method / http.route from database/cache spans
                 if target_dict.get("db.system") or attrs.get("db.system") or target_dict.get("normalized.service") in ("redis", "postgres", "pgbouncer"):
                     for bad_key in ("http.method", "http.request.method", "http.route"):

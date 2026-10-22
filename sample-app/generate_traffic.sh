@@ -35,6 +35,7 @@ SERVICE_SQL=0
 SERVICE_THROTTLE=0
 SERVICE_ERROR=0
 SERVICE_BOTO=0
+SERVICE_CELERY=0
 RUN_ALL=0
 
 # Intentional Slowdown Flags
@@ -149,12 +150,13 @@ while [[ "$#" -gt 0 ]]; do
   -k | --throttle) SERVICE_THROTTLE=1 ;;
   -y | --error) SERVICE_ERROR=1 ;;
   -b | --boto | --s3) SERVICE_BOTO=1 ;;
+  -q | --celery) SERVICE_CELERY=1 ;;
 
   -h | --help)
     echo -e "${C_BOLD}Usage: $0 [OPTIONS]${C_RESET}"
     echo ""
     echo "Options:"
-    echo "  --all             Exercise ALL instrumentations (Postgres, Slaves 1-3, Redis, Requests, S3, Django)"
+    echo "  --all             Exercise ALL instrumentations (Postgres, Slaves 1-3, Redis, Requests, S3, Celery, Django)"
     echo "  --loop            Run continuously until Ctrl+C (default)"
     echo "  --once            Run a single sweep through all endpoint scenarios"
     echo "  -d, --duration N  Run continuously for N seconds"
@@ -186,6 +188,7 @@ while [[ "$#" -gt 0 ]]; do
     echo "  -r, --redis       Spam Redis cache endpoints"
     echo "  -x, --http        Spam HTTP downstream call endpoints"
     echo "  -b, --boto, --s3  Spam Boto / S3 object storage endpoints"
+    echo "  -q, --celery      Spam Celery async task dispatch endpoints"
     echo "  -m, --template    Spam HTML template rendering endpoints"
     echo "  -a, --sql         Spam SQL/threaded operation endpoints"
     echo "  -k, --throttle    Spam rate throttling burst endpoints"
@@ -220,7 +223,7 @@ echo "   Target Base URL: ${BASE_URL}"
 echo "   Mode: ${MODE} $([ $DURATION -gt 0 ] && echo "(for ${DURATION}s)")"
 echo "   Concurrency: ${CONCURRENCY} worker(s)"
 if [ "$RUN_ALL" -eq 1 ]; then
-  echo "   Scope: ALL Instrumentations (Postgres Primary & Slaves 1-3, Redis, Requests HTTP, S3, Django)"
+  echo "   Scope: ALL Instrumentations (Postgres Primary & Slaves 1-3, Redis, Requests HTTP, S3, Celery, Django)"
 fi
 if [ "$HAS_DB_FILTER" -eq 1 ]; then
   echo -n "   Target Database(s): "
@@ -425,7 +428,7 @@ run_traffic_cycle() {
   # =========================================================================
   # Standard Full Traffic Cycle (Balanced across all services and tiers)
   # =========================================================================
-  if [ "$RUN_ALL" -eq 1 ] || [ "$SERVICE_PRODUCT" -eq 1 ] || [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ]; then
+  if [ "$RUN_ALL" -eq 1 ] || [ "$SERVICE_PRODUCT" -eq 1 ] || [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ] && [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ]; then
     # 1. Django Web & Core Framework Tier
     send_req "GET" "/api/products/" "" "Django Web: List Products (Core Handler)"
     send_req "GET" "/api/products/1/" "" "Django Web: Product Detail #1"
@@ -455,12 +458,16 @@ run_traffic_cycle() {
     # 6. Cloud Storage & Downstream
     send_req "GET" "/api/s3-storage/" "" "Cloud Storage (Boto/S3): List Bucket Objects"
 
-    # 7. Balanced Error & Throttling (Realistic 2-5% rate instead of constant spam)
+    # 7. Celery Asynchronous Tasks (Producer -> Broker -> Worker Consumer)
+    send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": false}" "Celery Async: Dispatch demo_task (Producer -> Consumer)"
+
+    # 8. Balanced Error & Throttling (Realistic 2-5% rate instead of constant spam)
     if [ $((cycle_num % 5)) -eq 0 ]; then
       send_req "GET" "/api/products/throttled/" "" "Rate Throttling: Occasional 429 Test Probe"
     fi
     if [ $((cycle_num % 10)) -eq 0 ]; then
       send_req "GET" "/api/products/error/" "" "Server Error: Occasional 500 Test Probe"
+      send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": true}" "Celery Error: Occasional Failing Task Probe"
     fi
   fi
 
@@ -491,6 +498,14 @@ run_traffic_cycle() {
   # Boto / S3 Cloud Storage endpoints
   if [ "$SERVICE_BOTO" -eq 1 ]; then
     send_req "GET" "/api/s3-storage/" "" "Cloud Storage (Boto/S3): List Objects"
+  fi
+
+  # Celery async task endpoints
+  if [ "$SERVICE_CELERY" -eq 1 ]; then
+    send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": false}" "Celery: Dispatch demo_task (Producer -> Consumer)"
+    if [ $((cycle_num % 4)) -eq 0 ]; then
+      send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": true}" "Celery: Dispatch failing demo_task (ValueError)"
+    fi
   fi
 }
 

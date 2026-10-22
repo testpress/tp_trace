@@ -19,6 +19,7 @@ from .views import (
     ThrottledView,
     MultiPartTemplateErrorView,
     S3StorageView,
+    CeleryPublishView,
 )
 
 router = DefaultRouter()
@@ -26,6 +27,7 @@ router.register(r"products", ProductViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("celery/publish/", CeleryPublishView.as_view(), name="celery-publish"),
     path("s3-storage/", S3StorageView.as_view(), name="s3-storage"),
     path("throttled/", ThrottledView.as_view(), name="throttled"),
     path("template-error/", MultiPartTemplateErrorView.as_view(), name="template-error"),
