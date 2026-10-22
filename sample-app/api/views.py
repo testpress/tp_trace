@@ -106,9 +106,9 @@ class S3StorageView(APIView):
             session = botocore.session.get_session()
             client = session.create_client(
                 "s3",
-                region_name="us-east-1",
-                aws_access_key_id="mock_access_key",
-                aws_secret_access_key="mock_secret_key",
+                region_name=os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
+                aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "mock_access_key"),
+                aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "mock_secret_key"),
                 endpoint_url=endpoint_url,
             )
             status_msg = "success"

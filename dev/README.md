@@ -25,10 +25,14 @@ docker compose up -d
 | Prometheus | `9090` | [http://localhost:9090/](http://localhost:9090/) (Metrics & TSDB) |
 | Tempo | `3200` | [http://localhost:3200/ready](http://localhost:3200/ready) (Readiness endpoint) |
 | OTel Collector | `4317` / `4318` | OTLP gRPC (`4317`) and HTTP (`4318`) trace receiver |
+| MinIO (S3 API) | `9002` | [http://localhost:9002/](http://localhost:9002/) (S3-compatible object storage) |
+| MinIO Console | `9003` | [http://localhost:9003/](http://localhost:9003/) (MinIO web console) |
 
 Port overrides can be specified via environment variables before running `docker compose`:
 - `APP_PORT`: Django sample app port (default `8002`)
 - `GRAFANA_PORT`: Grafana port (default `3001`)
+- `MINIO_PORT`: MinIO S3 API port (default `9002`)
+- `MINIO_CONSOLE_PORT`: MinIO web console port (default `9003`)
 
 ## Pre-provisioned Dashboards
 
