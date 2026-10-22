@@ -65,6 +65,7 @@ Useful commands:
 | Scope | Command |
 |---|---|
 | Lint & Typecheck | `make lint` |
+| Pre-commit hooks | `make pre-commit` |
 | Focused SDK tests | `make test ARGS='tests/test_relevant.py'` |
 | Full SDK suite | `make test` |
 | Packaging | `make build` |

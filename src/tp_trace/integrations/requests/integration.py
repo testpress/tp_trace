@@ -47,4 +47,3 @@ class RequestsIntegration(BaseIntegration):
             logger.debug("Failed to uninstrument requests: %s", exc)
 
         return super().uninstrument()
-

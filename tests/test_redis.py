@@ -672,5 +672,3 @@ def test_redis_spans_do_not_inherit_django_http_route_as_operation(memory_export
     finally:
         current_route.reset(r_token)
         current_method.reset(m_token)
-
-

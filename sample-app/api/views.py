@@ -5,9 +5,7 @@ import requests
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection, transaction
-from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
-from django.utils.decorators import method_decorator
-from django.views import View
+from django.http import HttpResponseNotFound, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from rest_framework import status, viewsets
@@ -194,7 +192,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         price = request.data.get("price", "29.99") if request.method == "POST" else "29.99"
         stock = int(request.data.get("stock", 10)) if request.method == "POST" else 10
         description = request.data.get("description", "Direct write to slave1 database") if request.method == "POST" else "Direct write to slave1"
-        
+
         product = Product.objects.using("slave1").create(
             name=name,
             price=price,
@@ -214,7 +212,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         price = request.data.get("price", "49.99") if request.method == "POST" else "49.99"
         stock = int(request.data.get("stock", 25)) if request.method == "POST" else 25
         description = request.data.get("description", "Direct write to slave2 database") if request.method == "POST" else "Direct write to slave2"
-        
+
         product = Product.objects.using("slave2").create(
             name=name,
             price=price,
@@ -234,7 +232,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         price = request.data.get("price", "99.99") if request.method == "POST" else "99.99"
         stock = int(request.data.get("stock", 50)) if request.method == "POST" else 50
         description = request.data.get("description", "Direct write to slave3 database") if request.method == "POST" else "Direct write to slave3"
-        
+
         product = Product.objects.using("slave3").create(
             name=name,
             price=price,
@@ -254,7 +252,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         name = name or f"Omni Sync Item {int(time.time())}"
         price = request.data.get("price", "79.99") if request.method == "POST" else "79.99"
         stock = int(request.data.get("stock", 100)) if request.method == "POST" else 100
-        
+
         results = {}
         for db in ["default", "slave1", "slave2", "slave3"]:
             p = Product.objects.using(db).create(
@@ -265,9 +263,9 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
             Product.objects.using(db).filter(pk=p.pk).update(stock=stock + 5)
             results[db] = {"id": p.id, "name": p.name, "stock": stock + 5}
-            
+
         cache.set("sync:last_synced_item", results, timeout=120)
-        
+
         return Response({
             "status": "synchronized",
             "databases_updated": ["default", "slave1", "slave2", "slave3"],
@@ -279,22 +277,22 @@ class ProductViewSet(viewsets.ModelViewSet):
     def multi_db_transfer(self, request):
         """Cross-database workflow: Read primary, update slave1, write audit on slave2, update Redis."""
         amount = int(request.data.get("amount", 5)) if request.method == "POST" else 5
-        
+
         # 1. Read / Create on Primary
         primary_product = Product.objects.using("default").first()
         if not primary_product:
             primary_product = Product.objects.using("default").create(name="Primary Source Item", price="19.99", stock=50)
-            
+
         # 2. Update Primary stock
         Product.objects.using("default").filter(pk=primary_product.pk).update(stock=max(0, primary_product.stock - amount))
-        
+
         # 3. Insert or update replica 1
         slave1_product, _ = Product.objects.using("slave1").get_or_create(
             name=f"Transferred: {primary_product.name}",
             defaults={"price": primary_product.price, "stock": 0, "description": "Received from primary"}
         )
         Product.objects.using("slave1").filter(pk=slave1_product.pk).update(stock=slave1_product.stock + amount)
-        
+
         # 4. Write audit entry in replica 2
         Product.objects.using("slave2").create(
             name=f"Audit Transfer {int(time.time())}",
@@ -310,11 +308,11 @@ class ProductViewSet(viewsets.ModelViewSet):
             price="0.00",
             stock=amount,
         )
-        
+
         # 6. Redis cache update
         cache_key = f"transfer:last:{primary_product.pk}"
         cache.set(cache_key, {"transferred": amount, "timestamp": time.time()}, timeout=60)
-        
+
         return Response({
             "status": "transfer_complete",
             "amount": amount,
@@ -588,7 +586,7 @@ class MultiDBQueryView(APIView):
         from django.db import connections
         if db not in connections:
             return Response({"error": f"Unknown database: {db}"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         with connections[db].cursor() as cursor:
             cursor.execute('SELECT id, name, price, stock FROM api_product ORDER BY id DESC LIMIT 10')
             columns = [col[0] for col in cursor.description]
@@ -598,11 +596,11 @@ class MultiDBQueryView(APIView):
     def post(self, request):
         db = request.data.get("db", request.query_params.get("db", "default"))
         action_type = request.data.get("action", request.query_params.get("action", "insert")).lower()
-        
+
         from django.db import connections
         if db not in connections:
             return Response({"error": f"Unknown database: {db}"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         with connections[db].cursor() as cursor:
             if action_type == "insert":
                 cursor.execute(
@@ -640,8 +638,8 @@ class ManualSpanView(APIView):
                 time.sleep(0.1)
             time.sleep(0.1)
         return Response({"message": "Manual spans created"})
- 
- 
+
+
 class ThrottledView(APIView):
     throttle_classes = [BurstRateThrottle]
 

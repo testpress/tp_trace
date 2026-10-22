@@ -635,9 +635,3 @@ def test_init_configures_composite_propagator():
         assert isinstance(prop, CompositePropagator)
     finally:
         tp_trace._reset_for_testing()
-
-
-
-
-
-

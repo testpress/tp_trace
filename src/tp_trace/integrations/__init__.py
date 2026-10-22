@@ -16,4 +16,3 @@ __all__ = [
     "IntegrationManager",
     "get_integration_manager",
 ]
-

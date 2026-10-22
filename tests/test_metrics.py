@@ -371,4 +371,3 @@ def test_safe_metric_exporter_absorbs_errors():
     # 3. Flush & Shutdown don't raise
     assert safe.force_flush() is True
     safe.shutdown()
-

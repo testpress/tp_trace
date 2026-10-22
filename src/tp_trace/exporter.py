@@ -199,4 +199,3 @@ class SafeMetricExporter(MetricExporter):
             return bool(self._exporter.force_flush(timeout_millis=timeout_millis))
         except Exception:
             return False
-

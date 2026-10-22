@@ -1,7 +1,7 @@
 <nav aria-label="breadcrumb" style="margin: 0.5rem 0; font-size: 0.9rem; color: #666;">
-    <a href="/api/">Home</a> &gt; 
+    <a href="/api/">Home</a> &gt;
     {% if product %}
-        <a href="{% url 'product-list-tmpl' %}">Products</a> &gt; 
+        <a href="{% url 'product-list-tmpl' %}">Products</a> &gt;
         <span>{{ product.name }}</span>
     {% else %}
         <span>Products</span>

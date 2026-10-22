@@ -161,4 +161,3 @@ def test_alias_opt_out_disables_canonical_integration():
     assert "postgresql" not in instrumented
 
     mgr.uninstrument_all()
-

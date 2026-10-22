@@ -1,4 +1,3 @@
-import sys
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
@@ -39,7 +38,7 @@ class Command(BaseCommand):
                                 self.stdout.write(f"Creating database '{target_db_name}' on {host}:{port}...")
                                 cur.execute(f'CREATE DATABASE "{target_db_name}"')
                         conn.close()
-                    except Exception as conn_err:
+                    except Exception:
                         # Database may already exist or connecting via default db name
                         pass
         except Exception as e:

@@ -1159,6 +1159,3 @@ def test_unmaterialized_simple_lazy_object_user_not_evaluated():
     assert resp.status_code == 200
     # Must NOT have been evaluated!
     assert not evaluated, "request.user was prematurely materialized by SDK telemetry!"
-
-
-
