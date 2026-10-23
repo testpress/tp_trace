@@ -2,6 +2,7 @@
 
 import logging
 import re
+import time
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from opentelemetry.trace import SpanKind
@@ -11,6 +12,7 @@ from opentelemetry.context import (
 )
 
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
+from tp_trace.route_context import record_request_db_query
 from tp_trace.safety import UNTRACED, attempt, safe_set_attribute
 from tp_trace.sanitize import normalize_sql_for_metric, sanitize_sql
 from tp_trace.tracing import reentrant_guard, suppress_instrumentation, traced_span
@@ -134,7 +136,7 @@ suppress_db_instrumentation = suppress_instrumentation
 def _build_db_span_context(
     sql: Optional[str],
     instance_or_conn: Any,
-) -> Tuple[str, Dict[str, Any]]:
+) -> Tuple[str, Dict[str, Any], str]:
     """Construct span name and attributes for a database query."""
     sanitized_sql = sanitize_sql(sql)
     metric_sql = normalize_sql_for_metric(sanitized_sql)
@@ -142,6 +144,12 @@ def _build_db_span_context(
     db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service = _extract_django_db_meta(
         instance_or_conn
     )
+    # ``db.statement`` is the canonical, bounded fingerprint used by both
+    # spanmetrics and the request-local repeated-query tracker.  Keep the
+    # explicit fingerprint attribute identical: a longer variant would create
+    # a second, inconsistent identity for the same query pattern (and a much
+    # higher-cardinality label when exported).
+    fingerprint_sql = metric_sql
     summary = extract_query_summary(sanitized_sql)
     is_pgbouncer = is_pgbouncer_connection(db_host, db_port)
 
@@ -161,6 +169,7 @@ def _build_db_span_context(
         "server.address": str(db_host),
         "server.port": resolved_port,
         "db.statement": metric_sql,
+        "db.statement.fingerprint": fingerprint_sql,
         "db.statement.full": sanitized_sql,
         "db.query.text": sanitized_sql,
         "db.query.summary": summary,
@@ -177,23 +186,29 @@ def _build_db_span_context(
         span_attrs["db.user"] = str(db_user)
     span_name = f"🟢 {metric_sql}" if metric_sql else "🟢 postgres.query"
 
-    return span_name, span_attrs
+    return span_name, span_attrs, metric_sql
 
 
-def _emit_db_span(span_name: str, span_attrs: dict, execute_fn: Callable, cursor_obj: Any) -> Any:
+def _emit_db_span(
+    span_name: str, span_attrs: dict, execute_fn: Callable, cursor_obj: Any
+) -> Tuple[Any, float]:
     with traced_span(
         span_name,
         kind=SpanKind.CLIENT,
         attributes=span_attrs,
         tracer_name="tp_trace.postgres",
     ) as span:
+        execution_started = time.monotonic()
         with suppress_db_instrumentation():
             result = execute_fn()
-        rowcount = attempt(getattr, cursor_obj, "rowcount", default=None, _label="db.rowcount")
+        execution_duration_ms = (time.monotonic() - execution_started) * 1000.0
+        rowcount = attempt(
+            getattr, cursor_obj, "rowcount", default=None, _label="db.rowcount"
+        )
         if isinstance(rowcount, int) and rowcount >= 0:
             safe_set_attribute(span, "db.row_count", rowcount)
             safe_set_attribute(span, "db.response.returned_rows", rowcount)
-        return result
+        return result, execution_duration_ms
 
 
 def tp_trace_django_db_execute_wrapper(
@@ -220,9 +235,13 @@ def tp_trace_django_db_execute_wrapper(
             if db_ctx is UNTRACED:
                 # Telemetry could not be built. The statement must still run.
                 return execute(sql, params, many, context)
-            span_name, span_attrs = db_ctx
+            span_name, span_attrs, metric_sql = db_ctx
 
-            return _emit_db_span(span_name, span_attrs, lambda: execute(sql, params, many, context), cursor)
+            result, duration_ms = _emit_db_span(
+                span_name, span_attrs, lambda: execute(sql, params, many, context), cursor
+            )
+            attempt(record_request_db_query, metric_sql, duration_ms, _label="n_plus_one_record")
+            return result
     except Exception as exc:
         # Never retry: a failing statement has already been sent to the server and
         # re-sending it would double side effects. Propagate instead.
@@ -254,10 +273,14 @@ def traced_django_cursor_exec(
             if db_ctx is UNTRACED:
                 # Telemetry could not be built. The statement must still run.
                 return wrapped(*args, **kwargs)
-            span_name, span_attrs = db_ctx
+            span_name, span_attrs, metric_sql = db_ctx
 
             cursor = attempt(getattr, instance, "cursor", default=instance, _label="db.cursor")
-            return _emit_db_span(span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor)
+            result, duration_ms = _emit_db_span(
+                span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor
+            )
+            attempt(record_request_db_query, metric_sql, duration_ms, _label="n_plus_one_record")
+            return result
     except Exception as exc:
         # Never retry: the statement has already been executed, and re-running it
         # would double side effects. Propagate instead.

@@ -36,6 +36,7 @@ SERVICE_THROTTLE=0
 SERVICE_ERROR=0
 SERVICE_BOTO=0
 SERVICE_CELERY=0
+SERVICE_N_PLUS_ONE=0
 RUN_ALL=0
 
 # Intentional Slowdown Flags
@@ -151,6 +152,7 @@ while [[ "$#" -gt 0 ]]; do
   -y | --error) SERVICE_ERROR=1 ;;
   -b | --boto | --s3) SERVICE_BOTO=1 ;;
   -q | --celery) SERVICE_CELERY=1 ;;
+  --n-plus-one | --repeated-queries) SERVICE_N_PLUS_ONE=1 ;;
 
   -h | --help)
     echo -e "${C_BOLD}Usage: $0 [OPTIONS]${C_RESET}"
@@ -193,6 +195,7 @@ while [[ "$#" -gt 0 ]]; do
     echo "  -a, --sql         Spam SQL/threaded operation endpoints"
     echo "  -k, --throttle    Spam rate throttling burst endpoints"
     echo "  -y, --error       Spam 500 error endpoint endpoints"
+    echo "  --n-plus-one      Spam repeated database queries endpoint (triggers N+1 detection)"
     echo ""
     exit 0
     ;;
@@ -461,7 +464,12 @@ run_traffic_cycle() {
     # 7. Celery Asynchronous Tasks (Producer -> Broker -> Worker Consumer)
     send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": false}" "Celery Async: Dispatch demo_task (Producer -> Consumer)"
 
-    # 8. Balanced Error & Throttling (Realistic 2-5% rate instead of constant spam)
+    # 8. Repeated Database Queries (Potential N+1 Pattern)
+    if [ $((cycle_num % 3)) -eq 0 ] || [ "$SERVICE_N_PLUS_ONE" -eq 1 ]; then
+      send_req "GET" "/api/repeated-queries/?count=20" "" "Repeated Queries: Simulated N+1 ORM Loop (20 DB queries)"
+    fi
+
+    # 9. Balanced Error & Throttling (Realistic 2-5% rate instead of constant spam)
     if [ $((cycle_num % 5)) -eq 0 ]; then
       send_req "GET" "/api/products/throttled/" "" "Rate Throttling: Occasional 429 Test Probe"
     fi
@@ -506,6 +514,11 @@ run_traffic_cycle() {
     if [ $((cycle_num % 4)) -eq 0 ]; then
       send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": true}" "Celery: Dispatch failing demo_task (ValueError)"
     fi
+  fi
+
+  # Repeated Database Queries (N+1) standalone
+  if [ "$SERVICE_N_PLUS_ONE" -eq 1 ] && [ "$RUN_ALL" -eq 0 ]; then
+    send_req "GET" "/api/repeated-queries/?count=20" "" "Repeated Queries: Simulated N+1 ORM Loop (20 DB queries)"
   fi
 }
 

@@ -65,6 +65,9 @@ _orig_init = tp_trace.init
 def _safe_test_init(*args, **kwargs):
     if "exporter" not in kwargs or kwargs["exporter"] is None:
         kwargs["exporter"] = InMemorySpanExporter()
+    if "metric_readers" not in kwargs:
+        # Prevent unit tests from creating background OTLP metric export threads to host
+        kwargs["metric_readers"] = []
     return _orig_init(*args, **kwargs)
 
 

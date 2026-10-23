@@ -76,6 +76,38 @@ def _parse_cmd_max_length(val: Any) -> int:
     return n
 
 
+def _parse_positive_int_default(val: Any, default: int, min_val: int = 1, field_name: str = "") -> int:
+    """Non-throwing positive integer parser.
+
+    Catches type, format, and range errors, emits debug log, and returns default.
+    """
+    if val is None:
+        return default
+    try:
+        n = int(val)
+        if n >= min_val:
+            return n
+        logger.debug("tp_trace: %s=%r below minimum %d, falling back to %d", field_name, val, min_val, default)
+        return default
+    except (TypeError, ValueError) as exc:
+        logger.debug("tp_trace: %s=%r invalid integer (%s), falling back to %d", field_name, val, exc, default)
+        return default
+
+
+def _parse_nonnegative_float_default(val: Any, default: float, field_name: str = "") -> float:
+    """Parse a finite non-negative float, falling back safely on invalid input."""
+    if val is None:
+        return default
+    try:
+        number = float(val)
+        if math.isfinite(number) and number >= 0:
+            return number
+    except (TypeError, ValueError):
+        pass
+    logger.debug("tp_trace: %s=%r invalid duration, falling back to %s", field_name, val, default)
+    return default
+
+
 def _parse_endpoint_sample_rules(val: Any) -> Dict[str, float]:
     """Parse and validate endpoint-specific sampling rules.
 
@@ -225,6 +257,8 @@ class SDKConfig:
     redis_mask_command: bool = False
     redis_cmd_max_length: int = 1000
     query_mode: str = "expose"
+    n_plus_one_duplicate_threshold: int = 15
+    n_plus_one_max_fingerprints: int = 256
 
     @classmethod
     def from_env_and_kwargs(
@@ -254,6 +288,8 @@ class SDKConfig:
         redis_mask_command: Optional[bool] = None,
         redis_cmd_max_length: Optional[int] = None,
         query_mode: Optional[str] = None,
+        n_plus_one_duplicate_threshold: Optional[int] = None,
+        n_plus_one_max_fingerprints: Optional[int] = None,
         **extra: Any,
     ) -> "SDKConfig":
         """Build SDKConfig by prioritizing explicit kwargs over environment variables."""
@@ -484,6 +520,13 @@ class SDKConfig:
             "AUTO_PATCH",
             "extract_trace_context",
             "EXTRACT_TRACE_CONTEXT",
+            "n_plus_one_duplicate_threshold",
+            "N_PLUS_ONE_DUPLICATE_THRESHOLD",
+            # Deprecated timing knobs are ignored rather than becoming resource tags.
+            "n_plus_one_min_cumulative_duration_ms",
+            "N_PLUS_ONE_MIN_CUMULATIVE_DURATION_MS",
+            "n_plus_one_max_fingerprints",
+            "N_PLUS_ONE_MAX_FINGERPRINTS",
         }
         for k, v in extra.items():
             if k not in KNOWN_EXTRA_KEYS and not k.startswith("_"):
@@ -633,6 +676,30 @@ class SDKConfig:
         raw_query_mode = query_mode if query_mode is not None else os.getenv("TP_TRACE_QUERY_MODE")
         resolved_query_mode = _parse_query_mode(raw_query_mode)
 
+        raw_n_plus_one_dup = (
+            n_plus_one_duplicate_threshold
+            if n_plus_one_duplicate_threshold is not None
+            else extra.get("n_plus_one_duplicate_threshold")
+            if extra.get("n_plus_one_duplicate_threshold") is not None
+            else os.getenv("TP_TRACE_N_PLUS_ONE_DUPLICATE_THRESHOLD")
+            or os.getenv("TP_DOG_N_PLUS_ONE_DUPLICATE_THRESHOLD")
+        )
+        resolved_n_plus_one_dup = _parse_positive_int_default(
+            raw_n_plus_one_dup, default=15, min_val=2, field_name="n_plus_one_duplicate_threshold"
+        )
+
+        raw_n_plus_one_max_fp = (
+            n_plus_one_max_fingerprints
+            if n_plus_one_max_fingerprints is not None
+            else extra.get("n_plus_one_max_fingerprints")
+            if extra.get("n_plus_one_max_fingerprints") is not None
+            else os.getenv("TP_TRACE_N_PLUS_ONE_MAX_FINGERPRINTS")
+            or os.getenv("TP_DOG_N_PLUS_ONE_MAX_FINGERPRINTS")
+        )
+        resolved_n_plus_one_max_fp = _parse_positive_int_default(
+            raw_n_plus_one_max_fp, default=256, min_val=1, field_name="n_plus_one_max_fingerprints"
+        )
+
         return cls(
             project_name=resolved_project,
             cluster_name=resolved_cluster,
@@ -665,4 +732,6 @@ class SDKConfig:
             redis_mask_command=resolved_redis_mask_command,
             redis_cmd_max_length=resolved_cmd_max_length,
             query_mode=resolved_query_mode,
+            n_plus_one_duplicate_threshold=resolved_n_plus_one_dup,
+            n_plus_one_max_fingerprints=resolved_n_plus_one_max_fp,
         )

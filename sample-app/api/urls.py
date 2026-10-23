@@ -20,6 +20,7 @@ from .views import (
     MultiPartTemplateErrorView,
     S3StorageView,
     CeleryPublishView,
+    RepeatedQueriesView,
 )
 
 router = DefaultRouter()
@@ -27,6 +28,8 @@ router.register(r"products", ProductViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("repeated-queries/", RepeatedQueriesView.as_view(), name="repeated-queries"),
+    path("n-plus-one/", RepeatedQueriesView.as_view(), name="n-plus-one"),
     path("celery/publish/", CeleryPublishView.as_view(), name="celery-publish"),
     path("s3-storage/", S3StorageView.as_view(), name="s3-storage"),
     path("throttled/", ThrottledView.as_view(), name="throttled"),
