@@ -25,7 +25,7 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
     assert prometheus
     assert tempo
     # Check trace query in main panel
-    query_panel = next(p for p in dashboard["panels"] if p.get("title") == "Duplicated SQL Query")
+    query_panel = next(p for p in dashboard["panels"] if p.get("title") in ("Problem", "Duplicated SQL Query"))
     trace_query = query_panel["targets"][0]["query"]
     for predicate in (
         'resource.project_name =~ "${project:regex}"',
@@ -50,7 +50,7 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
 
     # Ensure codebase styling is configured on the SQL code box panel
     assert query_panel["type"] == "marcusolsson-dynamictext-panel"
-    assert "code-box" in query_panel["options"]["content"]
+    assert "dd-problem-card" in query_panel["options"]["content"]
 
     # Ensure rate query calculates percentage safely
     rate_panel = next(p for p in dashboard["panels"] if p.get("title") == "Affected Rate")
