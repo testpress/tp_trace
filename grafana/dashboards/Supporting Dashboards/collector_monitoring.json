@@ -29,6 +29,16 @@
   "links": [
     {
       "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "A/B Comparison (Old vs Fixed)",
+      "type": "link",
+      "url": "/d/tp-trace-collector-comparison"
+    },
+    {
+      "asDropdown": false,
       "icon": "arrow-left",
       "includeVars": false,
       "keepTime": true,
@@ -561,7 +571,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) (up{source=\"otelcol-telemetry\", net_host_name=~\"(${instance:pipe})\"})",
+          "expr": "max by (net_host_name, collector_alias) (up{source=\"otelcol-telemetry\", collector_alias=~\"(${instance:pipe})\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -575,7 +585,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) ((rate({__name__=~\"otelcol_process_cpu_seconds.*\", net_host_name=~\"(${instance:pipe})\"}[2m]) / 0.5) * 100)",
+          "expr": "max by (net_host_name, collector_alias) ((rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m]) / 0.5) * 100)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -589,7 +599,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) (otelcol_process_memory_rss{net_host_name=~\"(${instance:pipe})\"})",
+          "expr": "max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_memory_rss(_bytes)?\",collector_alias=~\"(${instance:pipe})\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -603,7 +613,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (net_host_name, collector_alias) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (net_host_name, collector_alias) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -617,7 +627,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (net_host_name, collector_alias) (rate({__name__=~\"otelcol_exporter_sent_spans.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (net_host_name, collector_alias) (rate({__name__=~\"otelcol_exporter_sent_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -631,7 +641,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) ((otelcol_exporter_queue_size{exporter=~\"(?i).*tempo.*\", net_host_name=~\"(${instance:pipe})\"} / otelcol_exporter_queue_capacity{exporter=~\"(?i).*tempo.*\", net_host_name=~\"(${instance:pipe})\"}) * 100) or (0 * max by (net_host_name, collector_alias) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "max by (net_host_name, collector_alias) ((otelcol_exporter_queue_size{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"} / otelcol_exporter_queue_capacity{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"}) * 100) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -645,7 +655,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"})",
+          "expr": "max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -710,7 +720,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Resident memory (RSS) per collector instance against the 384 MiB container quota",
+      "description": "Resident memory per collector. The 512 MiB reference is the production role default; overridden limits may differ.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -759,7 +769,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Limit (384 MiB)"
+              "options": "Limit (512 MiB)"
             },
             "properties": [
               {
@@ -818,7 +828,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (instance, collector_alias) (otelcol_process_memory_rss{net_host_name=~\"(${instance:pipe})\"})",
+          "expr": "sum by (instance, collector_alias) ({__name__=~\"otelcol_process_memory_rss(_bytes)?\",collector_alias=~\"(${instance:pipe})\"})",
           "legendFormat": "{{collector_alias}} {{instance}}",
           "range": true,
           "refId": "A",
@@ -837,7 +847,7 @@
           "exemplar": false
         }
       ],
-      "title": "1. Collector Memory (RSS vs 384 MiB Limit)",
+      "title": "1. Collector Memory (RSS vs 512 MiB Reference)",
       "type": "timeseries"
     },
     {
@@ -926,7 +936,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_process_cpu_seconds.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) / 0.5) * 100",
+          "expr": "(sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) / 0.5) * 100",
           "legendFormat": "{{collector_alias}} ({{net_host_name}})",
           "range": true,
           "refId": "A",
@@ -1020,7 +1030,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "legendFormat": "{{collector_alias}} ({{net_host_name}})",
           "range": true,
           "refId": "A",
@@ -1114,7 +1124,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_exporter_sent_spans.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_exporter_sent_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "legendFormat": "{{collector_alias}} ({{net_host_name}})",
           "range": true,
           "refId": "A",
@@ -1211,7 +1221,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_processor_dropped_spans.*|otelcol_receiver_refused_spans.*|otelcol_exporter_send_failed_spans.*\", net_host_name=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_processor_dropped_spans.*|otelcol_receiver_refused_spans.*|otelcol_exporter_send_failed_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "legendFormat": "{{collector_alias}} ({{net_host_name}})",
           "range": true,
           "refId": "A",
@@ -1315,7 +1325,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (instance, collector_alias) ((otelcol_exporter_queue_size{exporter=~\"(?i).*tempo.*\", net_host_name=~\"(${instance:pipe})\"} / otelcol_exporter_queue_capacity{exporter=~\"(?i).*tempo.*\", net_host_name=~\"(${instance:pipe})\"}) * 100) or (0 * sum by (instance, collector_alias) (otelcol_process_uptime_total{net_host_name=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (instance, collector_alias) ((otelcol_exporter_queue_size{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"} / otelcol_exporter_queue_capacity{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"}) * 100) or (0 * sum by (instance, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "legendFormat": "{{collector_alias}} {{instance}}",
           "range": true,
           "refId": "A",
@@ -3554,7 +3564,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Sent: count/rate of metric points successfully sent to destination.\nEnqueue: count/rate of metric points failed to be added to the sending queue.\nFailed: count/rate of metric points in failed attempts to send to destination.",
+      "description": "Sent: count/rate of metric points successfully sent to destination.\nEnqueue: count/rate of metric points failed to be added to the sending queue.\nFailed: count/rate of metric points in failed attempts to send to destination. Collector 0.153 remote write does not expose these delivery counters. Use the Remote Write Activity panel for attempts and translation errors; HTTP delivery failures require exporter logs.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3711,7 +3721,7 @@
           "refId": "C"
         }
       ],
-      "title": "Metric Points ${metric:text}",
+      "title": "Metric Points ${metric:text} (OTLP / legacy)",
       "type": "timeseries"
     },
     {
@@ -4219,12 +4229,157 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Batch attempts count HTTP write batches regardless of success or failure. Translated series count translation work, not delivered samples. Translation errors count conversion failures. None proves backend ingestion; inspect exporter logs for HTTP failures. These counters are specific to Collector 0.153 remote write.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "showValues": false,
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "id": 302,
+      "interval": "$minstep",
+      "options": {
+        "annotations": {
+          "clustering": -1,
+          "multiLane": false
+        },
+        "legend": {
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "enableFacetedFilter": false,
+          "overflow": "ellipsis",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(${metric:value}({__name__=~\"otelcol_exporter_prometheusremotewrite_sent_batches(_total)?\",exporter=~\"$exporter\",job=\"$job\",source=\"otelcol-telemetry\"}[$__rate_interval])) by (exporter $grouping)",
+          "format": "time_series",
+          "interval": "$minstep",
+          "intervalFactor": 1,
+          "legendFormat": "Batch attempts: {{exporter}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(${metric:value}({__name__=~\"otelcol_exporter_prometheusremotewrite_translated_time_series(_total)?\",exporter=~\"$exporter\",job=\"$job\",source=\"otelcol-telemetry\"}[$__rate_interval])) by (exporter $grouping)",
+          "format": "time_series",
+          "interval": "$minstep",
+          "intervalFactor": 1,
+          "legendFormat": "Translated series: {{exporter}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(${metric:value}({__name__=~\"otelcol_exporter_prometheusremotewrite_failed_translations(_total)?\",exporter=~\"$exporter\",job=\"$job\",source=\"otelcol-telemetry\"}[$__rate_interval])) by (exporter $grouping)",
+          "format": "time_series",
+          "interval": "$minstep",
+          "intervalFactor": 1,
+          "legendFormat": "Translation errors: {{exporter}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Remote Write Activity ${metric:text}",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 83
+        "y": 92
       },
       "id": 289,
       "title": "Collector",
@@ -4367,7 +4522,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 84
+        "y": 93
       },
       "id": 240,
       "interval": "$minstep",
@@ -4582,7 +4737,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 84
+        "y": 93
       },
       "id": 252,
       "interval": "$minstep",
@@ -4797,7 +4952,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 84
+        "y": 93
       },
       "id": 253,
       "interval": "$minstep",
@@ -5008,7 +5163,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 93
+        "y": 102
       },
       "id": 239,
       "interval": "$minstep",
@@ -5154,7 +5309,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 93
+        "y": 102
       },
       "id": 241,
       "interval": "$minstep",
@@ -5268,7 +5423,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 93
+        "y": 102
       },
       "id": 254,
       "interval": "$minstep",
@@ -5358,7 +5513,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 111
       },
       "id": 257,
       "interval": "$minstep",
@@ -5407,7 +5562,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 107
+        "y": 116
       },
       "id": 290,
       "title": "Signal flows",
@@ -5423,7 +5578,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 108
+        "y": 117
       },
       "id": 258,
       "options": {
@@ -5496,12 +5651,12 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Receivers -> Processor(s) -> Exporters (Node Graph panel is beta, so this panel may not show data correctly).",
+      "description": "Receivers -> Processor(s) -> Exporters (Node Graph panel is beta, so this panel may not show data correctly). Remote-write exporters on 0.153 do not expose sent metric-point counts and therefore have no exporter nodes here. See Remote Write Activity; batch counts cannot be mixed with metric-point counts.",
       "gridPos": {
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 108
+        "y": 117
       },
       "id": 260,
       "options": {
@@ -5579,7 +5734,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 108
+        "y": 117
       },
       "id": 261,
       "options": {
@@ -5653,7 +5808,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 117
+        "y": 126
       },
       "id": 291,
       "panels": [
@@ -6006,7 +6161,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 118
+        "y": 127
       },
       "id": 292,
       "panels": [
@@ -7000,7 +7155,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 119
+        "y": 128
       },
       "id": 293,
       "panels": [
@@ -7176,7 +7331,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 120
+        "y": 129
       },
       "id": 294,
       "panels": [
@@ -7484,7 +7639,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 121
+        "y": 130
       },
       "id": 295,
       "title": "Documentation",
@@ -7495,7 +7650,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 122
+        "y": 131
       },
       "id": 245,
       "options": {
@@ -7569,14 +7724,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(otelcol_process_uptime_total, net_host_name)",
+        "definition": "label_values({__name__=~\"otelcol_process_uptime.*\",source=\"otelcol-telemetry\"}, collector_alias)",
         "hide": 0,
         "includeAll": true,
-        "label": "Instance",
+        "label": "Collector",
         "multi": true,
         "name": "instance",
         "options": [],
-        "query": "label_values(otelcol_process_uptime_total, net_host_name)",
+        "query": "label_values({__name__=~\"otelcol_process_uptime.*\",source=\"otelcol-telemetry\"}, collector_alias)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
