@@ -462,7 +462,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Dynamically detected services from telemetry. Click any service name to open its dedicated dashboard.",
+      "description": "Dynamically detected services from telemetry. Click any service name to open its dedicated dashboard. Database display names end in db; drill-downs retain the original database identity.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -820,7 +820,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_replace(label_replace(((sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) or sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", span_kind!=\"SPAN_KIND_INTERNAL\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]))) > 0), \"Service\", \"Django\", \"\", \"\"), \"Type\", \"Web Framework\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=django&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace((sum by (db_instance) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", db_system=~\"postgresql|postgres\", db_instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"$1\", \"db_instance\", \"(.*)\"), \"Type\", \"Database\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_instance=$1&\", \"db_instance\", \"(.*)\")\nor\nlabel_replace(label_replace(label_replace((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", db_system=~\"postgresql|postgres\", db_instance=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"default\", \"\", \"\"), \"Type\", \"Database\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_instance=default&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace(((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", server_address=\"pgbouncer\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]) or rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", server_port=\"6432\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]))) > 0), \"Service\", \"PgBouncer\", \"\", \"\"), \"Type\", \"Connection Pooler\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=pgbouncer&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", db_system=\"redis\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"Redis\", \"\", \"\"), \"Type\", \"Cache\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=redis&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace(((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", span_name=~\".*HTTP.*\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]) or rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", span_name=~\"GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS\", span_name!~\"⚙️.*|django[.].*\", db_system=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]))) > 0), \"Service\", \"Requests\", \"\", \"\"), \"Type\", \"HTTP Client\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=requests&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"celery\", span_kind=\"SPAN_KIND_CONSUMER\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"Celery\", \"\", \"\"), \"Type\", \"Task Queue\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=celery&\", \"\", \"\")",
+          "expr": "label_replace(\nlabel_replace(\nlabel_replace(\nlabel_replace(\nlabel_replace(label_replace(label_replace(((sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) or sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", span_kind!=\"SPAN_KIND_INTERNAL\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]))) > 0), \"Service\", \"Django\", \"\", \"\"), \"Type\", \"Web Framework\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=django&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace((sum by (db_instance) (rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", db_system=~\"postgresql|postgres\", db_instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"$1\", \"db_instance\", \"(.*)\"), \"Type\", \"Database\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_instance=$1&\", \"db_instance\", \"(.*)\")\nor\nlabel_replace(label_replace(label_replace((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", db_system=~\"postgresql|postgres\", db_instance=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"default\", \"\", \"\"), \"Type\", \"Database\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_instance=default&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace(((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", server_address=\"pgbouncer\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]) or rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", server_port=\"6432\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]))) > 0), \"Service\", \"PgBouncer\", \"\", \"\"), \"Type\", \"Connection Pooler\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=pgbouncer&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", db_system=\"redis\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"Redis\", \"\", \"\"), \"Type\", \"Cache\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=redis&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace(((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", span_name=~\".*HTTP.*\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]) or rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", span_name=~\"GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS\", span_name!~\"⚙️.*|django[.].*\", db_system=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range]))) > 0), \"Service\", \"Requests\", \"\", \"\"), \"Type\", \"HTTP Client\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=requests&\", \"\", \"\")\nor\nlabel_replace(label_replace(label_replace((sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"celery\", span_kind=\"SPAN_KIND_CONSUMER\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__range])) > 0), \"Service\", \"Celery\", \"\", \"\"), \"Type\", \"Task Queue\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=celery&\", \"\", \"\")\n, \"ServiceDisplay\", \"$1\", \"Service\", \"(.*)\")\n, \"ServiceDisplay\", \"defaultdb\", \"Type\", \"Database\")\n, \"ServiceDisplay\", \"${1}db\", \"db_instance\", \"(.+)\")\n, \"ServiceDisplay\", \"$1\", \"db_instance\", \"(.*[dD][bB])\")",
           "format": "table",
           "instant": true,
           "legendFormat": "Throughput",
@@ -904,7 +904,8 @@
               "Time 4": true,
               "Time 5": true,
               "db_instance": true,
-              "Value #E": true
+              "Value #E": true,
+              "Service": true
             },
             "indexByName": {
               "Service": 0,
@@ -919,7 +920,8 @@
               "P95 Latency": 5,
               "Value #C": 5,
               "Status": 6,
-              "Dashboard": 7
+              "Dashboard": 7,
+              "ServiceDisplay": 0
             },
             "renameByName": {
               "Error_Rate": "Error Rate",
@@ -928,7 +930,8 @@
               "Value #A": "Throughput (Ops/s)",
               "Value #B": "Error Rate",
               "Value #C": "P95 Latency",
-              "RPS": "Throughput (Ops/s)"
+              "RPS": "Throughput (Ops/s)",
+              "ServiceDisplay": "Service"
             }
           }
         },
