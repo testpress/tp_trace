@@ -270,7 +270,7 @@
           "calcs": [
             "max"
           ],
-          "fields": "",
+          "fields": "/^n_plus_one\\.dominant_count$/",
           "values": false
         },
         "textMode": "auto"
@@ -454,7 +454,8 @@
               "http.method": true,
               "http.route_template": true,
               "repeated_query.detected": true,
-              "traceID": true
+              "traceID": true,
+              "project_name": true
             },
             "indexByName": {
               "n_plus_one.dominant_count": 0,
