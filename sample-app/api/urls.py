@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from .collector_demo import collector_demo
+
 from .views import (
     ProductViewSet,
     ExternalCallView,
@@ -26,6 +28,10 @@ router = DefaultRouter()
 router.register(r"products", ProductViewSet)
 
 urlpatterns = [
+    path("collector-demo/<int:operation>/", collector_demo, name="collector-demo"),
+    path("collector-demo/catalog/<int:operation>/", collector_demo, {"workload": "catalog"}),
+    path("collector-demo/checkout/<int:operation>/", collector_demo, {"workload": "checkout"}),
+    path("collector-demo/search/<int:operation>/", collector_demo, {"workload": "search"}),
     path("", include(router.urls)),
     path("celery/publish/", CeleryPublishView.as_view(), name="celery-publish"),
     path("s3-storage/", S3StorageView.as_view(), name="s3-storage"),

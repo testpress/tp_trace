@@ -26,6 +26,10 @@ SECRET_KEY = "django-insecure-=mid9l1&iopk75_zjtphqw75&61wzcb9ipjoq5b7y(6@f(+y+n
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# Opt-in, bounded workload; the isolated A/B runner enables its own settings.
+COLLECTOR_DEMO_ENABLED = os.environ.get("COLLECTOR_DEMO_ENABLED", "false").lower() == "true"
+COLLECTOR_DEMO_SOAK = os.environ.get("COLLECTOR_DEMO_SOAK", "false").lower() == "true"
+
 ALLOWED_HOSTS = ["*"]
 
 _dev_app_port = os.environ.get("DJANGO_DEV_APP_PORT", "8002")

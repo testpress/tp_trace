@@ -1,0 +1,158 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  prometheus/internal:
+    config:
+      scrape_configs:
+        - job_name: otel-collector
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["localhost:8888"]
+              labels:
+                source: "otelcol-telemetry"
+                instance: "dev-collector-old"
+                collector_alias: "old"
+
+processors:
+  memory_limiter:
+    check_interval: 500ms
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  resource/drop_ephemeral:
+    attributes:
+      - key: service.instance.id
+        action: delete
+      - key: process.pid
+        action: delete
+      - key: worker_id
+        action: delete
+
+  transform/spanmetrics_route:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["http.route"], attributes["http.route_template"]) where attributes["http.route_template"] != nil
+          - set(attributes["http.route"], attributes["django.route"]) where attributes["http.route_template"] == nil and attributes["django.route"] != nil
+          - set(attributes["http.route"], "__unmatched__") where attributes["http.route_template"] == nil and attributes["django.route"] == nil and attributes["http.route"] != nil
+
+  transform/spanmetrics_sanitize:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - delete_key(attributes, "http.route") where attributes["db.system"] != nil
+          - delete_key(attributes, "http.method") where attributes["db.system"] != nil
+          - set(attributes["normalized.operation"], attributes["db.query.summary"]) where attributes["normalized.operation"] == nil and attributes["db.query.summary"] != nil and attributes["db.system"] != nil
+          - set(attributes["normalized.operation"], attributes["db.operation"]) where attributes["normalized.operation"] == nil and attributes["db.operation"] != nil
+
+  batch:
+    timeout: 1s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+
+connectors:
+  spanmetrics:
+    namespace: apm
+    metrics_flush_interval: 15s
+    dimensions_cache_size: 5000
+    histogram:
+      unit: ms
+      explicit:
+        buckets:
+          - 5ms
+          - 25ms
+          - 100ms
+          - 250ms
+          - 500ms
+          - 1s
+          - 2.5s
+          - 5s
+    dimensions:
+      - name: http.method
+        default: ""
+      - name: http.status_code
+        default: ""
+      - name: http.route
+        default: ""
+      - name: db.system
+        default: ""
+      - name: db.operation
+        default: ""
+      - name: db.instance
+        default: ""
+      - name: error
+        default: ""
+      - name: normalized.service
+        default: ""
+      - name: normalized.operation
+        default: ""
+      - name: institute.subdomain
+        default: ""
+    exclude_dimensions:
+      - span.name
+
+exporters:
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    timeout: 30s
+    resource_to_telemetry_conversion:
+      enabled: true
+    external_labels:
+      job: "otel-collector-spanmetrics"
+      instance: "dev-collector"
+      collector_alias: "old"
+
+  prometheusremotewrite/internal:
+    endpoint: http://prometheus:9090/api/v1/write
+    timeout: 30s
+    resource_to_telemetry_conversion:
+      enabled: true
+    external_labels:
+      job: "otel-collector"
+      instance: "dev-collector"
+      collector_alias: "old"
+
+service:
+  pipelines:
+    traces/spanmetrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - transform/spanmetrics_route
+        - transform/spanmetrics_sanitize
+        - batch
+      exporters:
+        - spanmetrics
+
+    metrics:
+      receivers:
+        - spanmetrics
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - batch
+      exporters:
+        - prometheusremotewrite
+
+    metrics/internal:
+      receivers:
+        - prometheus/internal
+      processors:
+        - batch
+      exporters:
+        - prometheusremotewrite/internal
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888

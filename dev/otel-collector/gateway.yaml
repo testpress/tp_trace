@@ -1,0 +1,26 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  otlp/fixed:
+    endpoint: otel-collector-fixed:4317
+    tls:
+      insecure: true
+  otlp/old:
+    endpoint: otel-collector-old:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/fixed, otlp/old]
+    metrics:
+      receivers: [otlp]
+      exporters: [otlp/fixed, otlp/old]

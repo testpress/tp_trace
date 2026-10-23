@@ -185,9 +185,35 @@ services:
           - tempo
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.119.0
-    container_name: tp-otel-collector
+    # Gateway/Mirror proxy: fans out incoming OTLP traces & metrics to both
+    # otel-collector-fixed (0.153.0) and otel-collector-old (0.96.0).
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    container_name: tp-otel-gateway
     restart: on-failure:5
+    command: ["--config=/etc/otelcol-contrib/gateway.yaml"]
+    volumes:
+      - ./otel-collector/gateway.yaml:/etc/otelcol-contrib/gateway.yaml:ro
+    depends_on:
+      - otel-collector-fixed
+      - otel-collector-old
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_GRPC_PORT:-4317}:4317"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_HTTP_PORT:-4318}:4318"
+    networks:
+      tp-net:
+        aliases:
+          - collector
+          - otel-collector
+          - otel-gateway
+
+  otel-collector-fixed:
+    # Production baseline: individual-series expiry, internal span drop, 0.153.0+.
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    container_name: tp-otel-collector-fixed
+    restart: on-failure:5
+    environment:
+      GOMEMLIMIT: "380MiB"
+      GOGC: "80"
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
@@ -195,15 +221,30 @@ services:
       tempo:
         condition: service_healthy
     ports:
-      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_GRPC_PORT:-4317}:4317"
-      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_HTTP_PORT:-4318}:4318"
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:8888:8888"
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:13133:13133"
     networks:
       tp-net:
         aliases:
-          - collector
-          - otel-collector
+          - otel-collector-fixed
+
+  otel-collector-old:
+    # Unfixed comparison baseline: v0.96.0 without series expiry or internal span drop.
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    container_name: tp-otel-collector-old
+    restart: on-failure:5
+    environment:
+      GOMEMLIMIT: "380MiB"
+      GOGC: "80"
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector/config-old.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:8889:8888"
+    networks:
+      tp-net:
+        aliases:
+          - otel-collector-old
 
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -280,6 +321,8 @@ services:
       DJANGO_REDIS_URL: redis://redis:6379/1
       DJANGO_DEV_APP_PORT: ${APP_PORT:-8002}
       TP_TRACE_ENDPOINT: http://otel-collector:4318
+      COLLECTOR_DEMO_ENABLED: "true"
+      COLLECTOR_DEMO_SOAK: "true"
       S3_ENDPOINT_URL: http://minio:9000
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       GUNICORN_WORKERS: "2"

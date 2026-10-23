@@ -16,6 +16,14 @@
 
 set -e
 
+# Keep the regression workload isolated from the normal app's data and stack.
+# This mode has its own bounded arguments; --collector-demo must be first.
+if [[ "${1:-}" == "--collector-demo" ]]; then
+  shift
+  SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+  exec "${PYTHON:-python3}" "${SCRIPT_DIR}/../tests/e2e/check_collector_cardinality.py" "$@"
+fi
+
 BASE_URL="${BASE_URL:-http://localhost:8002}"
 MODE="loop"
 DURATION=0
@@ -156,6 +164,7 @@ while [[ "$#" -gt 0 ]]; do
     echo -e "${C_BOLD}Usage: $0 [OPTIONS]${C_RESET}"
     echo ""
     echo "Options:"
+    echo "  --collector-demo  Run isolated old/fixed Collector A/B checks (must be first; append --help)"
     echo "  --all             Exercise ALL instrumentations (Postgres, Slaves 1-3, Redis, Requests, S3, Celery, Django)"
     echo "  --loop            Run continuously until Ctrl+C (default)"
     echo "  --once            Run a single sweep through all endpoint scenarios"

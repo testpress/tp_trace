@@ -1,0 +1,681 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Side-by-side comparison of OpenTelemetry Collector: Old (v0.96.0 without series expiration or internal span drop) vs Fixed (v0.153.0 with spanmetrics expiration and internal filter).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Collector Fleet Monitoring",
+      "type": "link",
+      "url": "/d/tp-trace-collector-monitoring"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Old Series Count",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "count(apm_calls_total{collector_alias=\"old\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "Old Series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 3000 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "title": "Fixed Series Count",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "count(apm_calls_total{collector_alias=\"fixed\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "Fixed Series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 3000 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "title": "Old Collector RSS",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max({__name__=~\"otelcol_process_memory_rss(_bytes)?\", collector_alias=\"old\"}) / (1024 * 1024) or vector(0)",
+          "instant": true,
+          "legendFormat": "Old RSS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 180 },
+              { "color": "red", "value": 220 }
+            ]
+          },
+          "unit": "decmbytes"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "title": "Fixed Collector RSS",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max({__name__=~\"otelcol_process_memory_rss(_bytes)?\", collector_alias=\"fixed\"}) / (1024 * 1024) or vector(0)",
+          "instant": true,
+          "legendFormat": "Fixed RSS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 180 },
+              { "color": "red", "value": 220 }
+            ]
+          },
+          "unit": "decmbytes"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 11,
+      "title": "Old Collector CPU",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=\"old\"}[1m])) * 100 or vector(0)",
+          "instant": true,
+          "legendFormat": "Old CPU"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 12,
+      "title": "Fixed Collector CPU",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=\"fixed\"}[1m])) * 100 or vector(0)",
+          "instant": true,
+          "legendFormat": "Fixed CPU"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 5,
+      "title": "Active Metric Series Count (apm_calls_total)",
+      "description": "Number of unique time series retained in memory. Old keeps accumulating indefinitely; Fixed purges idle series and drops internal spans.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "count by (collector_alias) (apm_calls_total{collector_alias=~\"old|fixed\"})",
+          "legendFormat": "Series: {{collector_alias}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 6,
+      "title": "Process Resident Memory (RSS)",
+      "description": "Resident memory size in MiB. Shows Old drifting upward toward limit while Fixed stays bounded.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max by (collector_alias) ({__name__=~\"otelcol_process_memory_rss(_bytes)?\", collector_alias=~\"old|fixed\"}) / (1024 * 1024)",
+          "legendFormat": "RSS: {{collector_alias}} (MiB)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "decmbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 192 },
+              { "color": "red", "value": 256 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "id": 7,
+      "title": "Refused Spans Rate (Memory Limiter Drops / sec)",
+      "description": "Spans rejected per second when the memory limiter triggers. Old spikes under cardinality load; Fixed remains at 0.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum by (collector_alias) (rate({__name__=~\"otelcol_receiver_refused_spans.*\", collector_alias=~\"old|fixed\"}[1m]))",
+          "legendFormat": "Refused: {{collector_alias}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "id": 8,
+      "title": "Gateway Ingestion Rate (Accepted Spans / sec)",
+      "description": "Rate of incoming spans accepted by each collector from the fanout gateway. Both should receive identical input traffic.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum by (collector_alias) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", collector_alias=~\"old|fixed\"}[1m]))",
+          "legendFormat": "Accepted: {{collector_alias}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "id": 9,
+      "title": "Go Runtime Heap Allocated (MiB)",
+      "description": "In-use Go heap memory. Highlights GC effectiveness and retention in the old vs fixed version.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max by (collector_alias) ({__name__=~\"otelcol_process_runtime_heap_alloc_bytes.*\", collector_alias=~\"old|fixed\"}) / (1024 * 1024)",
+          "legendFormat": "Heap: {{collector_alias}} (MiB)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "decmbytes"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "id": 10,
+      "title": "Spanmetrics Active Aggregation Combinations (Fixed)",
+      "description": "Active dimension combinations tracked by spanmetrics connector in Fixed (capped by aggregation_cardinality_limit=5000).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max(otelcol_connector_spanmetrics_aggregation_combinations{collector_alias=\"fixed\"})",
+          "legendFormat": "Fixed Combinations"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 3000 },
+              { "color": "red", "value": 5000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "id": 13,
+      "title": "Process CPU Utilization (% of 1 Core)",
+      "description": "CPU consumption rate of each Collector process (derived from otelcol_process_cpu_seconds).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum by (collector_alias) (rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"old|fixed\"}[1m])) * 100",
+          "legendFormat": "CPU: {{collector_alias}} (%)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "id": 14,
+      "title": "Cumulative Process CPU Time (Seconds)",
+      "description": "Total cumulative CPU time consumed by the Collector process since startup.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max by (collector_alias) ({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"old|fixed\"})",
+          "legendFormat": "Total CPU: {{collector_alias}} (s)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "s"
+        }
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["collector", "comparison", "apm", "cardinality"],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m"]
+  },
+  "timezone": "browser",
+  "title": "Collector Cardinality & Memory: Old vs Fixed",
+  "uid": "tp-trace-collector-comparison",
+  "version": 1
+}
