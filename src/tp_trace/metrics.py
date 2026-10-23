@@ -62,6 +62,11 @@ class RedMetricsRecorder:
             description="Duration of HTTP requests in milliseconds",
             unit="ms",
         )
+        self.repeated_query_affected_requests_total: Counter = self.meter.create_counter(
+            name="apm_repeated_query_affected_requests_total",
+            description="Total HTTP requests affected by detected repeated query (potential N+1) patterns",
+            unit="1",
+        )
 
     def shutdown(self) -> None:
         """Shut down metric readers and meter provider."""
@@ -125,6 +130,58 @@ class RedMetricsRecorder:
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
         except Exception as exc:
             logger.debug("Failed to record independent RED metrics: %s", exc)
+
+    def record_repeated_query_affected_request(
+        self,
+        *,
+        method: str,
+        route: str,
+        service: str = "django",
+        project_name: Optional[str] = None,
+        cluster_name: Optional[str] = None,
+        extra_attributes: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record one request affected by a repeated-query candidate.
+
+        Fail-safe: Any error during recording is safely absorbed and never disrupts
+        the host application.
+        Strict low-cardinality label allowlist: only normalized service, http.route, http.method,
+        project_name, cluster_name, metric_source, and optionally institute.subdomain.
+        Never emits raw SQL, query text, worker_id, or trace IDs.
+        """
+        try:
+            cfg = self.config
+            resolved_project = (
+                project_name
+                or (cfg.project_name if cfg else None)
+                or "default"
+            )
+            resolved_cluster = (
+                cluster_name
+                or (cfg.cluster_name if cfg else None)
+                or ""
+            )
+
+            attributes: Dict[str, Any] = {
+                "project_name": str(resolved_project),
+                "cluster_name": str(resolved_cluster),
+                "normalized_service": str(service or "django"),
+                "http.method": str(method or "GET"),
+                "http.route": str(route),
+                "metric_source": "tp_trace_sdk",
+            }
+
+            if extra_attributes:
+                # Strictly allow only institute.subdomain (or institute_subdomain)
+                for k in ("institute.subdomain", "institute_subdomain"):
+                    val = extra_attributes.get(k)
+                    if val is not None:
+                        attributes["institute.subdomain"] = str(val)
+                        break
+
+            self.repeated_query_affected_requests_total.add(1, attributes)
+        except Exception as exc:
+            logger.debug("Failed to record repeated query anomaly metric: %s", exc)
 
 
 def create_red_metrics_recorder(
@@ -256,3 +313,36 @@ def record_request(
         cluster_name=cluster_name,
         extra_attributes=extra_attributes,
     )
+
+
+def record_repeated_query_affected_request(
+    *,
+    method: str,
+    route: str,
+    service: str = "django",
+    project_name: Optional[str] = None,
+    cluster_name: Optional[str] = None,
+    extra_attributes: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Record one request affected by a repeated-query candidate.
+
+    Idempotent and safe: if no recorder is active or disabled, this is a no-op.
+    """
+    recorder = _ACTIVE_RECORDER
+    if recorder is None:
+        return
+
+    if recorder.config and recorder.config.disabled:
+        return
+
+    recorder.record_repeated_query_affected_request(
+        method=method,
+        route=route,
+        service=service,
+        project_name=project_name,
+        cluster_name=cluster_name,
+        extra_attributes=extra_attributes,
+    )
+
+
+record_repeated_query_pattern = record_repeated_query_affected_request

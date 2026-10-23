@@ -23,5 +23,9 @@
 | `TP_TRACE_REDIS_MASK_COMMAND` | `redis_mask_command` | `false` | Replaces Redis command arguments with `?`. |
 | `TP_TRACE_REDIS_CMD_MAX_LENGTH` | `redis_cmd_max_length` | `1000` | Maximum Redis statement length. |
 | `TP_TRACE_QUERY_MODE` | `query_mode` | `expose` | URL query handling: `expose`, `redact`, or `strip`. |
+| `TP_TRACE_N_PLUS_ONE_DUPLICATE_THRESHOLD` | `n_plus_one_duplicate_threshold` | `15` | Successful executions of one normalized SQL shape needed for a repeated-query candidate; minimum `2`. |
+| `TP_TRACE_N_PLUS_ONE_MAX_FINGERPRINTS` | `n_plus_one_max_fingerprints` | `256` | Maximum distinct SQL shapes tracked per Django request; minimum `1`. |
 
 `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, and `OTEL_SERVICE_VERSION` are also recognised where applicable.
+
+Repeated-query detection runs by default when Django request and database instrumentation are active. Invalid N+1 values fall back to the defaults. `TP_DOG_N_PLUS_ONE_DUPLICATE_THRESHOLD` and `TP_DOG_N_PLUS_ONE_MAX_FINGERPRINTS` are supported legacy aliases.

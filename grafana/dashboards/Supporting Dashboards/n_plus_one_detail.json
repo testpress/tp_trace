@@ -1,0 +1,563 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Investigate repeated database query candidates for a Django endpoint. Prometheus reports affected request count and rate; sampled Tempo traces provide example query shapes and timing.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "arrow-left",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "\u2190 Back to Needs Attention",
+      "type": "link",
+      "url": "/d/tp-trace-needs-attention?${project:queryparam}&${cluster:queryparam}&${__url_time_range}"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Total server requests on this endpoint in the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "round(sum(increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range]))) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Total Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Requests triggering repeated query anomaly threshold in the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "round(sum(increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]))) or vector(0)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Affected Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Percentage of requests on this endpoint affected by repeated queries.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#eab308",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "100 * (sum(increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range])) or vector(0)) / clamp_min(sum(increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Affected Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "description": "Maximum number of times the duplicate query ran in a single request.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "/^n_plus_one\\.dominant_count$/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "limit": 20,
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count)",
+          "queryType": "traceql",
+          "refId": "A",
+          "tableType": "spans"
+        }
+      ],
+      "title": "Query Runs / Req",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "description": "The exact SQL query being executed repeatedly on this endpoint.",
+      "gridPos": {
+        "h": 22,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 20,
+      "options": {
+        "content": "{{#each data}}\n{{#if @first}}\n<div class=\"dd-problem-card\">\n  <div class=\"dd-header-title\">Problem</div>\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Summary</div>\n    <div class=\"dd-summary-line\">\n      <span class=\"dd-pill\">service:{{#if (lookup this \"service\")}}{{lookup this \"service\"}}{{else if (lookup this \"normalized.service\")}}{{lookup this \"normalized.service\"}}{{else}}django{{/if}}</span>\n      <span>is</span>\n      <span class=\"dd-dotted-highlight\">making an N+1 query</span>,\n      <span>making</span>\n      <span class=\"dd-pill\">resource:{{#if (lookup this \"parent_span\")}}{{lookup this \"parent_span\"}}{{else if (lookup this \"django.view\")}}{{lookup this \"django.view\"}}{{else if (lookup this \"route\")}}{{lookup this \"route\"}}{{else}}{{lookup this \"http.route_template\"}}{{/if}}</span>\n      <span>much slower than it needs to be.</span>\n    </div>\n    <div class=\"dd-impact-line\">\n      {{#if (lookup this \"repeat_count\")}}\n        <span class=\"dd-impact-num\">{{lookup this \"repeat_count\"}} queries</span> repeated in single request\n      {{else if (lookup this \"n_plus_one.dominant_count\")}}\n        <span class=\"dd-impact-num\">{{lookup this \"n_plus_one.dominant_count\"}} queries</span> repeated in single request\n      {{else}}\n        Queries repeated in single request\n      {{/if}}\n    </div>\n  </div>\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Root Span</div>\n    <div class=\"dd-span-box\">\n      {{#if (lookup this \"method\")}}{{lookup this \"method\"}}{{else}}{{lookup this \"http.method\"}}{{/if}} {{#if (lookup this \"route\")}}{{lookup this \"route\"}}{{else}}{{lookup this \"http.route_template\"}}{{/if}}\n    </div>\n  </div>\n\n  {{#if (lookup this \"django.view\")}}\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Parent Span</div>\n    <div class=\"dd-span-box\">\n      {{lookup this \"django.view\"}}\n    </div>\n  </div>\n  {{else if (lookup this \"parent_span\")}}\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Parent Span</div>\n    <div class=\"dd-span-box\">\n      {{lookup this \"parent_span\"}}\n    </div>\n  </div>\n  {{/if}}\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Repeated Query{{#if (lookup this \"repeat_count\")}} ({{lookup this \"repeat_count\"}}){{else if (lookup this \"n_plus_one.dominant_count\")}} ({{lookup this \"n_plus_one.dominant_count\"}}){{/if}}</div>\n    <div class=\"dd-code-container\">\n      <pre class=\"dd-code-content\"><code>{{#if (lookup this \"query\")}}{{lookup this \"query\"}}{{else}}{{lookup this \"n_plus_one.dominant_query\"}}{{/if}}</code></pre>\n    </div>\n  </div>\n</div>\n{{/if}}\n{{/each}}",
+        "defaultContent": "<div class=\"dd-problem-card\">\n  <div class=\"dd-header-title\">Problem</div>\n  <div class=\"dd-empty-notice\">\n    No repeated query (N+1) detected for this endpoint in the selected time range.\n  </div>\n</div>",
+        "editor": {
+          "format": "auto",
+          "language": "html"
+        },
+        "editors": [
+          "content",
+          "defaultContent",
+          "styles"
+        ],
+        "renderMode": "allRows",
+        "styles": ".dd-problem-card {\n  padding: 8px 12px;\n  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\n  color: #e2e8f0;\n  width: 100%;\n  box-sizing: border-box;\n}\n\n.dd-header-title {\n  font-size: 22px;\n  font-weight: 700;\n  color: #f8fafc;\n  margin-bottom: 24px;\n  letter-spacing: -0.01em;\n}\n\n.dd-section {\n  margin-bottom: 22px;\n}\n\n.dd-section-title {\n  font-size: 14px;\n  font-weight: 700;\n  color: #f1f5f9;\n  margin-bottom: 8px;\n}\n\n.dd-summary-line {\n  font-size: 14px;\n  line-height: 1.8;\n  color: #cbd5e1;\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n}\n\n.dd-pill {\n  background: rgba(56, 189, 248, 0.12);\n  color: #38bdf8;\n  border: 1px solid rgba(56, 189, 248, 0.28);\n  font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace;\n  font-size: 12.5px;\n  padding: 2px 8px;\n  border-radius: 4px;\n  white-space: nowrap;\n}\n\n.dd-dotted-highlight {\n  border-bottom: 1.5px dotted #94a3b8;\n  color: #f8fafc;\n  font-weight: 500;\n}\n\n.dd-impact-line {\n  font-size: 13px;\n  color: #94a3b8;\n  margin-top: 6px;\n}\n\n.dd-impact-num {\n  color: #38bdf8;\n  font-weight: 600;\n}\n\n.dd-span-box {\n  background: rgba(255, 255, 255, 0.04);\n  border: 1px solid rgba(255, 255, 255, 0.08);\n  border-radius: 6px;\n  padding: 12px 16px;\n  font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace;\n  font-size: 13px;\n  color: #e2e8f0;\n  line-height: 1.4;\n  word-break: break-all;\n}\n\n.dd-code-container {\n  background: #0d1117;\n  border: 1px solid #30363d;\n  border-radius: 8px;\n  padding: 18px 20px;\n  margin: 0;\n  overflow-x: auto;\n}\n\n.dd-code-content {\n  margin: 0;\n  font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace;\n  font-size: 13.5px;\n  line-height: 1.65;\n  color: #79c0ff;\n  white-space: pre-wrap;\n  word-break: break-word;\n  background: transparent;\n  border: none;\n  padding: 0;\n}\n\n.dd-code-content code {\n  color: inherit;\n  font-family: inherit;\n}\n\n.dd-empty-notice {\n  padding: 30px;\n  text-align: center;\n  color: #94a3b8;\n  font-size: 14px;\n  border: 1px dashed rgba(255, 255, 255, 0.12);\n  border-radius: 8px;\n}",
+        "wrap": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "limit": 1,
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
+          "queryType": "traceql",
+          "refId": "A",
+          "tableType": "spans"
+        }
+      ],
+      "title": "Problem",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Duration": true,
+              "Span ID": true,
+              "Start time": true,
+              "Trace ID": true,
+              "Trace Name": true,
+              "Trace Service": true,
+              "cluster_name": true,
+              "duration": true,
+              "name": true,
+              "project_name": true,
+              "repeated_query.detected": true,
+              "spanID": true,
+              "time": true,
+              "traceIdHidden": true,
+              "traceName": true,
+              "traceService": true
+            },
+            "renameByName": {
+              "django.view": "parent_span",
+              "http.method": "method",
+              "http.route_template": "route",
+              "n_plus_one.dominant_count": "repeat_count",
+              "n_plus_one.dominant_query": "query",
+              "normalized.service": "service"
+            }
+          }
+        }
+      ],
+      "type": "marcusolsson-dynamictext-panel"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "tp_trace",
+    "apm",
+    "django",
+    "n_plus_one",
+    "recommendations"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "Prometheus",
+          "value": "_IY366MMk"
+        },
+        "hide": 2,
+        "includeAll": true,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Tempo",
+          "value": "tempo"
+        },
+        "hide": 2,
+        "includeAll": true,
+        "label": "Tracing Datasource",
+        "multi": false,
+        "name": "DS_TEMPO",
+        "options": [],
+        "query": "tempo",
+        "refresh": 1,
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "definition": "label_values(apm_repeated_query_affected_requests_total, project_name)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Project",
+        "multi": false,
+        "name": "project",
+        "options": [],
+        "query": "label_values(apm_repeated_query_affected_requests_total, project_name)",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\"}, cluster_name)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Cluster",
+        "multi": false,
+        "name": "cluster",
+        "options": [],
+        "query": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\"}, cluster_name)",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "django",
+          "value": "django"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [],
+        "query": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Route",
+        "multi": false,
+        "name": "route",
+        "options": [],
+        "query": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\"}, http_route)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\"}, http_route)",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Method",
+        "multi": false,
+        "name": "method",
+        "options": [],
+        "query": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "auto",
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ],
+    "auto": true,
+    "auto_interval": "5s"
+  },
+  "timezone": "browser",
+  "title": "Repeated Query Pattern (Potential N+1) \u2014 Issue Detail",
+  "uid": "n-plus-one-detail",
+  "version": 2
+}

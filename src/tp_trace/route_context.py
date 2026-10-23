@@ -19,7 +19,9 @@ OpenTelemetry instrumentors such as botocore, which never pass through
 """
 
 import contextvars
-from typing import Any, Optional, Tuple
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
@@ -135,6 +137,122 @@ def reset_request_tags(token: Optional[contextvars.Token] = None) -> None:
             current_tags.reset(token)
         else:
             current_tags.set(None)
+    except Exception:
+        pass
+
+
+@dataclass
+class QueryPatternStats:
+    fingerprint: str
+    count: int
+    total_duration_ms: float
+
+
+@dataclass
+class RequestDBQueryStats:
+    total_queries: int = 0
+    patterns: list = field(default_factory=list)
+    candidates: list = field(default_factory=list)
+    candidate_count: int = 0
+    dominant_query: Optional[str] = None
+    dominant_count: int = 0
+    dominant_duration_ms: float = 0.0
+    tracker_overflowed: bool = False
+
+
+@dataclass
+class RequestDBTracker:
+    total_queries: int = 0
+    fingerprints: Counter = field(default_factory=Counter)
+    fingerprint_duration_ms: Dict[str, float] = field(default_factory=dict)
+    dropped_fingerprints: int = 0
+    max_fingerprints: int = 256
+
+
+current_db_tracker: contextvars.ContextVar[Optional[RequestDBTracker]] = contextvars.ContextVar(
+    "tp_trace.db_tracker", default=None
+)
+
+
+def init_request_db_tracker(max_fingerprints: int = 256) -> Optional[contextvars.Token]:
+    """Initialize request-scoped database query tracker; returns token for reset."""
+    try:
+        limit = max_fingerprints if isinstance(max_fingerprints, int) and max_fingerprints >= 1 else 256
+        tracker = RequestDBTracker(max_fingerprints=limit)
+        return current_db_tracker.set(tracker)
+    except Exception:
+        return None
+
+
+def record_request_db_query(metric_sql: str, duration_ms: float = 0.0) -> None:
+    """Record one successful database execute call for the active request.
+
+    Non-raising fail-safe: any failure is absorbed without interrupting application execution.
+    """
+    try:
+        tracker = current_db_tracker.get()
+        if tracker is None or not metric_sql:
+            return
+        duration = max(0.0, float(duration_ms))
+        tracker.total_queries += 1
+        if metric_sql in tracker.fingerprints:
+            tracker.fingerprints[metric_sql] += 1
+            tracker.fingerprint_duration_ms[metric_sql] += duration
+        else:
+            if len(tracker.fingerprints) < tracker.max_fingerprints:
+                tracker.fingerprints[metric_sql] = 1
+                tracker.fingerprint_duration_ms[metric_sql] = duration
+            else:
+                tracker.dropped_fingerprints += 1
+    except Exception:
+        pass
+
+
+def get_request_db_query_stats(threshold: int = 15) -> RequestDBQueryStats:
+    """Retrieve statistics across ALL query fingerprints from the current request DB tracker."""
+    try:
+        tracker = current_db_tracker.get()
+        if tracker is None or not tracker.fingerprints:
+            return RequestDBQueryStats()
+
+        patterns = []
+        for fp, count in tracker.fingerprints.most_common():
+            dur = float(tracker.fingerprint_duration_ms.get(fp, 0.0))
+            patterns.append(QueryPatternStats(fingerprint=fp, count=count, total_duration_ms=dur))
+
+        candidates = [p for p in patterns if p.count >= threshold]
+
+        # When candidates exist, report an actual candidate rather than an
+        # unrelated frequent query. Duration breaks count ties deterministically.
+        representative = max(
+            candidates or patterns,
+            key=lambda pattern: (pattern.count, pattern.total_duration_ms),
+        )
+        dominant_query = representative.fingerprint
+        dominant_count = representative.count
+        dominant_duration_ms = representative.total_duration_ms
+
+        return RequestDBQueryStats(
+            total_queries=tracker.total_queries,
+            patterns=patterns,
+            candidates=candidates,
+            candidate_count=len(candidates),
+            dominant_query=dominant_query,
+            dominant_count=dominant_count,
+            dominant_duration_ms=dominant_duration_ms,
+            tracker_overflowed=tracker.dropped_fingerprints > 0,
+        )
+    except Exception:
+        return RequestDBQueryStats()
+
+
+def reset_request_db_tracker(token: Optional[contextvars.Token] = None) -> None:
+    """Reset the request-scoped database query tracker."""
+    try:
+        if token is not None:
+            current_db_tracker.reset(token)
+        else:
+            current_db_tracker.set(None)
     except Exception:
         pass
 

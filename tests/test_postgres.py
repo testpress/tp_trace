@@ -773,6 +773,11 @@ def test_no_duplicate_spans_when_cursorwrapper_and_execute_wrappers_coexist():
         traced_django_cursor_exec,
         tp_trace_django_db_execute_wrapper,
     )
+    from tp_trace.route_context import (
+        get_request_db_query_stats,
+        init_request_db_tracker,
+        reset_request_db_tracker,
+    )
 
     mock_db = MockDatabaseConnection(
         alias="default",
@@ -803,13 +808,21 @@ def test_no_duplicate_spans_when_cursorwrapper_and_execute_wrappers_coexist():
     def wrapped_execute(sql, params=None):
         return wrapper_instance.execute(sql, params)
 
-    traced_django_cursor_exec(
-        wrapped_execute,
-        wrapper_instance,
-        ("SELECT * FROM users WHERE active = 1", None),
-        {},
-        "execute",
-    )
+    tracker_token = init_request_db_tracker()
+    try:
+        traced_django_cursor_exec(
+            wrapped_execute,
+            wrapper_instance,
+            ("SELECT * FROM users WHERE active = 1", None),
+            {},
+            "execute",
+        )
+        stats = get_request_db_query_stats()
+        assert stats.total_queries == 1
+        assert stats.dominant_count == 1
+        assert stats.dominant_duration_ms >= 0
+    finally:
+        reset_request_db_tracker(tracker_token)
 
     spans = exporter.get_finished_spans()
     # There MUST be exactly 1 span, not 2 nested duplicate spans
@@ -901,6 +914,11 @@ def test_single_exception_recorded_on_sql_error():
 def test_failing_cursor_exec_runs_statement_exactly_once():
     """A failing query must be sent to the server once, never retried."""
     from tp_trace.integrations.postgres.cursor import traced_django_cursor_exec
+    from tp_trace.route_context import (
+        get_request_db_query_stats,
+        init_request_db_tracker,
+        reset_request_db_tracker,
+    )
 
     tp_trace.init(project_name="pg-no-retry", export_batch=False)
     calls: list = []
@@ -910,8 +928,13 @@ def test_failing_cursor_exec_runs_statement_exactly_once():
         raise RuntimeError("duplicate key value violates unique constraint")
 
     cursor = MockRawCursor()
-    with pytest.raises(RuntimeError, match="duplicate key"):
-        traced_django_cursor_exec(execute, cursor, ("INSERT INTO orders (id) VALUES (1)",), {})
+    tracker_token = init_request_db_tracker()
+    try:
+        with pytest.raises(RuntimeError, match="duplicate key"):
+            traced_django_cursor_exec(execute, cursor, ("INSERT INTO orders (id) VALUES (1)",), {})
+        assert get_request_db_query_stats().total_queries == 0
+    finally:
+        reset_request_db_tracker(tracker_token)
 
     assert len(calls) == 1, f"statement executed {len(calls)} times; application code must run once"
 
@@ -963,18 +986,20 @@ def test_db_statement_and_full_statement_separation():
 
     # 1. Normal query with dynamic IN list and comment
     sql1 = "SELECT /* comment */ id, name FROM large_table WHERE id IN (%s, %s, %s)"
-    _, attrs1 = _build_db_span_context(sql1, conn)
+    _, attrs1, _ = _build_db_span_context(sql1, conn)
     assert attrs1["db.statement"] == "SELECT id, name FROM large_table WHERE id IN (?)"
+    assert attrs1["db.statement.fingerprint"] == attrs1["db.statement"]
     assert attrs1["resource.name"] == attrs1["db.statement"]
     assert "/* comment */" not in attrs1["db.statement"]
 
     # 2. Long query exceeding 256 chars gets bounded
     long_cols = ", ".join([f'"col_{i}"' for i in range(80)])
     sql2 = f"SELECT {long_cols} FROM large_table WHERE id = %s"
-    _, attrs2 = _build_db_span_context(sql2, conn)
+    _, attrs2, _ = _build_db_span_context(sql2, conn)
 
     assert len(attrs2["db.statement"]) <= 256
     assert attrs2["db.statement"].endswith("...")
+    assert attrs2["db.statement.fingerprint"] == attrs2["db.statement"]
     assert len(attrs2["db.statement.full"]) > len(attrs2["db.statement"])
     assert attrs2["db.query.text"] == attrs2["db.statement.full"]
 

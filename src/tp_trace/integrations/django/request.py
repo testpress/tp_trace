@@ -5,7 +5,7 @@ import inspect
 import logging
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
 from opentelemetry.trace import SpanKind, StatusCode, get_tracer
@@ -13,10 +13,12 @@ from opentelemetry.propagate import extract
 
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.safety import attempt, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
-from tp_trace.sanitize import sanitize_url
 from tp_trace.route_context import (
     get_current_route,
     get_current_tags,
+    get_request_db_query_stats,
+    init_request_db_tracker,
+    reset_request_db_tracker,
     reset_request_route,
     reset_request_tags,
     reset_request_view,
@@ -24,11 +26,37 @@ from tp_trace.route_context import (
     set_request_tag,
     set_request_view,
 )
+from tp_trace.sanitize import sanitize_url
 from tp_trace.tracing import reentrant_guard
 
 logger = logging.getLogger("tp_trace.integrations.django")
+_MAX_REPEATED_QUERY_TRACE_CANDIDATES = 5
 
 _CALLBACK_ARITY_CACHE: Dict[int, bool] = {}
+
+
+def _repeated_query_severity(count: int, request_impact_pct: float) -> Tuple[str, str]:
+    """Classify a detected pattern without changing its count-based detection."""
+    high_impact = request_impact_pct >= 50.0
+    medium_impact = request_impact_pct >= 20.0
+    low_impact = request_impact_pct >= 5.0
+    high_volume = count >= 100
+    medium_volume = count >= 50
+    low_volume = count >= 30
+
+    if high_impact or high_volume:
+        return "high", "request_impact_and_repetition" if high_impact and high_volume else (
+            "request_impact" if high_impact else "repetition_volume"
+        )
+    if medium_impact or medium_volume:
+        return "medium", "request_impact_and_repetition" if medium_impact and medium_volume else (
+            "request_impact" if medium_impact else "repetition_volume"
+        )
+    if low_impact or low_volume:
+        return "low", "request_impact_and_repetition" if low_impact and low_volume else (
+            "request_impact" if low_impact else "repetition_volume"
+        )
+    return "info", "structural_repetition"
 
 
 @functools.lru_cache(maxsize=256)
@@ -530,6 +558,8 @@ def traced_get_response(wrapped, instance, args, kwargs):
             resolve_path, getattr(request, "urlconf", None), request=request, method=method
         )
         view_token = set_request_view(preresolved_view)
+        max_fp = getattr(cfg, "n_plus_one_max_fingerprints", 256) if cfg else 256
+        tracker_token = init_request_db_tracker(max_fingerprints=max_fp)
         start_span_name = (
             f"{method} {preresolved_route}"
             if (preresolved_route and preresolved_route != "__unmatched__")
@@ -720,7 +750,9 @@ def traced_get_response(wrapped, instance, args, kwargs):
                         metric_recorded = True
                     except Exception as metric_exc:
                         logger.debug("Failed to record request metrics: %s", metric_exc)
+                    _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
         finally:
+            reset_request_db_tracker(tracker_token)
             if not metric_recorded:
                 try:
                     from tp_trace.metrics import record_request
@@ -741,3 +773,72 @@ def traced_get_response(wrapped, instance, args, kwargs):
             reset_request_view(view_token)
             reset_request_route(route_token)
             reset_request_tags()
+
+def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
+    """Attach repeated-query evidence and emit its low-cardinality metric."""
+    # This runs from the server span's own finally, including handler errors.
+    try:
+        duplicate_threshold = getattr(cfg, "n_plus_one_duplicate_threshold", 15) if cfg else 15
+        stats = get_request_db_query_stats(threshold=duplicate_threshold)
+        is_repeated_query = stats.candidate_count > 0 or stats.dominant_count >= duplicate_threshold
+        if is_repeated_query:
+            safe_set_attribute(span, "n_plus_one.detected", True)
+            safe_set_attribute(span, "repeated_query.detected", True)
+            safe_set_attribute(span, "db.query_count", stats.total_queries)
+            safe_set_attribute(span, "n_plus_one.candidate_count", stats.candidate_count)
+            # Parallel, bounded arrays retain evidence for multiple patterns
+            # without putting query text into a metric label. Index i refers
+            # to the same candidate in each array.
+            candidates = sorted(
+                stats.candidates,
+                key=lambda pattern: (pattern.count, pattern.total_duration_ms),
+                reverse=True,
+            )[:_MAX_REPEATED_QUERY_TRACE_CANDIDATES]
+            safe_set_attribute(span, "repeated_query.candidate_queries", [p.fingerprint for p in candidates])
+            safe_set_attribute(span, "repeated_query.candidate_counts", [p.count for p in candidates])
+            safe_set_attribute(
+                span, "repeated_query.candidate_duration_ms",
+                [p.total_duration_ms for p in candidates],
+            )
+            safe_set_attribute(
+                span, "repeated_query.candidate_avg_duration_ms",
+                [p.total_duration_ms / p.count for p in candidates],
+            )
+            safe_set_attribute(
+                span, "repeated_query.omitted_candidate_count",
+                max(0, stats.candidate_count - len(candidates)),
+            )
+            if len(candidates) > 1:
+                parts = [
+                    f"-- [Pattern #{idx} ({c.count}x, {c.total_duration_ms:.1f}ms)]\n{c.fingerprint}"
+                    for idx, c in enumerate(candidates, 1)
+                ]
+                safe_set_attribute(span, "n_plus_one.dominant_query", "\n\n".join(parts))
+            elif stats.dominant_query:
+                safe_set_attribute(span, "n_plus_one.dominant_query", stats.dominant_query)
+            safe_set_attribute(span, "n_plus_one.dominant_count", stats.dominant_count)
+            safe_set_attribute(span, "n_plus_one.dominant_duration_ms", stats.dominant_duration_ms)
+            if stats.dominant_count > 0:
+                safe_set_attribute(
+                    span, "n_plus_one.dominant_avg_duration_ms",
+                    stats.dominant_duration_ms / stats.dominant_count,
+                )
+            request_impact_pct = (
+                min(100.0, (stats.dominant_duration_ms / duration_ms) * 100.0)
+                if duration_ms > 0 else 0.0
+            )
+            safe_set_attribute(span, "n_plus_one.request_impact_pct", request_impact_pct)
+            severity, severity_reason = _repeated_query_severity(stats.dominant_count, request_impact_pct)
+            safe_set_attribute(span, "n_plus_one.severity", severity)
+            safe_set_attribute(span, "n_plus_one.severity_reason", severity_reason)
+            safe_set_attribute(span, "n_plus_one.tracker_overflowed", stats.tracker_overflowed)
+            if final_route and final_route != "__unmatched__" and not str(final_route).isdigit():
+                from tp_trace.metrics import record_repeated_query_affected_request
+                record_repeated_query_affected_request(
+                    method=method,
+                    route=final_route,
+                    service="django",
+                    extra_attributes=get_current_tags(),
+                )
+    except Exception as n_plus_one_exc:
+        logger.debug("Failed to evaluate/record repeated query anomaly: %s", n_plus_one_exc)
