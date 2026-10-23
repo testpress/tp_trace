@@ -40,7 +40,8 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "short",
+          "decimals": 0
         },
         "overrides": []
       },
@@ -73,7 +74,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or vector(0)",
+          "expr": "round(sum(increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range]))) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -107,7 +108,8 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "short",
+          "decimals": 0
         },
         "overrides": []
       },
@@ -140,7 +142,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range])) or vector(0)",
+          "expr": "round(sum(increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]))) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A"
