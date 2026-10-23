@@ -75,6 +75,36 @@ def reset_request_route(tokens: Optional[Tuple[Any, Any]]) -> None:
         current_method.set(None)
 
 
+current_view: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("tp_trace.django_view", default=None)
+
+
+def get_current_view() -> Optional[str]:
+    """Return the active Django view name of the in-flight request, if any."""
+    try:
+        return current_view.get()
+    except LookupError:
+        return None
+
+
+def set_request_view(view: Optional[str]) -> Optional[contextvars.Token]:
+    """Publish the active Django view name; returns token for reset_request_view."""
+    try:
+        return current_view.set(view)
+    except Exception:
+        return None
+
+
+def reset_request_view(token: Optional[contextvars.Token] = None) -> None:
+    """Reset the current view context variable using the provided token."""
+    if token is not None:
+        try:
+            current_view.reset(token)
+            return
+        except Exception:
+            pass
+    current_view.set(None)
+
+
 current_tags: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar("tp_trace.tags", default=None)
 
 
@@ -153,6 +183,9 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
                     span.set_attribute("normalized.operation", celery_meta.bounded_operation)
                     span.set_attribute("error", False)
                     safe_update_name(span, celery_meta.span_name)
+                    view = get_current_view()
+                    if view and celery_meta.action == "apply_async":
+                        span.set_attribute("celery.trigger.view", view)
                     return
 
             existing = getattr(span, "attributes", None) or {}

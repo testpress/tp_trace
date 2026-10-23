@@ -9,12 +9,12 @@ from typing import Any, Callable, Dict, Optional
 
 from opentelemetry.trace import SpanKind, get_current_span
 
-from tp_trace.route_context import set_request_route
+from tp_trace.route_context import reset_request_view, set_request_route, set_request_view
 from tp_trace.safety import UNTRACED, attempt, safe_enrich, safe_set_attribute, safe_update_name
 from tp_trace.tracing import traced_span
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 
-from .request import _normalize_route, _resolve_view_name
+from .request import _format_view_from_match, _normalize_route, _resolve_view_name
 
 _in_view_dispatch: ContextVar[bool] = ContextVar("in_view_dispatch", default=False)
 
@@ -68,6 +68,9 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         pre_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
         if pre_route and pre_route != "__unmatched__":
             set_request_route(pre_route, method)
+        match = getattr(request, "resolver_match", None)
+        resolved_view = attempt(_format_view_from_match, match, method, default=None, _label="view_format") if match else None
+        view_token = set_request_view(resolved_view) if resolved_view else None
 
         try:
             response = wrapped(*args, **kwargs)
@@ -78,6 +81,9 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
             if norm_route and norm_route != "__unmatched__":
                 safe_set_attribute(span, "http.route", norm_route)
             raise
+        finally:
+            if view_token is not None:
+                reset_request_view(view_token)
         # Post-application enrichment must never alter the result. Each step
         # degrades independently so a failure here cannot affect what the
         # application returned.
@@ -218,75 +224,81 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
         if plan is UNTRACED:
             return wrapped(*args, **kwargs)
 
-        with traced_span(
-            plan.span_name, kind=SpanKind.INTERNAL, attributes=plan.attrs, tracer_name="tp_trace.django"
-        ) as dispatch_span:
-            _apply_tags(dispatch_span)
-            if plan.action:
-                safe_set_attribute(dispatch_span, "django.view.action", str(plan.action))
+        view_cls_name = plan.attrs.get("django.view.class") or "View"
+        exact_view = f"{view_cls_name}.{plan.handler_method}" if plan.handler_method else view_cls_name
+        view_token = set_request_view(exact_view)
+        try:
+            with traced_span(
+                plan.span_name, kind=SpanKind.INTERNAL, attributes=plan.attrs, tracer_name="tp_trace.django"
+            ) as dispatch_span:
+                _apply_tags(dispatch_span)
+                if plan.action:
+                    safe_set_attribute(dispatch_span, "django.view.action", str(plan.action))
 
-            request = args[0] if args else kwargs.get("request")
-            if request:
-                norm_route = attempt(
-                    _normalize_route,
-                    request,
-                    getattr(request, "path", "/"),
-                    default="__unmatched__",
-                    _label="normalize_route",
+                request = args[0] if args else kwargs.get("request")
+                if request:
+                    norm_route = attempt(
+                        _normalize_route,
+                        request,
+                        getattr(request, "path", "/"),
+                        default="__unmatched__",
+                        _label="normalize_route",
+                    )
+                    if norm_route and norm_route != "__unmatched__":
+                        req_method = attempt(getattr, request, "method", default="GET", _label="request.method")
+                        set_request_route(norm_route, req_method)
+                        safe_set_attribute(dispatch_span, "http.route", norm_route)
+
+                handler = plan.handler
+                if handler is None:
+                    res = wrapped(*args, **kwargs)
+                    attempt(_bind_response_parent, res, _label="bind_response_parent")
+                    return res
+
+                handler_span_name = plan.handler_span_name
+                handler_attrs = plan.handler_attrs
+                handler_method = plan.handler_method
+                method = plan.method
+
+                def _traced_handler(*h_args, **h_kwargs):
+                    with traced_span(
+                        handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django"
+                    ):
+                        h_res = handler(*h_args, **h_kwargs)
+                        attempt(_bind_response_parent, h_res, _label="bind_response_parent")
+                        return h_res
+
+                setattr(_traced_handler, "_tp_traced", True)
+                orig_action_handler = attempt(getattr, instance, handler_method, default=None, _label="orig_action_handler")
+                orig_method_handler = (
+                    attempt(getattr, instance, method, default=None, _label="orig_method_handler")
+                    if method != handler_method
+                    else None
                 )
-                if norm_route and norm_route != "__unmatched__":
-                    req_method = attempt(getattr, request, "method", default="GET", _label="request.method")
-                    set_request_route(norm_route, req_method)
-                    safe_set_attribute(dispatch_span, "http.route", norm_route)
+                inst_dict = getattr(instance, "__dict__", None)
+                had_action_in_dict = inst_dict is not None and handler_method in inst_dict
+                had_method_in_dict = inst_dict is not None and method in inst_dict
 
-            handler = plan.handler
-            if handler is None:
-                res = wrapped(*args, **kwargs)
-                attempt(_bind_response_parent, res, _label="bind_response_parent")
-                return res
-
-            handler_span_name = plan.handler_span_name
-            handler_attrs = plan.handler_attrs
-            handler_method = plan.handler_method
-            method = plan.method
-
-            def _traced_handler(*h_args, **h_kwargs):
-                with traced_span(
-                    handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django"
-                ):
-                    h_res = handler(*h_args, **h_kwargs)
-                    attempt(_bind_response_parent, h_res, _label="bind_response_parent")
-                    return h_res
-
-            setattr(_traced_handler, "_tp_traced", True)
-            orig_action_handler = attempt(getattr, instance, handler_method, default=None, _label="orig_action_handler")
-            orig_method_handler = (
-                attempt(getattr, instance, method, default=None, _label="orig_method_handler")
-                if method != handler_method
-                else None
-            )
-            inst_dict = getattr(instance, "__dict__", None)
-            had_action_in_dict = inst_dict is not None and handler_method in inst_dict
-            had_method_in_dict = inst_dict is not None and method in inst_dict
-
-            attempt(setattr, instance, handler_method, _traced_handler, _label="bind_handler")
-            if orig_method_handler is not None:
-                attempt(setattr, instance, method, _traced_handler, _label="bind_method")
-            try:
-                res = wrapped(*args, **kwargs)
-                attempt(_bind_response_parent, res, _label="bind_response_parent")
-                return res
-            finally:
-                if had_action_in_dict:
-                    if orig_action_handler is not None:
-                        attempt(setattr, instance, handler_method, orig_action_handler, _label="restore_handler")
-                else:
-                    attempt(delattr, instance, handler_method, _label="del_handler")
-
+                attempt(setattr, instance, handler_method, _traced_handler, _label="bind_handler")
                 if orig_method_handler is not None:
-                    if had_method_in_dict:
-                        attempt(setattr, instance, method, orig_method_handler, _label="restore_method")
+                    attempt(setattr, instance, method, _traced_handler, _label="bind_method")
+                try:
+                    res = wrapped(*args, **kwargs)
+                    attempt(_bind_response_parent, res, _label="bind_response_parent")
+                    return res
+                finally:
+                    if had_action_in_dict:
+                        if orig_action_handler is not None:
+                            attempt(setattr, instance, handler_method, orig_action_handler, _label="restore_handler")
                     else:
-                        attempt(delattr, instance, method, _label="del_method")
+                        attempt(delattr, instance, handler_method, _label="del_handler")
+
+                    if orig_method_handler is not None:
+                        if had_method_in_dict:
+                            attempt(setattr, instance, method, orig_method_handler, _label="restore_method")
+                        else:
+                            attempt(delattr, instance, method, _label="del_method")
+        finally:
+            reset_request_view(view_token)
     finally:
         _in_view_dispatch.reset(token)

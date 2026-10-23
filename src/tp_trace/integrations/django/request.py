@@ -18,9 +18,11 @@ from tp_trace.route_context import (
     get_current_route,
     get_current_tags,
     reset_request_route,
-    set_request_route,
     reset_request_tags,
+    reset_request_view,
+    set_request_route,
     set_request_tag,
+    set_request_view,
 )
 from tp_trace.tracing import reentrant_guard
 
@@ -303,6 +305,75 @@ def _preresolve_route(path: str, urlconf: Any = None, request: Any = None) -> st
         return "__unmatched__"
 
 
+def _format_view_from_match(match: Any, method: str = "") -> Optional[str]:
+    if not match:
+        return None
+    view_func = getattr(match, "func", None)
+    cls = getattr(view_func, "cls", getattr(view_func, "view_class", None)) if view_func else None
+    req_method = method.lower() if method else ""
+    actions = getattr(view_func, "actions", {}) if view_func else {}
+    if cls:
+        cls_mod = getattr(cls, "__module__", "")
+        cls_name = getattr(cls, "__name__", "View")
+        prefix = f"{cls_mod}.{cls_name}" if cls_mod and cls_mod != "builtins" else cls_name
+        if isinstance(actions, dict) and req_method and req_method in actions:
+            return f"{prefix}.{actions[req_method]}"
+        if req_method and hasattr(cls, req_method):
+            return f"{prefix}.{req_method}"
+        return prefix
+    if hasattr(match, "_func_path") and match._func_path:
+        return str(match._func_path)
+    if view_func:
+        func_mod = getattr(view_func, "__module__", "")
+        func_name = getattr(view_func, "__name__", "")
+        if func_mod and func_name and func_mod != "builtins":
+            return f"{func_mod}.{func_name}"
+        if func_name:
+            return str(func_name)
+    if getattr(match, "view_name", None):
+        return str(match.view_name)
+    return None
+
+
+def _preresolve_view(path: str, urlconf: Any = None, request: Any = None, method: str = "") -> Optional[str]:
+    try:
+        from django.urls import resolve
+        from django.conf import settings
+
+        candidates = []
+        if urlconf and urlconf not in candidates:
+            candidates.append(urlconf)
+        if request and getattr(request, "urlconf", None) and getattr(request, "urlconf", None) not in candidates:
+            candidates.append(getattr(request, "urlconf"))
+
+        root_urlconf = getattr(settings, "ROOT_URLCONF", None)
+        if root_urlconf and root_urlconf not in candidates:
+            candidates.append(root_urlconf)
+
+        for attr in ("TENANT_URLCONF", "PUBLIC_SCHEMA_URLCONF"):
+            extra = getattr(settings, attr, None)
+            if extra and extra not in candidates:
+                candidates.append(extra)
+
+        extra_confs = getattr(settings, "TP_TRACE_EXTRA_URLCONFS", None)
+        if isinstance(extra_confs, (list, tuple)):
+            for conf in extra_confs:
+                if conf and conf not in candidates:
+                    candidates.append(conf)
+
+        for conf in candidates:
+            try:
+                match = resolve(path, urlconf=conf)
+                view_str = _format_view_from_match(match, method=method)
+                if view_str:
+                    return view_str
+            except Exception:
+                continue
+        return None
+    except Exception:
+        return None
+
+
 def _resolve_view_name(request, method: str) -> str:
     resolver_match = getattr(request, "resolver_match", None)
     if not resolver_match:
@@ -455,6 +526,10 @@ def traced_get_response(wrapped, instance, args, kwargs):
         # as it would poison child spans.
         route_to_publish = preresolved_route if (preresolved_route and preresolved_route != "__unmatched__") else None
         route_token = set_request_route(route_to_publish, method)
+        preresolved_view = _preresolve_view(
+            resolve_path, getattr(request, "urlconf", None), request=request, method=method
+        )
+        view_token = set_request_view(preresolved_view)
         start_span_name = (
             f"{method} {preresolved_route}"
             if (preresolved_route and preresolved_route != "__unmatched__")
@@ -663,5 +738,6 @@ def traced_get_response(wrapped, instance, args, kwargs):
                     )
                 except Exception as metric_exc:
                     logger.debug("Failed to record fallback request metrics: %s", metric_exc)
+            reset_request_view(view_token)
             reset_request_route(route_token)
             reset_request_tags()
