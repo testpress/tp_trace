@@ -20,6 +20,12 @@ _UNCLOSED_DOLLAR_QUOTE_RE = re.compile(r"\$[a-zA-Z_]\w*\$|\$\$")
 _SAVEPOINT_RE = re.compile(
     r"\b(SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+([\"`']?)(?:s\d+_\w+|\w+)\2", re.IGNORECASE
 )
+_SEARCH_PATH_ITEM = r'(?:\"(?:\"\"|[^\"])*\"|\?|[^,;\s]+)'
+_SEARCH_PATH_RE = re.compile(
+    rf"\b(SET\s+(?:(?:SESSION|LOCAL)\s+)?)search_path\s*(?:TO\b|=)\s*"
+    rf"{_SEARCH_PATH_ITEM}(?:\s*,\s*{_SEARCH_PATH_ITEM})*",
+    re.IGNORECASE,
+)
 _MAX_STATEMENT_LENGTH = 4096
 _MAX_METRIC_STATEMENT_LENGTH = 256
 
@@ -55,6 +61,8 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
     - String literals: 'example' -> ?
     - Numeric literals: 42, 3.14 -> ?
     - Collapses placeholder list arity: 'IN (?, ?, ?)' -> 'IN (?)'
+    - Parameterizes savepoint names: SAVEPOINT "s8597110336_x1" -> SAVEPOINT ?
+    - Parameterizes search_path schemas: SET search_path = tenant,public -> SET search_path = ?
     - Normalizes multiple whitespace characters into a single space.
     - Pre-truncates to bound regex processing time on large queries.
     - Truncates excessively long queries to max_length.
@@ -90,7 +98,10 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
         # 5. Parameterize savepoint names (e.g. SAVEPOINT "s8597110336_x1" -> SAVEPOINT ?)
         sanitized = _SAVEPOINT_RE.sub(r"\1 ?", sanitized)
 
-        # 6. Normalize whitespace
+        # 6. Parameterize search_path (e.g. SET search_path = tenant,public -> SET search_path = ?)
+        sanitized = _SEARCH_PATH_RE.sub(r"\1search_path = ?", sanitized)
+
+        # 7. Normalize whitespace
         normalized = _WHITESPACE_RE.sub(" ", sanitized).strip()
 
         if len(normalized) > max_length:
