@@ -34,9 +34,13 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
         'span.http.method =~ "${method:regex}"',
         'span.http.route_template = "${route:raw}"',
         "span.n_plus_one.dominant_query",
-        "span.n_plus_one.dominant_count",
     ):
         assert predicate in trace_query
+
+    # Top runs stat card queries dominant_count
+    runs_panel = next(p for p in dashboard["panels"] if p.get("title") == "Query Runs / Req")
+    assert "span.n_plus_one.dominant_count" in runs_panel["targets"][0]["query"]
+
     assert "${method:regex}" in prometheus[0]["expr"]
     assert "${route:raw}" in prometheus[0]["expr"]
     # Grafana regex formatter escapes route slashes as \/; PromQL rejects
@@ -44,11 +48,9 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
     assert all('http_route="${route:raw}"' in t["expr"] for t in prometheus)
     assert all('${route:regex}' not in t["expr"] for t in prometheus)
 
-    # Ensure code styling is configured on the SQL query column
-    overrides = query_panel["fieldConfig"]["overrides"]
-    sql_override = next(o for o in overrides if o["matcher"]["options"] == "Duplicated SQL Query")
-    cell_options = next(p["value"] for p in sql_override["properties"] if p["id"] == "custom.cellOptions")
-    assert cell_options == {"type": "code"}
+    # Ensure codebase styling is configured on the SQL code box panel
+    assert query_panel["type"] == "marcusolsson-dynamictext-panel"
+    assert "code-box" in query_panel["options"]["content"]
 
     # Ensure rate query calculates percentage safely
     rate_panel = next(p for p in dashboard["panels"] if p.get("title") == "Affected Rate")
