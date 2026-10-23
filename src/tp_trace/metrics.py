@@ -67,15 +67,6 @@ class RedMetricsRecorder:
             description="Total HTTP requests affected by detected repeated query (potential N+1) patterns",
             unit="1",
         )
-        # Retain the original metric while existing provisioned dashboards migrate.
-        # This is a compatibility *series*, not an additional event stream:
-        # dashboards must select the primary metric above, or the legacy metric
-        # alone, and must never sum both names.
-        self.n_plus_one_total: Counter = self.meter.create_counter(
-            name="apm_n_plus_one_total",
-            description="Deprecated alias for apm_repeated_query_affected_requests_total",
-            unit="1",
-        )
 
     def shutdown(self) -> None:
         """Shut down metric readers and meter provider."""
@@ -189,7 +180,6 @@ class RedMetricsRecorder:
                         break
 
             self.repeated_query_affected_requests_total.add(1, attributes)
-            self.n_plus_one_total.add(1, attributes)
         except Exception as exc:
             logger.debug("Failed to record repeated query anomaly metric: %s", exc)
 

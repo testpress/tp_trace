@@ -238,13 +238,9 @@ def test_repeated_query_metric_allowlist():
     assert "statement" not in attrs
     assert points[0].value == 1
 
-    # The old series is emitted only for a migration window.  It represents
-    # the same affected request and must never be added to the primary series
-    # in a dashboard query.
+    # Verify deprecated alias apm_n_plus_one_total is NOT emitted to prevent double-counting
     legacy_points = _get_metric_data_points(metric_reader, "apm_n_plus_one_total")
-    assert len(legacy_points) == 1
-    assert legacy_points[0].value == points[0].value
-    assert dict(legacy_points[0].attributes) == attrs
+    assert len(legacy_points) == 0
 
 
 def test_django_n_plus_one_under_threshold():
@@ -541,3 +537,29 @@ def test_multiple_repeated_query_patterns_formatted_in_span():
     assert "-- [Pattern #1" in dominant_query
     assert "-- [Pattern #2" in dominant_query
     assert "candidate_" in dominant_query
+
+
+def test_wide_model_distinct_queries_do_not_false_positive():
+    """Verify distinct queries on a wide model (>256 chars before WHERE) are not merged into N+1."""
+    from tp_trace.integrations.postgres.cursor import _build_db_span_context
+
+    # Build a SELECT column list that is 300+ characters long
+    columns = ", ".join(f'"app_model"."field_{i}"' for i in range(25))
+    base_select = f'SELECT {columns} FROM "app_model"'
+    assert len(base_select) > 256
+
+    token = init_request_db_tracker()
+    try:
+        # Simulate 15 different queries with distinct WHERE clauses
+        for i in range(15):
+            sql = f'{base_select} WHERE "app_model"."field_x_{i}" = 123'
+            _, span_attrs, _ = _build_db_span_context(sql, None)
+            fingerprint = span_attrs.get("db.statement.full_fingerprint")
+            record_request_db_query(fingerprint, 1.0)
+
+        stats = get_request_db_query_stats(threshold=15)
+        # 15 distinct query patterns of count 1 -> should NOT detect N+1
+        assert stats.candidate_count == 0
+        assert stats.dominant_count == 1
+    finally:
+        reset_request_db_tracker(token)

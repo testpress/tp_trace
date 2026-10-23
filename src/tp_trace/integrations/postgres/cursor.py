@@ -14,7 +14,7 @@ from opentelemetry.context import (
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.route_context import record_request_db_query
 from tp_trace.safety import UNTRACED, attempt, safe_set_attribute
-from tp_trace.sanitize import normalize_sql_for_metric, sanitize_sql
+from tp_trace.sanitize import _MAX_STATEMENT_LENGTH, normalize_sql_for_metric, sanitize_sql
 from tp_trace.tracing import reentrant_guard, suppress_instrumentation, traced_span
 
 logger = logging.getLogger("tp_trace.integrations.postgres")
@@ -144,12 +144,13 @@ def _build_db_span_context(
     db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service = _extract_django_db_meta(
         instance_or_conn
     )
-    # ``db.statement`` is the canonical, bounded fingerprint used by both
-    # spanmetrics and the request-local repeated-query tracker.  Keep the
-    # explicit fingerprint attribute identical: a longer variant would create
-    # a second, inconsistent identity for the same query pattern (and a much
-    # higher-cardinality label when exported).
+    # db.statement and db.statement.fingerprint on the span are bounded to 256 chars
+    # for OTel spanmetrics and label compatibility.
     fingerprint_sql = metric_sql
+    # For the request-local repeated query tracker, generate an untruncated
+    # structural fingerprint up to _MAX_STATEMENT_LENGTH so wide Django models
+    # do not truncate before WHERE and merge distinct queries into false-positive N+1 loops.
+    tracker_fingerprint = normalize_sql_for_metric(sanitized_sql, max_length=_MAX_STATEMENT_LENGTH)
     summary = extract_query_summary(sanitized_sql)
     is_pgbouncer = is_pgbouncer_connection(db_host, db_port)
 
@@ -171,6 +172,7 @@ def _build_db_span_context(
         "db.statement": metric_sql,
         "db.statement.fingerprint": fingerprint_sql,
         "db.statement.full": sanitized_sql,
+        "db.statement.full_fingerprint": tracker_fingerprint,
         "db.query.text": sanitized_sql,
         "db.query.summary": summary,
         "db.operation": op,
@@ -240,8 +242,8 @@ def tp_trace_django_db_execute_wrapper(
             result, duration_ms = _emit_db_span(
                 span_name, span_attrs, lambda: execute(sql, params, many, context), cursor
             )
-            full_statement = span_attrs.get("db.statement.full") or metric_sql
-            attempt(record_request_db_query, full_statement, duration_ms, _label="n_plus_one_record")
+            tracker_fingerprint = span_attrs.get("db.statement.full_fingerprint") or metric_sql
+            attempt(record_request_db_query, tracker_fingerprint, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:
         # Never retry: a failing statement has already been sent to the server and
@@ -280,8 +282,8 @@ def traced_django_cursor_exec(
             result, duration_ms = _emit_db_span(
                 span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor
             )
-            full_statement = span_attrs.get("db.statement.full") or metric_sql
-            attempt(record_request_db_query, full_statement, duration_ms, _label="n_plus_one_record")
+            tracker_fingerprint = span_attrs.get("db.statement.full_fingerprint") or metric_sql
+            attempt(record_request_db_query, tracker_fingerprint, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:
         # Never retry: the statement has already been executed, and re-running it
