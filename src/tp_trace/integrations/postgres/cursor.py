@@ -172,7 +172,6 @@ def _build_db_span_context(
         "db.statement": metric_sql,
         "db.statement.fingerprint": fingerprint_sql,
         "db.statement.full": sanitized_sql,
-        "db.statement.full_fingerprint": tracker_fingerprint,
         "db.query.text": sanitized_sql,
         "db.query.summary": summary,
         "db.operation": op,
@@ -188,7 +187,7 @@ def _build_db_span_context(
         span_attrs["db.user"] = str(db_user)
     span_name = f"🟢 {metric_sql}" if metric_sql else "🟢 postgres.query"
 
-    return span_name, span_attrs, metric_sql
+    return span_name, span_attrs, tracker_fingerprint
 
 
 def _emit_db_span(
@@ -237,12 +236,11 @@ def tp_trace_django_db_execute_wrapper(
             if db_ctx is UNTRACED:
                 # Telemetry could not be built. The statement must still run.
                 return execute(sql, params, many, context)
-            span_name, span_attrs, metric_sql = db_ctx
+            span_name, span_attrs, tracker_fingerprint = db_ctx
 
             result, duration_ms = _emit_db_span(
                 span_name, span_attrs, lambda: execute(sql, params, many, context), cursor
             )
-            tracker_fingerprint = span_attrs.get("db.statement.full_fingerprint") or metric_sql
             attempt(record_request_db_query, tracker_fingerprint, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:
@@ -276,13 +274,12 @@ def traced_django_cursor_exec(
             if db_ctx is UNTRACED:
                 # Telemetry could not be built. The statement must still run.
                 return wrapped(*args, **kwargs)
-            span_name, span_attrs, metric_sql = db_ctx
+            span_name, span_attrs, tracker_fingerprint = db_ctx
 
             cursor = attempt(getattr, instance, "cursor", default=instance, _label="db.cursor")
             result, duration_ms = _emit_db_span(
                 span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor
             )
-            tracker_fingerprint = span_attrs.get("db.statement.full_fingerprint") or metric_sql
             attempt(record_request_db_query, tracker_fingerprint, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:

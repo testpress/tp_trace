@@ -553,9 +553,9 @@ def test_wide_model_distinct_queries_do_not_false_positive():
         # Simulate 15 different queries with distinct WHERE clauses
         for i in range(15):
             sql = f'{base_select} WHERE "app_model"."field_x_{i}" = 123'
-            _, span_attrs, _ = _build_db_span_context(sql, None)
-            fingerprint = span_attrs.get("db.statement.full_fingerprint")
-            record_request_db_query(fingerprint, 1.0)
+            _, span_attrs, tracker_fingerprint = _build_db_span_context(sql, None)
+            assert "db.statement.full_fingerprint" not in span_attrs
+            record_request_db_query(tracker_fingerprint, 1.0)
 
         stats = get_request_db_query_stats(threshold=15)
         # 15 distinct query patterns of count 1 -> should NOT detect N+1
