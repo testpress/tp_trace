@@ -185,9 +185,13 @@ services:
           - tempo
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.119.0
+    # Match the production role: individual-series expiry needs 0.153.0+.
+    image: otel/opentelemetry-collector-contrib:0.153.0
     container_name: tp-otel-collector
     restart: on-failure:5
+    environment:
+      GOMEMLIMIT: "380MiB"
+      GOGC: "80"
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
