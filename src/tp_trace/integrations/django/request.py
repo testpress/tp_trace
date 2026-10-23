@@ -808,7 +808,13 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
                 span, "repeated_query.omitted_candidate_count",
                 max(0, stats.candidate_count - len(candidates)),
             )
-            if stats.dominant_query:
+            if len(candidates) > 1:
+                parts = [
+                    f"-- [Pattern #{idx} ({c.count}x, {c.total_duration_ms:.1f}ms)]\n{c.fingerprint}"
+                    for idx, c in enumerate(candidates, 1)
+                ]
+                safe_set_attribute(span, "n_plus_one.dominant_query", "\n\n".join(parts))
+            elif stats.dominant_query:
                 safe_set_attribute(span, "n_plus_one.dominant_query", stats.dominant_query)
             safe_set_attribute(span, "n_plus_one.dominant_count", stats.dominant_count)
             safe_set_attribute(span, "n_plus_one.dominant_duration_ms", stats.dominant_duration_ms)

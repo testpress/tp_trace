@@ -509,3 +509,35 @@ def test_config_n_plus_one_parsing_and_defaults(monkeypatch):
     cfg_fallback = SDKConfig.from_env_and_kwargs()
     assert cfg_fallback.n_plus_one_duplicate_threshold == 15
     assert cfg_fallback.n_plus_one_max_fingerprints == 256
+
+
+def test_multiple_repeated_query_patterns_formatted_in_span():
+    """Verify multiple distinct repeated query shapes in one request are formatted clearly."""
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+
+    span_exporter = InMemorySpanExporter()
+    metric_reader = InMemoryMetricReader()
+
+    tp_trace.init(
+        project_name="test-proj",
+        cluster_name="test-cluster",
+        exporter=span_exporter,
+        export_batch=False,
+        sample_rate=1.0,
+        metric_readers=[metric_reader],
+        n_plus_one_duplicate_threshold=15,
+    )
+
+    handler = WSGIHandler()
+    rf = RequestFactory()
+    request = rf.get("/api/test/repeated-patterns/")
+    response = handler(request.environ, lambda s, h: None)
+    assert response.status_code == 200
+
+    spans = span_exporter.get_finished_spans()
+    root_span = next(s for s in spans if s.kind.name == "SERVER")
+    dominant_query = root_span.attributes.get("n_plus_one.dominant_query")
+    assert "-- [Pattern #1" in dominant_query
+    assert "-- [Pattern #2" in dominant_query
+    assert "candidate_" in dominant_query
