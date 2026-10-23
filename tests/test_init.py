@@ -384,24 +384,36 @@ def test_sanitize_sql_in_collapse_preserves_case_and_structure():
 def test_sanitize_sql_normalizes_search_path():
     """Verify SET search_path statements with dynamic schemas are collapsed to prevent cardinality explosion."""
     cases = [
-        ("SET search_path = kpnwvejtop,public", "SET search_path = ?"),
-        ("SET search_path = public", "SET search_path = ?"),
-        ("SET search_path TO tenant, public", "SET search_path = ?"),
-        ("SET search_path = \"tenant\", public", "SET search_path = ?"),
-        ("SET search_path = 'tenant', public", "SET search_path = ?"),
-        ("SET search_path=tenant,public", "SET search_path = ?"),
-        ("set search_path = tenant,public", "SET search_path = ?"),
-        ("SET SESSION search_path = tenant, public", "SET search_path = ?"),
-        ("SET LOCAL search_path = tenant, public", "SET search_path = ?"),
-        ("SET search_path = ?", "SET search_path = ?"),
-        ("SET search_path = tenant, public;", "SET search_path = ?;"),
-        ("SET search_path = tenant, public; SELECT 1", "SET search_path = ?; SELECT ?"),
-        ("/* comment */ SET search_path = tenant, public", "/* comment */ SET search_path = ?"),
+        ("SET search_path = kpnwvejtop,public", "SET search_path = ?", "SET search_path = ?"),
+        ("SET search_path = public", "SET search_path = ?", "SET search_path = ?"),
+        ("SET search_path TO tenant, public", "SET search_path = ?", "SET search_path = ?"),
+        ('SET search_path = "tenant", public', "SET search_path = ?", "SET search_path = ?"),
+        ("SET search_path = 'tenant', public", "SET search_path = ?", "SET search_path = ?"),
+        ('SET search_path = "foo;bar", public', "SET search_path = ?", "SET search_path = ?"),
+        (
+            'SET search_path = "foo;bar", public; SELECT 1',
+            "SET search_path = ?; SELECT ?",
+            "SET search_path = ?; SELECT ?",
+        ),
+        ("SET search_path=tenant,public", "SET search_path = ?", "SET search_path = ?"),
+        ("set search_path = tenant,public", "set search_path = ?", "set search_path = ?"),
+        (
+            "SET SESSION search_path = tenant, public",
+            "SET SESSION search_path = ?",
+            "SET SESSION search_path = ?",
+        ),
+        ("SET LOCAL search_path = tenant, public", "SET LOCAL search_path = ?", "SET LOCAL search_path = ?"),
+        ("SET search_path = ?", "SET search_path = ?", "SET search_path = ?"),
+        ("SET search_path = tenant, public;", "SET search_path = ?;", "SET search_path = ?;"),
+        (
+            "/* comment */ SET search_path = tenant, public",
+            "/* comment */ SET search_path = ?",
+            "SET search_path = ?",
+        ),
     ]
-    for raw, expected in cases:
-        assert sanitize_sql(raw) == expected
-        assert normalize_sql_for_metric(raw) == ("SET search_path = ?" if not raw.endswith(";") and "SELECT" not in raw else normalize_sql_for_metric(expected))
-
+    for raw, expected_sanitized, expected_metric in cases:
+        assert sanitize_sql(raw) == expected_sanitized
+        assert normalize_sql_for_metric(raw) == expected_metric
 
 
 class DummyTarget:
