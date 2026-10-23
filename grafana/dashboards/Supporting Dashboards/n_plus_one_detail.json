@@ -308,7 +308,7 @@
       },
       "id": 20,
       "options": {
-        "content": "<div class=\"code-box\">\n  <div class=\"code-box-header\">\n    <div class=\"code-box-title\">\n      <span class=\"code-icon\">\u26a1</span>\n      <span>Repeated SQL Statement</span>\n    </div>\n    <span class=\"code-badge\">SQL</span>\n  </div>\n  <pre class=\"code-box-body\"><code>{{query}}</code></pre>\n</div>",
+        "content": "{{#each data}}\n{{#if @first}}\n<div class=\"code-box\">\n  <div class=\"code-box-header\">\n    <div class=\"code-box-title\">\n      <span class=\"code-icon\">\u26a1</span>\n      <span>Repeated SQL Statement</span>\n    </div>\n    <span class=\"code-badge\">SQL</span>\n  </div>\n  <pre class=\"code-box-body\"><code>{{#if (lookup this \"query\")}}{{lookup this \"query\"}}{{else if (lookup this \"n_plus_one.dominant_query\")}}{{lookup this \"n_plus_one.dominant_query\"}}{{else}}{{json this}}{{/if}}</code></pre>\n</div>\n{{/if}}\n{{/each}}",
         "defaultContent": "<div class=\"code-empty\">\n  <span>No repeated query pattern captured in the selected time range.</span>\n</div>",
         "editor": {
           "format": "auto",
@@ -319,7 +319,7 @@
           "defaultContent",
           "styles"
         ],
-        "renderMode": "firstRow",
+        "renderMode": "allRows",
         "styles": ".code-box {\n  background: #0d1117;\n  border: 1px solid #30363d;\n  border-radius: 8px;\n  overflow: hidden;\n  font-family: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace;\n  margin: 0;\n  width: 100%;\n}\n.code-box-header {\n  background: #161b22;\n  border-bottom: 1px solid #30363d;\n  padding: 10px 16px;\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n}\n.code-box-title {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  font-size: 13px;\n  font-weight: 600;\n  color: #c9d1d9;\n}\n.code-icon {\n  font-size: 14px;\n}\n.code-badge {\n  background: rgba(56, 189, 248, 0.15);\n  color: #38bdf8;\n  font-size: 11px;\n  font-weight: 700;\n  padding: 2px 8px;\n  border-radius: 4px;\n  border: 1px solid rgba(56, 189, 248, 0.3);\n  letter-spacing: 0.05em;\n}\n.code-box-body {\n  padding: 18px 20px;\n  margin: 0;\n  font-size: 14px;\n  line-height: 1.65;\n  color: #79c0ff;\n  white-space: pre-wrap;\n  word-break: break-word;\n  background: transparent;\n  border: none;\n}\n.code-empty {\n  padding: 30px;\n  text-align: center;\n  color: #8b949e;\n  font-size: 14px;\n  border: 1px dashed #30363d;\n  border-radius: 8px;\n}",
         "wrap": true
       },
