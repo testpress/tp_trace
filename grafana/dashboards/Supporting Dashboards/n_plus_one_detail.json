@@ -13,54 +13,59 @@
       "includeVars": true,
       "keepTime": true,
       "targetBlank": false,
-      "title": "← Back to Needs Attention",
+      "title": "\u2190 Back to Needs Attention",
       "type": "link",
       "url": "/d/tp-trace-needs-attention?${project:queryparam}&${cluster:queryparam}&${__url_time_range}"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": true,
-      "targetBlank": true,
-      "title": "Open in Tempo Explore",
-      "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:100,%22query%22:%22%7B%20resource.project_name%20%3D~%20%5C%22${project:regex}%5C%22%20%26%26%20resource.cluster_name%20%3D~%20%5C%22${cluster:regex}%5C%22%20%26%26%20span.repeated_query.detected%20%3D%20true%20%26%26%20span.http.method%20%3D~%20%5C%22${method:regex}%5C%22%20%26%26%20span.http.route_template%20%3D%20%5C%22${route:raw}%5C%22%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
     }
   ],
   "panels": [
     {
-      "gridPos": {
-        "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "content": "<section class=\"n1-page\">\n  <div class=\"n1-heading\"><div><span class=\"n1-eyebrow\">Django performance advisory</span><h1>Repeated Queries <span class=\"n1-badge\">Potential N+1</span></h1></div><span class=\"n1-priority\">Info</span></div>\n  <div class=\"n1-scope\"><span><b>Project</b> <em id=\"n1-project\">—</em></span><span><b>Cluster</b> <em id=\"n1-cluster\">—</em></span><span><b>Service</b> django</span><span><b>Endpoint</b> <em id=\"n1-method\">—</em> <em id=\"n1-route\">—</em></span></div>\n  <p class=\"n1-explainer\">Affected request totals and affected-request rate are queried live from Prometheus in the table below. Select one project, cluster, method, and route to investigate a single endpoint. A sampled trace below is an example affected request; it does not account for every request in the metric total.</p>\n  <p class=\"n1-empty-note\">If no trace appears, no matching sampled trace is available in this time range. The affected-request metric remains valid. Query shapes and timings appear only in retained traces.</p>\n</section>",
-        "defaultContent": "<section class=\"n1-page\">\n  <div class=\"n1-heading\"><div><span class=\"n1-eyebrow\">Django performance advisory</span><h1>Repeated Queries <span class=\"n1-badge\">Potential N+1</span></h1></div><span class=\"n1-priority\">Info</span></div>\n  <div class=\"n1-scope\"><span><b>Project</b> <em id=\"n1-project\">—</em></span><span><b>Cluster</b> <em id=\"n1-cluster\">—</em></span><span><b>Service</b> django</span><span><b>Endpoint</b> <em id=\"n1-method\">—</em> <em id=\"n1-route\">—</em></span></div>\n  <p class=\"n1-explainer\">Affected request totals and affected-request rate are queried live from Prometheus in the table below. Select one project, cluster, method, and route to investigate a single endpoint. A sampled trace below is an example affected request; it does not account for every request in the metric total.</p>\n  <p class=\"n1-empty-note\">If no trace appears, no matching sampled trace is available in this time range. The affected-request metric remains valid. Query shapes and timings appear only in retained traces.</p>\n</section>",
-        "editor": {
-          "format": "auto",
-          "language": "html"
-        },
-        "editors": [
-          "content",
-          "defaultContent",
-          "afterRender",
-          "styles"
-        ],
-        "afterRender": "const root = context.element;\nif (root) {\n  for (const [id, name] of [['n1-project', 'project'], ['n1-cluster', 'cluster'], ['n1-method', 'method'], ['n1-route', 'route']]) {\n    const node = root.querySelector('#' + id);\n    if (node) node.textContent = context.grafana.replaceVariables('${' + name + '}') || '—';\n  }\n}",
-        "renderMode": "allRows",
-        "styles": ".n1-page{font-family:Inter,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;color:#e2e8f0;padding:12px 18px;background:#0f172a;border:1px solid #334155;border-radius:8px}.n1-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.n1-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8}.n1-heading h1{font-size:22px;margin:4px 0 12px;color:#f8fafc}.n1-badge,.n1-priority{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:4px 8px;background:#0c4a6e;color:#7dd3fc;vertical-align:middle}.n1-priority{background:#164e63}.n1-scope{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}.n1-scope span{background:#1e293b;border:1px solid #334155;border-radius:5px;padding:6px 9px;font-size:12px}.n1-scope b{color:#94a3b8;margin-right:6px}.n1-scope em{font-style:normal;color:#f8fafc}.n1-explainer,.n1-empty-note{font-size:12px;line-height:1.5;margin:5px 0;color:#cbd5e1}.n1-empty-note{color:#94a3b8}",
-        "wrap": true
-      },
-      "title": "Repeated Queries · Endpoint Context",
-      "type": "marcusolsson-dynamictext-panel",
       "datasource": {
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
+      "description": "Total server requests on this endpoint in the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": {
@@ -68,57 +73,66 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(increase(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]))",
-          "format": "table",
+          "expr": "sum(increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A"
         }
-      ]
+      ],
+      "title": "Total Requests",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "One row per project, cluster, HTTP method, and normalized route. Affected requests are independent of trace sampling. Rate uses all SDK-observed requests for the same endpoint.",
+      "description": "Requests triggering repeated query anomaly threshold in the selected time range.",
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "filterable": true
+          "color": {
+            "mode": "palette-classic"
           },
-          "noValue": "-"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Affected Request Rate %"
-            },
-            "properties": [
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "unit",
-                "value": "percent"
+                "color": "green",
+                "value": null
               },
               {
-                "id": "decimals",
-                "value": 2
+                "color": "red",
+                "value": 1
               }
             ]
-          }
-        ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 6
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
       },
-      "id": 2,
+      "id": 11,
       "options": {
-        "showHeader": true
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
       },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": {
@@ -126,217 +140,241 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((sum by (project_name, cluster_name, http_method, http_route) (increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range])) or on (project_name, cluster_name, http_method, http_route) (0 * sum by (project_name, cluster_name, http_method, http_route) (increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])))), \"n_plus_one_operation\", \" \", \"project_name\", \"cluster_name\", \"http_method\", \"http_route\")",
-          "format": "table",
+          "expr": "sum(increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range])) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A"
+        }
+      ],
+      "title": "Affected Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Percentage of requests on this endpoint affected by repeated queries.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#eab308",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          },
+          "unit": "percent"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join(100 * (sum by (project_name, cluster_name, http_method, http_route) (increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range])) or on (project_name, cluster_name, http_method, http_route) (0 * sum by (project_name, cluster_name, http_method, http_route) (increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])))) / clamp_min(sum by (project_name, cluster_name, http_method, http_route) (increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1), \"n_plus_one_operation\", \" \", \"project_name\", \"cluster_name\", \"http_method\", \"http_route\")",
-          "format": "table",
+          "expr": "100 * (sum(increase(apm_repeated_query_affected_requests_total{instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range])) or vector(0)) / clamp_min(sum(increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1)",
           "instant": true,
           "range": false,
-          "refId": "B",
-          "legendFormat": "Affected Request Rate %"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "label_join(sum by (project_name, cluster_name, http_method, http_route) (increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])), \"n_plus_one_operation\", \" \", \"project_name\", \"cluster_name\", \"http_method\", \"http_route\")",
-          "format": "table",
-          "instant": true,
-          "range": false,
-          "refId": "C"
+          "refId": "A"
         }
       ],
-      "title": "Endpoint Impact · Selected Time Range",
-      "transformations": [
-        {
-          "id": "joinByField",
-          "options": {
-            "byField": "n_plus_one_operation",
-            "mode": "outer"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Time 1": true,
-              "Time 2": true,
-              "n_plus_one_operation": true
-            },
-            "indexByName": {
-              "project_name": 0,
-              "cluster_name": 1,
-              "http_method": 2,
-              "http_route": 3,
-              "Value #A": 4,
-              "Value #C": 5,
-              "Value #B": 6
-            },
-            "renameByName": {
-              "project_name": "Project",
-              "cluster_name": "Cluster",
-              "http_method": "Method",
-              "http_route": "Route",
-              "Value #A": "Affected Requests",
-              "Value #C": "Total Requests",
-              "Value #B": "Affected Request Rate %"
-            }
-          }
-        }
-      ],
-      "type": "table"
+      "title": "Affected Rate",
+      "type": "stat"
     },
     {
       "datasource": {
         "type": "tempo",
         "uid": "tempo"
       },
-      "description": "Each row is an example sampled affected request, not the source of the aggregated metric. Candidate query/count/cumulative-time/average-time arrays share an index and are sorted by count, then cumulative time; at most five candidates are retained. Omitted candidate count and tracker overflow disclose incomplete evidence. Open the trace ID for the full waterfall. If this table is empty, no matching sampled trace is available in the selected range.",
+      "description": "Maximum number of times the duplicate query ran in a single request.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "limit": 20,
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count)",
+          "queryType": "traceql",
+          "refId": "A",
+          "tableType": "spans"
+        }
+      ],
+      "title": "Query Runs / Req",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "description": "The exact parameterized SQL statement that was executed in a repeated loop during the request.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "align": "auto",
-            "filterable": true
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": true
           },
-          "noValue": "—"
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": [
           {
             "matcher": {
-              "id": "byRegexp",
-              "options": "/^(TraceID|traceID|traceId|Trace ID.*)$/"
+              "id": "byName",
+              "options": "Duplicated SQL Query"
             },
             "properties": [
               {
-                "id": "displayName",
-                "value": "Trace ID (full waterfall)"
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "code"
+                }
               },
               {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Open trace in Explore",
-                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
-                    "targetBlank": true
-                  }
-                ]
+                "id": "custom.wrapText",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 850
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "span.http.request.duration_ms"
+              "options": "Executions"
             },
             "properties": [
               {
-                "id": "displayName",
-                "value": "Request duration (ms)"
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "DB Time (ms)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
               },
               {
                 "id": "unit",
                 "value": "ms"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.db.query_count"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "DB calls in request"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.repeated_query.candidate_queries"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Repeated query shapes (1–5)"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.repeated_query.candidate_counts"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Calls per shape (same order)"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.repeated_query.candidate_duration_ms"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Cumulative ms per shape (same order)"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.repeated_query.candidate_avg_duration_ms"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Average ms per shape (same order)"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.repeated_query.omitted_candidate_count"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Additional shapes omitted"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.n_plus_one.request_impact_pct"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Representative share of request %"
-              },
-              {
-                "id": "unit",
-                "value": "percent"
               },
               {
                 "id": "decimals",
@@ -347,24 +385,20 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "span.n_plus_one.severity"
+              "options": "Impact %"
             },
             "properties": [
               {
-                "id": "displayName",
-                "value": "Example request priority"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span.n_plus_one.tracker_overflowed"
-            },
-            "properties": [
+                "id": "custom.width",
+                "value": 110
+              },
               {
-                "id": "displayName",
-                "value": "Tracker overflowed"
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
               }
             ]
           }
@@ -374,26 +408,69 @@
         "h": 16,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 4
       },
-      "id": 3,
+      "id": 20,
       "options": {
+        "cellHeight": "sm",
+        "enablePagination": true,
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
         "showHeader": true
       },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": {
             "type": "tempo",
             "uid": "tempo"
           },
-          "limit": 100,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.repeated_query.candidate_queries, span.repeated_query.candidate_counts, span.repeated_query.candidate_duration_ms, span.repeated_query.candidate_avg_duration_ms, span.repeated_query.omitted_candidate_count, span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.n_plus_one.dominant_duration_ms, span.n_plus_one.dominant_avg_duration_ms, span.n_plus_one.request_impact_pct, span.n_plus_one.severity, span.n_plus_one.tracker_overflowed, span.db.query_count, span.http.request.duration_ms)",
+          "limit": 20,
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count, span.n_plus_one.dominant_duration_ms, span.n_plus_one.request_impact_pct, span.n_plus_one.dominant_query)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
         }
       ],
-      "title": "Example Affected Traces · Sampled Evidence",
+      "title": "Duplicated SQL Query",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Duration": true,
+              "Span ID": true,
+              "Start time": true,
+              "Trace ID": true,
+              "Trace Name": true,
+              "Trace Service": true,
+              "cluster_name": true,
+              "http.method": true,
+              "http.route_template": true,
+              "repeated_query.detected": true,
+              "traceID": true
+            },
+            "indexByName": {
+              "n_plus_one.dominant_count": 0,
+              "n_plus_one.dominant_duration_ms": 1,
+              "n_plus_one.request_impact_pct": 2,
+              "n_plus_one.dominant_query": 3
+            },
+            "renameByName": {
+              "n_plus_one.dominant_count": "Executions",
+              "n_plus_one.dominant_duration_ms": "DB Time (ms)",
+              "n_plus_one.dominant_query": "Duplicated SQL Query",
+              "n_plus_one.request_impact_pct": "Impact %"
+            }
+          }
+        }
+      ],
       "type": "table"
     }
   ],
@@ -546,14 +623,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=~\"${route:regex}\"}, http_method)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
         "hide": 0,
         "includeAll": true,
         "label": "Method",
         "multi": false,
         "name": "method",
         "options": [],
-        "query": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=~\"${route:regex}\"}, http_method)",
+        "query": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -580,7 +657,7 @@
     "auto_interval": "5s"
   },
   "timezone": "browser",
-  "title": "Repeated Query Pattern (Potential N+1) — Issue Detail",
+  "title": "Repeated Query Pattern (Potential N+1) \u2014 Issue Detail",
   "uid": "n-plus-one-detail",
   "version": 2
 }

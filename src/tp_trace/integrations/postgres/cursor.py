@@ -240,7 +240,8 @@ def tp_trace_django_db_execute_wrapper(
             result, duration_ms = _emit_db_span(
                 span_name, span_attrs, lambda: execute(sql, params, many, context), cursor
             )
-            attempt(record_request_db_query, metric_sql, duration_ms, _label="n_plus_one_record")
+            full_statement = span_attrs.get("db.statement.full") or metric_sql
+            attempt(record_request_db_query, full_statement, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:
         # Never retry: a failing statement has already been sent to the server and
@@ -279,7 +280,8 @@ def traced_django_cursor_exec(
             result, duration_ms = _emit_db_span(
                 span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor
             )
-            attempt(record_request_db_query, metric_sql, duration_ms, _label="n_plus_one_record")
+            full_statement = span_attrs.get("db.statement.full") or metric_sql
+            attempt(record_request_db_query, full_statement, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:
         # Never retry: the statement has already been executed, and re-running it

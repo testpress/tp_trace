@@ -24,52 +24,38 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
 
     assert prometheus
     assert tempo
-    trace_query = tempo[0]["query"]
+    # Check trace query in main panel
+    query_panel = next(p for p in dashboard["panels"] if p.get("title") == "Duplicated SQL Query")
+    trace_query = query_panel["targets"][0]["query"]
     for predicate in (
-        'resource.project_name =~ "${project:regex}"', 'resource.cluster_name =~ "${cluster:regex}"', "span.repeated_query.detected = true",
-        'span.http.method =~ "${method:regex}"', 'span.http.route_template = "${route:raw}"', "span.n_plus_one.dominant_query",
-        "span.n_plus_one.dominant_count", "span.n_plus_one.dominant_duration_ms",
-        "span.repeated_query.candidate_queries", "span.repeated_query.candidate_counts",
-        "span.repeated_query.candidate_duration_ms", "span.repeated_query.candidate_avg_duration_ms",
-        "span.repeated_query.omitted_candidate_count", "span.n_plus_one.severity",
-        "span.n_plus_one.tracker_overflowed", "span.db.query_count",
-        "span.http.request.duration_ms",
+        'resource.project_name =~ "${project:regex}"',
+        'resource.cluster_name =~ "${cluster:regex}"',
+        "span.repeated_query.detected = true",
+        'span.http.method =~ "${method:regex}"',
+        'span.http.route_template = "${route:raw}"',
+        "span.n_plus_one.dominant_query",
+        "span.n_plus_one.dominant_count",
     ):
         assert predicate in trace_query
     assert "${method:regex}" in prometheus[0]["expr"]
     assert "${route:raw}" in prometheus[0]["expr"]
-    # Grafana's regex formatter escapes route slashes as \/; PromQL rejects
+    # Grafana regex formatter escapes route slashes as \/; PromQL rejects
     # that escape inside a quoted matcher.
     assert all('http_route="${route:raw}"' in t["expr"] for t in prometheus)
     assert all('${route:regex}' not in t["expr"] for t in prometheus)
-    assert "Example Affected Traces" in next(p["title"] for p, _ in targets if p.get("title", "").startswith("Example Affected Traces"))
-    detail_panel = dashboard["panels"][0]
-    content = detail_panel["options"]["content"]
-    assert "Affected request totals and affected-request rate are queried live" in content
-    assert "m-affected-requests" not in content
-    assert "Fetching query fingerprint" not in content
-    assert "Searching Tempo" not in content
-    assert "span.http.request.duration_ms" in trace_query
-    assert "trace:duration" not in trace_query
-    explore = next(link["url"] for link in dashboard["links"] if link["title"] == "Open in Tempo Explore")
-    for variable in ("project", "cluster", "method"):
-        assert f"${{{variable}:regex}}" in explore
-        assert f"%5C%22${{{variable}:regex}}%5C%22" in explore
-    assert "${route:raw}" in explore
-    assert "span.http.route_template%20%3D%20" in explore
-    assert 'doublequote' not in explore
-    assert "span.repeated_query.detected%20%3D%20true" in explore
-    trace_panel = next(p for p, t in targets if t.get("queryType") == "traceql")
-    assert "arrays share an index" in trace_panel["description"]
-    trace_links = [prop["value"] for override in trace_panel["fieldConfig"]["overrides"]
-                   for prop in override["properties"] if prop["id"] == "links"]
-    assert trace_links and "${__value.raw}" in trace_links[0][0]["url"]
-    metric_panel = dashboard["panels"][1]
-    assert metric_panel["transformations"][0]["options"]["byField"] == "n_plus_one_operation"
-    assert metric_panel["fieldConfig"]["overrides"][0]["matcher"]["options"] == "Affected Request Rate %"
-    rate_query = next(t["expr"] for t in metric_panel["targets"] if t["refId"] == "B")
+
+    # Ensure code styling is configured on the SQL query column
+    overrides = query_panel["fieldConfig"]["overrides"]
+    sql_override = next(o for o in overrides if o["matcher"]["options"] == "Duplicated SQL Query")
+    cell_options = next(p["value"] for p in sql_override["properties"] if p["id"] == "custom.cellOptions")
+    assert cell_options == {"type": "code"}
+
+    # Ensure rate query calculates percentage safely
+    rate_panel = next(p for p in dashboard["panels"] if p.get("title") == "Affected Rate")
+    rate_query = rate_panel["targets"][0]["expr"]
     assert 'calls_total{metric_source="tp_trace_sdk"' in rate_query
     assert "apm_calls_total" not in rate_query
+    assert "100 *" in rate_query
 
 
 def test_operational_issue_link_passes_method_and_route_separately():
