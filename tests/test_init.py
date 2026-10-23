@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import tp_trace
 from tp_trace.config import SDKConfig
-from tp_trace.sanitize import sanitize_sql, sanitize_url
+from tp_trace.sanitize import normalize_sql_for_metric, sanitize_sql, sanitize_url
 
 
 @pytest.fixture(autouse=True)
@@ -379,6 +379,29 @@ def test_sanitize_sql_in_collapse_preserves_case_and_structure():
     # A string literal containing "IN (1, 2)" is redacted before list collapsing,
     # so it must not be rewritten.
     assert sanitize_sql("SELECT * FROM t WHERE note = 'keep IN (1, 2) here'") == ("SELECT * FROM t WHERE note = ?")
+
+
+def test_sanitize_sql_normalizes_search_path():
+    """Verify SET search_path statements with dynamic schemas are collapsed to prevent cardinality explosion."""
+    cases = [
+        ("SET search_path = kpnwvejtop,public", "SET search_path = ?"),
+        ("SET search_path = public", "SET search_path = ?"),
+        ("SET search_path TO tenant, public", "SET search_path = ?"),
+        ("SET search_path = \"tenant\", public", "SET search_path = ?"),
+        ("SET search_path = 'tenant', public", "SET search_path = ?"),
+        ("SET search_path=tenant,public", "SET search_path = ?"),
+        ("set search_path = tenant,public", "SET search_path = ?"),
+        ("SET SESSION search_path = tenant, public", "SET search_path = ?"),
+        ("SET LOCAL search_path = tenant, public", "SET search_path = ?"),
+        ("SET search_path = ?", "SET search_path = ?"),
+        ("SET search_path = tenant, public;", "SET search_path = ?;"),
+        ("SET search_path = tenant, public; SELECT 1", "SET search_path = ?; SELECT ?"),
+        ("/* comment */ SET search_path = tenant, public", "/* comment */ SET search_path = ?"),
+    ]
+    for raw, expected in cases:
+        assert sanitize_sql(raw) == expected
+        assert normalize_sql_for_metric(raw) == ("SET search_path = ?" if not raw.endswith(";") and "SELECT" not in raw else normalize_sql_for_metric(expected))
+
 
 
 class DummyTarget:
