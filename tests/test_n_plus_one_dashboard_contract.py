@@ -116,3 +116,13 @@ def test_service_catalog_django_queries_use_server_span_kind():
                 "span_kind!='SPAN_KIND_INTERNAL' which aggregates internal spans."
             )
 
+
+def test_dashboard_links_use_queryparam_not_raw_for_project():
+    """Ensure dashboard links pass ${project:queryparam} instead of ${project:raw}."""
+    for p in DASHBOARDS.rglob("*.json"):
+        content = p.read_text()
+        assert "var-project=${project:raw}" not in content, (
+            f"{p.name} contains 'var-project=${{project:raw}}' which breaks 'All' selection."
+        )
+
+

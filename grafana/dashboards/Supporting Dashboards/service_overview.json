@@ -485,7 +485,7 @@
           "links": [
             {
               "title": "🔍 Inspect Error Traces for ${service}",
-              "url": "/d/generic-service-errors?var-service=${service:raw}&var-project=${project:raw}&${__url_time_range}",
+              "url": "/d/generic-service-errors?var-service=${service}&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}",
               "targetBlank": true
             }
           ],
