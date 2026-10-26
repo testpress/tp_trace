@@ -12,7 +12,7 @@ from typing import FrozenSet, Iterable, NamedTuple, Optional
 class CeleryCreationMeta(NamedTuple):
     action: str  # "apply_async" or "run"
     bounded_operation: str  # "celery.apply_async.<admitted_name or unknown>"
-    span_name: str  # "🟣 celery.apply_async" or "🟣 celery.run"
+    span_name: str  # "🟣 <task_name>.apply_async" or "🟣 <task_name>.run" (fallback generic)
 
 
 _CURRENT_CELERY_CREATION_META: contextvars.ContextVar[Optional[CeleryCreationMeta]] = contextvars.ContextVar(
