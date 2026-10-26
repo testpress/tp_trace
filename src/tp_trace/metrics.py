@@ -106,10 +106,13 @@ class RedMetricsRecorder:
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
+            import socket
+
+            default_identity = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or f"{socket.gethostname()}:{os.getpid()}"
             resolved_worker_id = (
                 str(extra_attributes["worker_id"])
                 if extra_attributes and extra_attributes.get("worker_id") is not None
-                else str(os.getpid())
+                else default_identity
             )
 
             attributes: Dict[str, Any] = {
@@ -125,6 +128,7 @@ class RedMetricsRecorder:
                 "error": error_str,
                 "metric_source": "tp_trace_sdk",
                 "worker_id": resolved_worker_id,
+                "service.instance.id": resolved_worker_id,
             }
 
             if extra_attributes:

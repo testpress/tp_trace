@@ -5,6 +5,8 @@ for 100% of requests regardless of trace sampling rates (1.0, 0.1, 0.01, 0.0),
 including exceptions, early responses, and that metric failures never break requests.
 """
 
+import os
+import socket
 import pytest
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -152,6 +154,32 @@ def test_red_metrics_attribute_contract():
     assert attrs["span_kind"] == "SPAN_KIND_SERVER"
     assert attrs["error"] == "false"
     assert "worker_id" in attrs
+    assert "service.instance.id" in attrs
+
+    assert f":{os.getpid()}" in attrs["worker_id"]
+    assert socket.gethostname() in attrs["worker_id"]
+
+
+def test_production_worker_identity_contains_hostname_and_pid():
+    """Verify production default worker identity includes hostname and pid without artificial override."""
+
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="prod-identity-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    handler = WSGIHandler()
+    rf = RequestFactory()
+    req = rf.get("/api/test/ok/")
+    handler.get_response(req)
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1
+    attrs = calls_points[0].attributes
+    expected_identity = f"{socket.gethostname()}:{os.getpid()}"
+    assert attrs["worker_id"] == expected_identity
+    assert attrs["service.instance.id"] == expected_identity
 
 
 def test_multiworker_independent_streams():
