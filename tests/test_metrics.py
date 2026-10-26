@@ -304,6 +304,7 @@ def test_default_init_creates_otlp_metric_reader():
         project_name="otlp-export-test",
         endpoint="http://collector.local:4318",
         export_batch=False,
+        metric_readers=None,
     )
     recorder = get_metrics_recorder()
     assert recorder is not None
@@ -318,7 +319,6 @@ def test_default_init_creates_otlp_metric_reader():
     assert isinstance(reader._exporter, SafeMetricExporter)
     assert reader._exporter._endpoint == "http://collector.local:4318/v1/metrics"
     assert reader._export_interval_millis == 60000
-
 
 def test_metrics_disabled_flag():
     """Verify metrics_enabled=False prevents creating metric readers."""

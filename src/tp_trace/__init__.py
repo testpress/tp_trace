@@ -335,8 +335,11 @@ def _reset_for_testing() -> None:
             except Exception:
                 pass
         try:
-            from tp_trace.metrics import set_metrics_recorder
+            from tp_trace.metrics import get_metrics_recorder, set_metrics_recorder
 
+            rec = get_metrics_recorder()
+            if rec is not None:
+                rec.shutdown()
             set_metrics_recorder(None)
         except Exception:
             pass

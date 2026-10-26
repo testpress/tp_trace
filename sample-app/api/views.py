@@ -838,3 +838,35 @@ class CeleryPublishView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class RepeatedQueriesView(APIView):
+    """Demonstrates N+1 repeated query pattern for APM detection.
+
+    Executes repeated individual database queries in a loop to trigger the
+    'Repeated Queries' (potential N+1) anomaly detector when count >= 15.
+    """
+
+    def get(self, request):
+        try:
+            count = max(1, min(100, int(request.GET.get("count", "20"))))
+        except (ValueError, TypeError):
+            count = 20
+
+        # Simulate classic N+1 ORM lookup by querying products individually in a loop
+        results = []
+        for i in range(count):
+            prod = Product.objects.filter(id=(i % 10) + 1).first()
+            if prod:
+                results.append(prod.name)
+
+        return Response(
+            {
+                "status": "ok",
+                "queries_executed": count,
+                "threshold": 15,
+                "repeated_query_detected": count >= 15,
+                "items_returned": len(results),
+            },
+            status=status.HTTP_200_OK,
+        )

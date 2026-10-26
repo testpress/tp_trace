@@ -985,6 +985,56 @@
                 "value": 1
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #G"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "N+1 Anomalies"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#38bdf8",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #H"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Affected Request Rate %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#38bdf8",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
@@ -1099,6 +1149,34 @@
           "range": false,
           "refId": "F",
           "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "label_join(sum by (http_route, http_method) (increase(apm_repeated_query_affected_requests_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\"}[$__range])) > 0, \"normalized_operation\", \" \", \"http_method\", \"http_route\")",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Affected Requests",
+          "range": false,
+          "refId": "G",
+          "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "label_join(100 * sum by (http_route, http_method) (increase(apm_repeated_query_affected_requests_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\"}[$__range])) / clamp_min(sum by (http_route, http_method) (increase(calls_total{metric_source=\"tp_trace_sdk\", instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1), \"normalized_operation\", \" \", \"http_method\", \"http_route\")",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "Affected Request Rate %",
+          "range": false,
+          "refId": "H",
+          "exemplar": false
         }
       ],
       "title": "Operations Summary",
@@ -1120,7 +1198,8 @@
               "Time 3": true,
               "Time 4": true,
               "Time 5": true,
-              "Time 6": true
+              "Time 6": true,
+              "Time 7": true
             },
             "indexByName": {
               "normalized_operation": 0,
@@ -1136,7 +1215,10 @@
               "Value #E": 5,
               "P95 Latency": 5,
               "Value #F": 6,
-              "P99 Latency": 6
+              "P99 Latency": 6,
+              "Value #G": 7,
+              "N+1 Anomalies": 7,
+              "Value #H": 8
             },
             "renameByName": {
               "normalized_operation": "Operation",
@@ -1145,7 +1227,9 @@
               "Value #C": "Error Rate %",
               "Value #D": "P50 Latency",
               "Value #E": "P95 Latency",
-              "Value #F": "P99 Latency"
+              "Value #F": "P99 Latency",
+              "Value #G": "N+1 Anomalies",
+              "Value #H": "Affected Request Rate %"
             }
           }
         },
