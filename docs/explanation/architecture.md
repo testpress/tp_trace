@@ -2,7 +2,7 @@
 
 `tp_trace` observes work inside application processes. It creates spans and native metrics as a Django request passes through application code and supported dependencies, and as background jobs are published and executed across asynchronous process boundaries such as Celery workers.
 
-The stack uses a hybrid telemetry architecture balancing 100% metric fidelity for user-facing SLOs with minimal runtime overhead:
+The stack uses a hybrid telemetry architecture that keeps user-facing request metrics independent of trace sampling while limiting runtime overhead:
 
 | Signal | Source | Pipeline & Storage | Sampling Behavior |
 |---|---|---|---|

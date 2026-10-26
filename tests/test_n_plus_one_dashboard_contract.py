@@ -117,6 +117,29 @@ def test_service_catalog_django_queries_use_server_span_kind():
             )
 
 
+def test_service_overview_keeps_native_and_connector_streams_disjoint():
+    """Native Django totals must not overlap sampled server-span metrics."""
+    dashboard = _load("Supporting Dashboards/service_overview.json")
+    panel = next(p for p in dashboard["panels"] if p.get("title") == "Requests and Errors")
+    targets = {target["refId"]: target["expr"] for target in panel["targets"]}
+
+    assert 'error="true"' in targets["B"]
+    for expr in targets.values():
+        assert 'span_kind!~"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER"' in expr
+
+
+def test_service_overview_error_rate_selects_whole_metric_source():
+    """Error numerator and denominator must use the same metric source."""
+    dashboard = _load("Supporting Dashboards/service_overview.json")
+    panel = next(p for p in dashboard["panels"] if p.get("title") == "Error Rate Over Time")
+    expr = panel["targets"][0]["expr"]
+
+    assert 'rate(calls_total{' in expr
+    assert 'rate(apm_calls_total{' in expr
+    assert 'span_kind!~"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER"' in expr
+    assert expr.count('error="true"') == 2
+
+
 def test_dashboard_links_use_queryparam_not_raw_for_project():
     """Ensure dashboard links pass ${project:queryparam} instead of ${project:raw}."""
     for p in DASHBOARDS.rglob("*.json"):

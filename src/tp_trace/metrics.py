@@ -1,11 +1,13 @@
 """Independent RED Metrics recorder for tp_trace.
 
-Decouples request throughput (calls_total), error rates, and duration histograms
-from trace sampling, guaranteeing 100% metric fidelity even when traces are sampled down.
+Decouples request throughput, error rates, and duration histograms from trace
+sampling. Delivery still depends on successful SDK and Collector export.
 """
 
 import logging
 import os
+import socket
+import uuid
 from typing import Any, Dict, List, Optional
 
 from opentelemetry.metrics import Counter, Histogram
@@ -17,6 +19,28 @@ from opentelemetry.sdk.resources import Resource
 from tp_trace.config import SDKConfig
 
 logger = logging.getLogger("tp_trace.metrics")
+
+_PROCESS_PID = os.getpid()
+_PROCESS_UUID = uuid.uuid4().hex
+_HOSTNAME = socket.gethostname()
+
+
+def get_process_worker_identity() -> str:
+    """Return a globally unique, fork-safe process identity.
+
+    Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured), PID,
+    and a random process UUID that refreshes automatically if os.getpid() changes
+    after an os.fork(). Never overridden by request tags or shared container
+    environment variables across processes.
+    """
+    global _PROCESS_PID, _PROCESS_UUID
+    current_pid = os.getpid()
+    if current_pid != _PROCESS_PID:
+        _PROCESS_PID = current_pid
+        _PROCESS_UUID = uuid.uuid4().hex[:12]
+    prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
+    return f"{prefix}:{_PROCESS_PID}:{_PROCESS_UUID}"
+
 
 # Explicit bucket boundaries in milliseconds, exactly matching the OTel Collector
 # spanmetrics configuration for backwards compatibility with Grafana APM dashboards.
@@ -106,14 +130,7 @@ class RedMetricsRecorder:
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
-            import socket
-
-            default_identity = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or f"{socket.gethostname()}:{os.getpid()}"
-            resolved_worker_id = (
-                str(extra_attributes["worker_id"])
-                if extra_attributes and extra_attributes.get("worker_id") is not None
-                else default_identity
-            )
+            worker_id = get_process_worker_identity()
 
             attributes: Dict[str, Any] = {
                 "project_name": str(resolved_project),
@@ -127,8 +144,8 @@ class RedMetricsRecorder:
                 "span_kind": "SPAN_KIND_SERVER",
                 "error": error_str,
                 "metric_source": "tp_trace_sdk",
-                "worker_id": resolved_worker_id,
-                "service.instance.id": resolved_worker_id,
+                "worker_id": worker_id,
+                "service.instance.id": worker_id,
             }
 
             if extra_attributes:
