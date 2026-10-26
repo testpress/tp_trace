@@ -103,3 +103,16 @@ def test_n_plus_one_targets_use_primary_metric_and_service_overview_has_rate():
     assert 'calls_total{metric_source="tp_trace_sdk"' in rate_targets[0]["expr"]
     assert "apm_calls_total" not in rate_targets[0]["expr"]
     assert "100 *" in rate_targets[0]["expr"]
+
+
+def test_service_catalog_django_queries_use_server_span_kind():
+    """Ensure Django targets in service_catalog.json do not match internal spans."""
+    dashboard = _load("service_catalog.json")
+    for panel, target in _all_targets(dashboard):
+        expr = target.get("expr", "")
+        if 'normalized_service="django"' in expr:
+            assert 'span_kind!="SPAN_KIND_INTERNAL"' not in expr, (
+                f"Panel '{panel.get('title')}' target '{target.get('refId')}' uses "
+                "span_kind!='SPAN_KIND_INTERNAL' which aggregates internal spans."
+            )
+
