@@ -2,7 +2,8 @@ extensions:
   health_check:
     endpoint: 0.0.0.0:13133
 
-# Local development values matching the production Ansible-managed Collector template.
+# Span-metric semantics match production. Bindings, memory/batch budgets, and
+# exporter retry/queue tuning intentionally remain local development values.
 receivers:
   otlp:
     protocols:
@@ -38,12 +39,32 @@ processors:
       - key: worker_id
         action: delete
 
+  # Remove SDK provenance only before deriving span metrics, retaining it in
+  # Tempo traces and native SDK metrics. Keep collector.instance.id for writers.
+  resource/spanmetrics_drop_sdk:
+    attributes:
+      - key: telemetry.sdk.version
+        action: delete
+      - key: telemetry.sdk.language
+        action: delete
+      - key: telemetry.sdk.name
+        action: delete
+
   transform/drop_metric_worker_id:
     error_mode: ignore
     metric_statements:
       - context: datapoint
         statements:
           - delete_key(attributes, "worker_id")
+
+  # Django INTERNAL spans (middleware, views, templates) inherit http.route, so
+  # they multiply the span metrics by every route. No dashboard reads them, so
+  # they are only exported as traces. Mirrors the production role default.
+  filter/spanmetrics_drop_internal:
+    error_mode: ignore
+    traces:
+      span:
+        - kind == SPAN_KIND_INTERNAL
 
   transform/spanmetrics_route:
     error_mode: ignore
@@ -52,6 +73,7 @@ processors:
         statements:
           - set(attributes["http.route"], attributes["http.route_template"]) where attributes["http.route_template"] != nil
           - set(attributes["http.route"], attributes["django.route"]) where attributes["http.route_template"] == nil and attributes["django.route"] != nil
+          - set(attributes["http.route"], "__unmatched__") where attributes["http.route_template"] == nil and attributes["django.route"] == nil and attributes["http.route"] != nil
 
   transform/spanmetrics_sanitize:
     error_mode: ignore
@@ -73,8 +95,9 @@ processors:
 connectors:
   spanmetrics:
     namespace: apm
-    metrics_flush_interval: 5s
+    metrics_flush_interval: 15s
     histogram:
+      unit: ms
       explicit:
         buckets:
           - 5ms
@@ -108,7 +131,14 @@ connectors:
         default: ""
     exclude_dimensions:
       - span.name
-    dimensions_cache_size: 1000
+    # Stop exporting a resource's metrics once it stops sending spans, e.g. the
+    # previous service.version after a deploy. Without this the connector keeps
+    # every series it has ever seen for the lifetime of the process.
+    metrics_expiration: 5m
+    series_expiration: 5m
+    # Bound combinations per resource aggregation; histograms produce multiple
+    # Prometheus series per combination. Overflow loses dimension detail.
+    aggregation_cardinality_limit: 5000
 
 exporters:
   otlp/tempo:
@@ -129,6 +159,17 @@ exporters:
   prometheusremotewrite:
     endpoint: http://prometheus:9090/api/v1/write
     timeout: 30s
+    # Span metrics are cumulative snapshots, so a newer flush supersedes an older
+    # one. Keep the retry window and queue short so an unreachable Prometheus
+    # cannot pin snapshots in memory.
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 60s
+    remote_write_queue:
+      enabled: true
+      queue_size: 2000
     resource_to_telemetry_conversion:
       enabled: true
     external_labels:
@@ -165,6 +206,8 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
+        - resource/spanmetrics_drop_sdk
+        - filter/spanmetrics_drop_internal
         - transform/spanmetrics_route
         - transform/spanmetrics_sanitize
         - batch
@@ -195,4 +238,11 @@ service:
     logs:
       level: info
     metrics:
-      address: 0.0.0.0:8888
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+                without_type_suffix: false
+                without_units: false
