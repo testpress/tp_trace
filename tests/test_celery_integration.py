@@ -240,7 +240,7 @@ def test_task_execution_topology_and_success(test_celery_app, memory_exporter):
     assert len(spans) == 3
 
     server = next(s for s in spans if s.name == "django.request")
-    producer = next(s for s in spans if s.name == "🟣 celery.apply_async")
+    producer = next(s for s in spans if s.name == "🟣 sample.tasks.add.apply_async")
     consumer = next(s for s in spans if s.name == "🟣 celery.run")
 
     # Trace ID propagation & topology
@@ -287,7 +287,7 @@ def test_celery_trigger_view_absent_when_no_active_view(test_celery_app, memory_
     add.delay(5, 5)
 
     spans = memory_exporter.get_finished_spans()
-    producer = next((s for s in spans if s.name == "🟣 celery.apply_async"), None)
+    producer = next((s for s in spans if s.name == "🟣 sample.tasks.add.apply_async"), None)
     consumer = next((s for s in spans if s.name == "🟣 celery.run"), None)
 
     if producer:
@@ -434,12 +434,31 @@ def test_unknown_task_producer_naming(test_celery_app, memory_exporter):
     test_celery_app.send_task("sample.tasks.unregistered_anonymous", args=(1,))
 
     spans = memory_exporter.get_finished_spans()
-    producer = next(s for s in spans if s.name == "🟣 celery.apply_async")
+    producer = next(s for s in spans if s.name == "🟣 sample.tasks.unregistered_anonymous.apply_async")
 
     assert producer.attributes.get("normalized.service") == "celery"
     assert producer.attributes.get("normalized.operation") == "celery.apply_async.unknown"
     assert producer.attributes.get("celery.task_name") == "sample.tasks.unregistered_anonymous"
     assert "sample.tasks.unregistered_anonymous" not in get_admitted_task_names()
+
+
+def test_celery_apply_async_fallback_span_naming(test_celery_app, memory_exporter):
+    """Verify publishing with no resolvable task name falls back to '🟣 celery.apply_async'."""
+    mgr = tp_trace.integrations.manager.get_integration_manager()
+    integ = mgr.get("celery")
+    assert integ is not None and integ._our_instrumentor is not None
+    inst = integ._our_instrumentor
+
+    # Directly invoke before_publish with sender=None and message headers with task_id
+    inst._trace_before_publish(
+        sender=None,
+        headers={"id": "test-fallback-id"},
+        body={},
+    )
+    spans = memory_exporter.get_finished_spans()
+    producers = [s for s in spans if s.kind == SpanKind.PRODUCER]
+    assert len(producers) == 1
+    assert producers[0].name == "🟣 celery.apply_async"
 
 
 # ==============================================================================
@@ -487,7 +506,7 @@ def test_broker_publication_failure_cleanup(test_celery_app, memory_exporter):
         assert current == parent
 
     spans = memory_exporter.get_finished_spans()
-    producer = next(s for s in spans if s.name == "🟣 celery.apply_async")
+    producer = next(s for s in spans if s.name == "🟣 sample.tasks.broker_fail.apply_async")
     assert producer.attributes.get("error") is True
     assert producer.attributes.get("error.type") == "RuntimeError"
     assert producer.status.status_code == StatusCode.ERROR
@@ -587,7 +606,7 @@ def test_publish_failure_with_cached_sender(test_celery_app, cached_sender):
     finally:
         # A failing regression must not contaminate the next test's context.
         context.attach(original)
-    producers = [s for s in exporter.get_finished_spans() if s.name == "🟣 celery.apply_async"]
+    producers = [s for s in exporter.get_finished_spans() if s.name == "🟣 regression.cached_sender.apply_async"]
     assert len(producers) == 1
     assert producers[0].attributes["error"] is True
 

@@ -27,7 +27,7 @@ Tested versions:
 - Development: Python 3.11 with Celery 5.6.3, `opentelemetry-instrumentation-celery` 0.65b0, and OTel SDK 1.44.0.
 
 ### Span attributes and topology
-- **Producer**: Span name `🟣 celery.apply_async`, kind `PRODUCER`, `normalized.service="celery"`, `normalized.operation="celery.apply_async.<admitted_name or unknown>"`.
+- **Producer**: Span name `🟣 <task_name>.apply_async` (fallback `🟣 celery.apply_async`), kind `PRODUCER`, `normalized.service="celery"`, `normalized.operation="celery.apply_async.<admitted_name or unknown>"`.
 - **Consumer**: Span name `🟣 celery.run`, kind `CONSUMER`, `normalized.service="celery"`, `normalized.operation="celery.run.<admitted_name or unknown>"`.
 - Attributes on spans include `celery.task_name`, `celery.task_id`, `celery.queue`, `celery.worker`, `celery.origin`, `celery.task_state`, and boolean `error`.
 - HTTP route attributes (`http.route`, `http.method`, `django.route`) are suppressed on all Celery spans to prevent accidental metric collision.

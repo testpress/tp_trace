@@ -159,13 +159,22 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
             elif hasattr(sender, "name"):
                 task_name = getattr(sender, "name")
             else:
-                task_name = "unknown"
+                headers = kwargs.get("headers")
+                if isinstance(headers, dict) and headers.get("task"):
+                    task_name = str(headers.get("task"))
+                else:
+                    task_name = "unknown"
 
         bounded_op = compute_bounded_operation("apply_async", task_name, registered=task is not None)
+        span_name = (
+            f"🟣 {task_name}.apply_async"
+            if task_name and task_name != "unknown"
+            else "🟣 celery.apply_async"
+        )
         meta = CeleryCreationMeta(
             action="apply_async",
             bounded_operation=bounded_op,
-            span_name="🟣 celery.apply_async",
+            span_name=span_name,
         )
 
         trigger_view = None
@@ -199,7 +208,7 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                 ctx = utils.retrieve_context(task, task_id, is_publish=True)
                 span = ctx[0] if ctx is not None else None
                 if span is not None and getattr(span, "is_recording", lambda: True)():
-                    safe_update_name(span, "🟣 celery.apply_async")
+                    safe_update_name(span, span_name)
                     safe_set_attribute(span, "celery.task_id", task_id)
                     safe_set_attribute(span, "celery.task_name", task_name)
                     if trigger_view:
