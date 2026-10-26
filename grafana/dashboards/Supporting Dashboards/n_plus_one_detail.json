@@ -535,22 +535,6 @@
                 "value": "Status"
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(n_plus_one\\.severity|span\\.n_plus_one\\.severity|Severity)$/"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 110
-              },
-              {
-                "id": "displayName",
-                "value": "Severity"
-              }
-            ]
           }
         ]
       },
@@ -558,7 +542,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 56
+        "y": 66
       },
       "id": 30,
       "links": [
@@ -598,7 +582,7 @@
             "uid": "tempo"
           },
           "limit": 10,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code, span.n_plus_one.severity)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -647,7 +631,10 @@
               "cluster_name": true,
               "resource.cluster_name": true,
               "http.route_template": true,
-              "span.http.route_template": true
+              "span.http.route_template": true,
+              "n_plus_one.severity": true,
+              "span.n_plus_one.severity": true,
+              "Severity": true
             },
             "indexByName": {
               "traceID": 0,
@@ -670,10 +657,7 @@
               "Total Queries": 5,
               "span.http.status_code": 6,
               "http.status_code": 6,
-              "Status": 6,
-              "span.n_plus_one.severity": 7,
-              "n_plus_one.severity": 7,
-              "Severity": 7
+              "Status": 6
             },
             "renameByName": {
               "traceID": "Trace ID (Flamegraph Waterfall)",
@@ -689,9 +673,7 @@
               "span.db.query_count": "Total Queries",
               "db.query_count": "Total Queries",
               "span.http.status_code": "Status",
-              "http.status_code": "Status",
-              "span.n_plus_one.severity": "Severity",
-              "n_plus_one.severity": "Severity"
+              "http.status_code": "Status"
             }
           }
         }
