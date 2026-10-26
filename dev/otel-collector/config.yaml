@@ -57,14 +57,15 @@ processors:
         statements:
           - delete_key(attributes, "worker_id")
 
-  # Django INTERNAL spans (middleware, views, templates) inherit http.route, so
-  # they multiply the span metrics by every route. No dashboard reads them, so
-  # they are only exported as traces. Mirrors the production role default.
-  filter/spanmetrics_drop_internal:
+  # Exclude Django internal spans (middleware, templates, views) and Django
+  # SERVER spans from spanmetrics. Django HTTP RED metrics are emitted natively
+  # by the SDK, while dependencies (Postgres, Redis, Celery, requests) use spanmetrics.
+  filter/spanmetrics_drop_django_server_and_internal:
     error_mode: ignore
     traces:
       span:
         - kind == SPAN_KIND_INTERNAL
+        - kind == SPAN_KIND_SERVER and (attributes["normalized.service"] == "django" or attributes["django.route"] != nil or attributes["http.route_template"] != nil)
 
   transform/spanmetrics_route:
     error_mode: ignore
@@ -207,7 +208,7 @@ service:
         - memory_limiter
         - resource/drop_ephemeral
         - resource/spanmetrics_drop_sdk
-        - filter/spanmetrics_drop_internal
+        - filter/spanmetrics_drop_django_server_and_internal
         - transform/spanmetrics_route
         - transform/spanmetrics_sanitize
         - batch
@@ -221,7 +222,6 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
-        - transform/drop_metric_worker_id
         - batch
       exporters:
         - prometheusremotewrite

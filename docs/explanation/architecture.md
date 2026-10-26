@@ -1,23 +1,34 @@
-# How tracing moves through the stack
+# How telemetry moves through the stack
 
-`tp_trace` observes work inside application processes. It creates spans as a Django request passes through application code and supported dependencies, and as background jobs are published and executed across asynchronous process boundaries such as Celery workers.
+`tp_trace` observes work inside application processes. It creates spans and native metrics as a Django request passes through application code and supported dependencies, and as background jobs are published and executed across asynchronous process boundaries such as Celery workers.
 
-The SDK sends those spans to the OpenTelemetry Collector using OTLP. The Collector and Prometheus are operated through the Ansible deployment. Prometheus receives metrics through the platform push method (spanmetrics connector) rather than scraping each application process.
+The stack uses a hybrid telemetry architecture balancing 100% metric fidelity for user-facing SLOs with minimal runtime overhead:
 
-Tempo stores complete traces. Grafana combines Prometheus metrics with Tempo traces, so a developer can move from a slow or failing metric to the request waterfall that caused it.
+| Signal | Source | Pipeline & Storage | Sampling Behavior |
+|---|---|---|---|
+| **API request throughput, errors, latency** | Django native metrics (`tp_trace.metrics`) | OTLP metrics -> Collector -> Prometheus | Decoupled from trace sampling (independent of head sampling) |
+| **PostgreSQL, Redis, outbound HTTP, AWS, Celery metrics** | OpenTelemetry Collector `spanmetrics` connector | OTLP spans -> Collector `spanmetrics` -> Prometheus | Derived from exported spans (low Python overhead) |
+| **Request, dependency, and internal waterfall traces** | `tp_trace` distributed tracing | OTLP traces -> Collector -> Tempo | Subject to SDK trace sampling (`sample_rate`) |
 
 ```text
 Django web app / Celery worker
-  └─ tp_trace spans
-       └─ Collector
-            ├─ Prometheus metrics (spanmetrics)
-            └─ Tempo traces
-                 └─ Grafana investigation
+  ├─ tp_trace metrics (OTLP) ────────┐
+  │  (calls_total, duration)         ▼
+  │                           OpenTelemetry Collector
+  │                             ├─ Prometheus metrics (Native + spanmetrics)
+  │                             └─ Tempo traces (sampled waterfall)
+  └─ tp_trace spans (OTLP) ──────────┘
+     (Django, Postgres, Redis, Celery)
 ```
+
+### Multi-worker metric aggregation
+In multi-worker WSGI environments (such as Gunicorn or uWSGI), each worker process maintains its own independent in-memory meter and counter streams. To prevent counter stream collisions when multiple workers push cumulative counters to Prometheus, `worker_id` is preserved on metric data points. Queries in Grafana aggregate across worker streams using `sum by (...) (rate(calls_total[5m]))`.
+
+Django HTTP `SPAN_KIND_SERVER` spans are excluded from the Collector's `spanmetrics` connector pipeline (`filter/spanmetrics_drop_django_server_and_internal`), ensuring that request metrics are emitted exclusively through the native SDK metrics pipeline without duplicate connector metrics.
 
 ### Process boundary and single metrics pipeline
 Asynchronous task executions across Celery workers cross process and machine boundaries. tp_trace injects W3C tracecontext headers into the task payload upon publication (`celery.apply_async`) and extracts them in the consumer worker (`celery.run`), connecting producer and consumer spans within a unified distributed trace.
 
-All RED metrics (rate, error, duration) for Celery tasks use the same downstream OpenTelemetry Collector pipeline as HTTP, PostgreSQL, and Redis spans. Workers do not establish independent metric instruments or parallel counter registries.
+All RED metrics (rate, error, duration) for Celery tasks use the downstream OpenTelemetry Collector pipeline as PostgreSQL and Redis spans. Workers do not establish independent metric instruments or parallel counter registries, avoiding thread and fork hazards in ephemeral worker processes.
 
 This separation keeps application instrumentation small while centralising telemetry routing, storage, and access control.

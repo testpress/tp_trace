@@ -1046,7 +1046,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", span_kind=~\"SPAN_KIND_SERVER|^$\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__rate_interval]))\nor\nsum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__rate_interval]))) or vector(0)",
+          "expr": "(sum(rate(calls_total{institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__rate_interval]))\nor\nsum(rate(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", span_kind=~\"SPAN_KIND_SERVER|^$\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[$__rate_interval]))) or vector(0)",
           "legendFormat": "Django (Web Requests)",
           "range": true,
           "refId": "A",

@@ -17,6 +17,7 @@ dependencies = [
     "opentelemetry-instrumentation-redis>=0.44b0",
     "opentelemetry-instrumentation-botocore>=0.44b0",
     "opentelemetry-instrumentation-celery>=0.54b1",
+    "opentelemetry-instrumentation-django>=0.44b0",
     "wrapt>=1.14.0",
 ]
 

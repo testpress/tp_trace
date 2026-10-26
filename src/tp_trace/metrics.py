@@ -106,6 +106,12 @@ class RedMetricsRecorder:
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
+            resolved_worker_id = (
+                str(extra_attributes["worker_id"])
+                if extra_attributes and extra_attributes.get("worker_id") is not None
+                else str(os.getpid())
+            )
+
             attributes: Dict[str, Any] = {
                 "project_name": str(resolved_project),
                 "cluster_name": str(resolved_cluster),
@@ -118,7 +124,7 @@ class RedMetricsRecorder:
                 "span_kind": "SPAN_KIND_SERVER",
                 "error": error_str,
                 "metric_source": "tp_trace_sdk",
-                "worker_id": str(os.getpid()),
+                "worker_id": resolved_worker_id,
             }
 
             if extra_attributes:

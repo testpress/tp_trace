@@ -151,6 +151,46 @@ def test_red_metrics_attribute_contract():
     assert attrs["status_code"] == "200"
     assert attrs["span_kind"] == "SPAN_KIND_SERVER"
     assert attrs["error"] == "false"
+    assert "worker_id" in attrs
+
+
+def test_multiworker_independent_streams():
+    """Verify that multiple worker processes emit separate worker_id series rather than colliding."""
+    from tp_trace.metrics import get_metrics_recorder
+
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="worker-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    # Simulate Worker 1
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=15.0,
+        extra_attributes={"worker_id": "worker-1"},
+    )
+    # Simulate Worker 2
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=25.0,
+        extra_attributes={"worker_id": "worker-2"},
+    )
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    worker_ids = {pt.attributes.get("worker_id") for pt in calls_points}
+    assert "worker-1" in worker_ids
+    assert "worker-2" in worker_ids
+    assert len(calls_points) == 2
 
 
 class _DummyInstitute:
