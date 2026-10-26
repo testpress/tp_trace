@@ -94,8 +94,8 @@ def extract_spans_from_tempo_batches(batches):
 def task_span_pair(spans, task_id):
     """Require exactly one finished producer and consumer for a fresh task."""
     matching = [s for s in spans if s["attributes"].get("celery.task_id") == task_id]
-    producers = [s for s in matching if s["name"].lstrip("🟣 ") == "celery.apply_async"]
-    consumers = [s for s in matching if s["name"].lstrip("🟣 ") == "celery.run"]
+    producers = [s for s in matching if s["name"].lstrip("🟣 ").endswith(".apply_async")]
+    consumers = [s for s in matching if s["name"].lstrip("🟣 ").endswith(".run")]
     assert len(producers) <= 1 and len(consumers) <= 1, "Duplicate task spans"
     if not producers or not consumers:
         return None

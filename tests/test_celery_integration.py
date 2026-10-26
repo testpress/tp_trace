@@ -240,8 +240,8 @@ def test_task_execution_topology_and_success(test_celery_app, memory_exporter):
     assert len(spans) == 3
 
     server = next(s for s in spans if s.name == "django.request")
-    producer = next(s for s in spans if s.name == "🟣 celery.apply_async")
-    consumer = next(s for s in spans if s.name == "🟣 celery.run")
+    producer = next(s for s in spans if s.name == "🟣 sample.tasks.add.apply_async")
+    consumer = next(s for s in spans if s.name == "🟣 sample.tasks.add.run")
 
     # Trace ID propagation & topology
     assert producer.context.trace_id == server.context.trace_id
@@ -287,8 +287,8 @@ def test_celery_trigger_view_absent_when_no_active_view(test_celery_app, memory_
     add.delay(5, 5)
 
     spans = memory_exporter.get_finished_spans()
-    producer = next((s for s in spans if s.name == "🟣 celery.apply_async"), None)
-    consumer = next((s for s in spans if s.name == "🟣 celery.run"), None)
+    producer = next((s for s in spans if s.name == "🟣 sample.tasks.add.apply_async"), None)
+    consumer = next((s for s in spans if s.name == "🟣 sample.tasks.add.run"), None)
 
     if producer:
         assert "celery.trigger.view" not in producer.attributes
@@ -313,7 +313,7 @@ def test_celery_trigger_view_eager_execution(test_celery_app, memory_exporter):
         reset_request_view(view_token)
 
     spans = memory_exporter.get_finished_spans()
-    consumer = next(s for s in spans if s.name == "🟣 celery.run")
+    consumer = next(s for s in spans if s.name == "🟣 sample.tasks.add.run")
     assert consumer.attributes.get("celery.trigger.view") == "reports.views.GenerateReportView.post"
 
 
@@ -330,7 +330,7 @@ def test_task_failure_outcomes(test_celery_app, memory_exporter):
     assert res.status == "FAILURE"
 
     spans = memory_exporter.get_finished_spans()
-    consumer = next(s for s in spans if s.name == "🟣 celery.run")
+    consumer = next(s for s in spans if s.name == "🟣 sample.tasks.failing_task.run")
 
     assert consumer.attributes.get("error") is True
     assert consumer.attributes.get("error.type") == "ValueError"
@@ -355,7 +355,7 @@ def test_task_throws_exception_outcome(test_celery_app, memory_exporter):
     assert res.status == "FAILURE"
 
     spans = memory_exporter.get_finished_spans()
-    consumer = next(s for s in spans if s.name == "🟣 celery.run")
+    consumer = next(s for s in spans if s.name == "🟣 sample.tasks.throws_task.run")
 
     assert consumer.attributes.get("error") is True
     assert consumer.attributes.get("error.type") == "ExpectedTaskError"
@@ -434,12 +434,56 @@ def test_unknown_task_producer_naming(test_celery_app, memory_exporter):
     test_celery_app.send_task("sample.tasks.unregistered_anonymous", args=(1,))
 
     spans = memory_exporter.get_finished_spans()
-    producer = next(s for s in spans if s.name == "🟣 celery.apply_async")
+    producer = next(s for s in spans if s.name == "🟣 sample.tasks.unregistered_anonymous.apply_async")
 
     assert producer.attributes.get("normalized.service") == "celery"
     assert producer.attributes.get("normalized.operation") == "celery.apply_async.unknown"
     assert producer.attributes.get("celery.task_name") == "sample.tasks.unregistered_anonymous"
     assert "sample.tasks.unregistered_anonymous" not in get_admitted_task_names()
+
+
+def test_celery_apply_async_fallback_span_naming(test_celery_app, memory_exporter):
+    """Verify publishing with no resolvable task name falls back to '🟣 celery.apply_async'."""
+    mgr = tp_trace.integrations.manager.get_integration_manager()
+    integ = mgr.get("celery")
+    assert integ is not None and integ._our_instrumentor is not None
+    inst = integ._our_instrumentor
+
+    # Directly invoke before_publish with sender=None and message headers with task_id
+    inst._trace_before_publish(
+        sender=None,
+        headers={"id": "test-fallback-id"},
+        body={},
+    )
+    spans = memory_exporter.get_finished_spans()
+    producers = [s for s in spans if s.kind == SpanKind.PRODUCER]
+    assert len(producers) == 1
+    assert producers[0].name == "🟣 celery.apply_async"
+
+
+def test_celery_run_fallback_span_naming(test_celery_app, memory_exporter):
+    """Verify executing a task with no name falls back to '🟣 celery.run'."""
+    from opentelemetry.instrumentation.celery import utils
+
+    mgr = tp_trace.integrations.manager.get_integration_manager()
+    integ = mgr.get("celery")
+    assert integ is not None and integ._our_instrumentor is not None
+    inst = integ._our_instrumentor
+
+    class NamelessTask:
+        name = None
+        request = MagicMock()
+
+    task = NamelessTask()
+    task_id = "test-nameless-id"
+    inst._trace_prerun(sender=task, task=task, task_id=task_id, args=(), kwargs={})
+    try:
+        ctx = utils.retrieve_context(task, task_id)
+        if ctx is not None:
+            span, _, _ = ctx
+            assert span.name == "🟣 celery.run"
+    finally:
+        inst._trace_postrun(sender=task, task_id=task_id, task=task, args=(), kwargs={}, retval=None, state="SUCCESS")
 
 
 # ==============================================================================
@@ -487,7 +531,7 @@ def test_broker_publication_failure_cleanup(test_celery_app, memory_exporter):
         assert current == parent
 
     spans = memory_exporter.get_finished_spans()
-    producer = next(s for s in spans if s.name == "🟣 celery.apply_async")
+    producer = next(s for s in spans if s.name == "🟣 sample.tasks.broker_fail.apply_async")
     assert producer.attributes.get("error") is True
     assert producer.attributes.get("error.type") == "RuntimeError"
     assert producer.status.status_code == StatusCode.ERROR
@@ -587,7 +631,7 @@ def test_publish_failure_with_cached_sender(test_celery_app, cached_sender):
     finally:
         # A failing regression must not contaminate the next test's context.
         context.attach(original)
-    producers = [s for s in exporter.get_finished_spans() if s.name == "🟣 celery.apply_async"]
+    producers = [s for s in exporter.get_finished_spans() if s.name == "🟣 regression.cached_sender.apply_async"]
     assert len(producers) == 1
     assert producers[0].attributes["error"] is True
 
