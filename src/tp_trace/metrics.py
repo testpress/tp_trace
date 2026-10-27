@@ -6,6 +6,8 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 
 import logging
 import os
+import socket
+import uuid
 from typing import Any, Dict, List, Optional
 
 from opentelemetry.metrics import Counter, Histogram
@@ -31,6 +33,28 @@ LATENCY_BUCKETS_MS: List[float] = [
     2500.0,
     5000.0,
 ]
+
+_PROCESS_PID: Optional[int] = None
+_PROCESS_UUID: Optional[str] = None
+_HOSTNAME: str = socket.gethostname()
+
+
+def get_process_worker_identity() -> str:
+    """Return a globally unique, fork-safe process identity.
+
+    Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured), PID,
+    and a random process UUID that refreshes automatically if os.getpid() changes
+    after an os.fork(). Never overridden by request tags or shared container
+    environment variables across processes.
+    """
+    global _PROCESS_PID, _PROCESS_UUID
+    current_pid = os.getpid()
+    if _PROCESS_PID != current_pid or _PROCESS_UUID is None:
+        _PROCESS_PID = current_pid
+        _PROCESS_UUID = uuid.uuid4().hex[:12]
+    prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
+    return f"{prefix}:{current_pid}:{_PROCESS_UUID}"
+
 
 _ACTIVE_RECORDER: Optional["RedMetricsRecorder"] = None
 
@@ -106,6 +130,8 @@ class RedMetricsRecorder:
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
+            worker_identity = get_process_worker_identity()
+
             attributes: Dict[str, Any] = {
                 "project_name": str(resolved_project),
                 "cluster_name": str(resolved_cluster),
@@ -118,13 +144,16 @@ class RedMetricsRecorder:
                 "span_kind": "SPAN_KIND_SERVER",
                 "error": error_str,
                 "metric_source": "tp_trace_sdk",
-                "worker_id": str(os.getpid()),
             }
 
             if extra_attributes:
                 for k, v in extra_attributes.items():
                     if v is not None and k not in attributes:
                         attributes[k] = str(v)
+
+            # Authoritatively set process/worker identity so request tags cannot override it
+            attributes["worker_id"] = worker_identity
+            attributes["service.instance.id"] = worker_identity
 
             self.calls_total.add(1, attributes)
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)

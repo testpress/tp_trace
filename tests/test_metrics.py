@@ -5,6 +5,8 @@ for 100% of requests regardless of trace sampling rates (1.0, 0.1, 0.01, 0.0),
 including exceptions, early responses, and that metric failures never break requests.
 """
 
+import os
+import socket
 import pytest
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -151,6 +153,209 @@ def test_red_metrics_attribute_contract():
     assert attrs["status_code"] == "200"
     assert attrs["span_kind"] == "SPAN_KIND_SERVER"
     assert attrs["error"] == "false"
+    assert "worker_id" in attrs
+    assert "service.instance.id" in attrs
+    assert attrs["worker_id"] == attrs["service.instance.id"]
+    assert f":{os.getpid()}:" in attrs["worker_id"]
+    assert socket.gethostname() in attrs["worker_id"]
+
+
+def test_worker_identity_contains_hostname_and_pid():
+    """Verify production default worker identity includes hostname and pid."""
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="prod-identity-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    handler = WSGIHandler()
+    rf = RequestFactory()
+    req = rf.get("/api/test/ok/")
+    handler.get_response(req)
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1
+    attrs = calls_points[0].attributes
+    worker_id = attrs["worker_id"]
+    assert worker_id.startswith(f"{socket.gethostname()}:{os.getpid()}:")
+    assert attrs["service.instance.id"] == worker_id
+
+
+def test_worker_identity_stable_inside_same_process():
+    """Within the same process, worker identity remains stable across multiple requests."""
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="stable-identity-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    handler = WSGIHandler()
+    rf = RequestFactory()
+
+    handler.get_response(rf.get("/api/test/ok/"))
+    handler.get_response(rf.get("/api/test/ok/"))
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1  # Same identity increments the same series
+    assert calls_points[0].value == 2
+
+
+def test_worker_identity_changes_after_fork(monkeypatch):
+    """When a process forks (PID changes), worker identity refreshes with a new PID and UUID."""
+    from tp_trace.metrics import get_process_worker_identity
+
+    orig_identity = get_process_worker_identity()
+    assert f":{os.getpid()}:" in orig_identity
+
+    # Simulate fork to new PID
+    new_pid = os.getpid() + 1000
+    monkeypatch.setattr(os, "getpid", lambda: new_pid)
+
+    forked_identity = get_process_worker_identity()
+    assert forked_identity != orig_identity
+    assert f":{new_pid}:" in forked_identity
+
+
+def test_real_fork_produces_distinct_worker_identities():
+    """Verify that an actual OS fork generates distinct identities in parent and child."""
+    if not hasattr(os, "fork"):
+        pytest.skip("os.fork is not available on this platform")
+
+    from tp_trace.metrics import get_process_worker_identity
+
+    parent_id = get_process_worker_identity()
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        os.close(r)
+        child_id = get_process_worker_identity()
+        with os.fdopen(w, "w") as f:
+            f.write(child_id)
+        os._exit(0)
+    else:
+        os.close(w)
+        with os.fdopen(r, "r") as f:
+            child_id = f.read()
+        _, status = os.waitpid(pid, 0)
+        assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+        assert child_id != parent_id
+        assert f":{pid}:" in child_id
+
+
+def test_worker_identity_unique_with_shared_env_instance_id(monkeypatch):
+    """Verify distinct worker PIDs get unique identities even when OTEL_SERVICE_INSTANCE_ID is shared."""
+    from tp_trace.metrics import get_metrics_recorder
+
+    monkeypatch.setenv("OTEL_SERVICE_INSTANCE_ID", "shared-container-env")
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="worker-env-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    # Simulate Worker 1 with shared env
+    monkeypatch.setattr(os, "getpid", lambda: 20001)
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    # Simulate Worker 2 with same shared env
+    monkeypatch.setattr(os, "getpid", lambda: 20002)
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=20.0,
+    )
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 2
+    worker_ids = [pt.attributes.get("worker_id") for pt in calls_points]
+    assert worker_ids[0] != worker_ids[1]
+    assert worker_ids[0].startswith("shared-container-env:20001:")
+    assert worker_ids[1].startswith("shared-container-env:20002:")
+
+
+def test_request_attributes_cannot_override_worker_identity():
+    """Verify request extra tags cannot override process worker_id or service.instance.id."""
+    from tp_trace.metrics import get_metrics_recorder
+
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="tamper-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=12.0,
+        extra_attributes={
+            "worker_id": "malicious-worker-override",
+            "service.instance.id": "malicious-instance-override",
+        },
+    )
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1
+    attrs = calls_points[0].attributes
+    assert attrs["worker_id"] != "malicious-worker-override"
+    assert attrs["service.instance.id"] != "malicious-instance-override"
+    assert f":{os.getpid()}:" in attrs["worker_id"]
+    assert attrs["service.instance.id"] == attrs["worker_id"]
+
+
+def test_multiworker_independent_streams(monkeypatch):
+    """Verify that multiple worker processes emit separate worker_id series rather than colliding."""
+    from tp_trace.metrics import get_metrics_recorder
+
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="worker-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    # Simulate Worker 1 (pid 10001)
+    monkeypatch.setattr(os, "getpid", lambda: 10001)
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=15.0,
+    )
+    # Simulate Worker 2 (pid 10002, e.g. forked child process)
+    monkeypatch.setattr(os, "getpid", lambda: 10002)
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=25.0,
+    )
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 2
+    worker_ids = {pt.attributes.get("worker_id") for pt in calls_points}
+    assert len(worker_ids) == 2
+    assert any(":10001:" in wid for wid in worker_ids)
+    assert any(":10002:" in wid for wid in worker_ids)
 
 
 class _DummyInstitute:
