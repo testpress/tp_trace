@@ -2,6 +2,8 @@
 
 import fnmatch
 from typing import Any, Dict, List, Mapping, Optional, Sequence
+from urllib.parse import urlparse
+
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace.sampling import (
     Decision,
@@ -38,10 +40,10 @@ class TpTraceRuleBasedSampler(Sampler):
         self.endpoint_sample_rules = _parse_endpoint_sample_rules(endpoint_sample_rules)
 
         # Pre-instantiate ratio samplers for fast lookup
-        self._global_ratio_sampler = TraceIdRatioBased(self.global_sample_rate)
         self._rule_ratio_samplers: Dict[str, TraceIdRatioBased] = {
             pattern: TraceIdRatioBased(rate) for pattern, rate in self.endpoint_sample_rules.items()
         }
+        self._global_ratio_sampler = TraceIdRatioBased(self.global_sample_rate)
 
     def should_sample(
         self,
@@ -57,14 +59,34 @@ class TpTraceRuleBasedSampler(Sampler):
 
         # Extract candidate target request paths from OpenTelemetry attribute conventions and span name
         candidates = []
-        for key in ("http.route", "url.path", "http.target"):
+        for key in ("http.route", "url.path", "http.target", "http.url", "url.full"):
             val = attr_dict.get(key)
             if isinstance(val, str) and val.strip():
                 clean = val.split("?")[0].strip()
+                if " " in clean:
+                    for p in clean.split():
+                        if p.startswith("/"):
+                            clean = p
+                            break
+                if "://" in clean:
+                    try:
+                        clean = urlparse(clean).path
+                    except Exception:
+                        pass
                 if clean and clean not in candidates:
                     candidates.append(clean)
         if name and isinstance(name, str) and name.strip():
             clean_name = name.split("?")[0].strip()
+            if " " in clean_name:
+                for p in clean_name.split():
+                    if p.startswith("/"):
+                        clean_name = p
+                        break
+            if "://" in clean_name:
+                try:
+                    clean_name = urlparse(clean_name).path
+                except Exception:
+                    pass
             if clean_name and clean_name not in candidates:
                 candidates.append(clean_name)
 

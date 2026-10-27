@@ -913,7 +913,7 @@ def test_cbv_traced_view_dispatch_prevents_dict_pollution():
 def test_unmatched_route_does_not_poison_child_spans():
     """Verify that unresolvable routes never publish __unmatched__ to current_route or child spans."""
     from tp_trace.route_context import get_current_route
-    from tp_trace.integrations.django.request import traced_get_response
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
 
     exporter = InMemorySpanExporter()
     tp_trace.init(project_name="unmatched-poison-test", exporter=exporter, export_batch=False)
@@ -930,7 +930,8 @@ def test_unmatched_route_does_not_poison_child_spans():
             pass
         return HttpResponse("not found", status=404)
 
-    response = traced_get_response(dummy_handler, None, (req,), {})
+    mw = _DjangoMiddleware(dummy_handler)
+    response = mw(req)
     assert response.status_code == 404
 
     # Current route in flight must NOT have been "__unmatched__"
@@ -971,7 +972,7 @@ def test_institute_subdomain_propagated_to_child_spans():
     """Verify institute.subdomain set during request is propagated to all child spans."""
     from django.test import RequestFactory
     from django.http import HttpResponse
-    from tp_trace.integrations.django.request import traced_get_response
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
     import tp_trace
 
     class DummyInstitute:
@@ -991,7 +992,8 @@ def test_institute_subdomain_propagated_to_child_spans():
             pass
         return HttpResponse("ok", status=200)
 
-    resp = traced_get_response(dummy_handler, None, (req,), {})
+    mw = _DjangoMiddleware(dummy_handler)
+    resp = mw(req)
     assert resp.status_code == 200
 
     spans = exporter.get_finished_spans()
@@ -1129,7 +1131,7 @@ def test_unmaterialized_simple_lazy_object_user_not_evaluated():
     from django.utils.functional import SimpleLazyObject
     from django.test import RequestFactory
     from django.http import HttpResponse
-    from tp_trace.integrations.django.request import traced_get_response
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
     import tp_trace
 
@@ -1150,7 +1152,8 @@ def test_unmaterialized_simple_lazy_object_user_not_evaluated():
     def dummy_handler(request):
         return HttpResponse("ok", status=200)
 
-    resp = traced_get_response(dummy_handler, None, (req,), {})
+    mw = _DjangoMiddleware(dummy_handler)
+    resp = mw(req)
     assert resp.status_code == 200
     # Must NOT have been evaluated!
     assert not evaluated, "request.user was prematurely materialized by SDK telemetry!"
@@ -1186,7 +1189,7 @@ def test_current_view_context_propagation():
 def test_set_view_does_not_leak_across_unresolved_requests():
     """Verify set_view() inside an unresolvable route request does not leak into subsequent requests."""
     from tp_trace.route_context import get_current_view
-    from tp_trace.integrations.django.request import traced_get_response
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
 
     assert get_current_view() is None
 
@@ -1202,7 +1205,8 @@ def test_set_view_does_not_leak_across_unresolved_requests():
         assert token is not None
         return HttpResponse("custom view called", status=200)
 
-    resp = traced_get_response(handler_calling_set_view, None, (req,), {})
+    mw = _DjangoMiddleware(handler_calling_set_view)
+    resp = mw(req)
     assert resp.status_code == 200
     assert observed_in_handler == "custom.manual.view"
     # Crucial: Must be reset back to None after request returns!

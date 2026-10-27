@@ -12,6 +12,7 @@ the three properties.
 """
 
 import pytest
+from opentelemetry.trace import SpanKind
 
 import tp_trace
 from tp_trace.integrations.base import BaseIntegration
@@ -122,19 +123,18 @@ def test_post_app_telemetry_failure_does_not_change_result():
         def __setitem__(self, k, v):
             pass
 
-    class Req:
-        path = "/ok/"
-        method = "GET"
-        META: dict = {}
-        headers: dict = {}
+    from django.test import RequestFactory
+    from django.http import HttpResponse
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
 
-        def build_absolute_uri(self):
-            return "http://x/ok/"
+    factory = RequestFactory()
+    req = factory.get("/ok/")
 
     original = req_mod._normalize_route
     req_mod._normalize_route = _boom
     try:
-        response = req_mod.traced_get_response(lambda *a, **k: Resp(), None, (Req(),), {})
+        mw = _DjangoMiddleware(lambda *a, **k: HttpResponse("ok", status=200))
+        response = mw(req)
     finally:
         req_mod._normalize_route = original
 
@@ -356,8 +356,8 @@ def _raise_value_error(*args, **kwargs):
 # --------------------------------------------------------------------------
 # Regression: the SERVER wrapper's pre-application prologue must be guarded
 #
-# traced_get_response is the only wrapper that hand-rolls its span CM instead of
-# using traced_span, so it opts out of the shared degrade path. Every statement
+# _tp_trace_django_request_hook runs before the application call,
+# so a fault in any statement must not block the request. Every statement
 # between span creation and the application call runs *before* the app, so a
 # fault in any of them blocks the request. test_django.py covers the happy path
 # for the response headers; this proves they are also failure-tolerant.
@@ -370,25 +370,18 @@ def test_server_wrapper_survives_hostile_span_context():
 
     tp_trace.init(project_name="span-context-fault", export_batch=False)
 
-    class Resp:
-        status_code = 200
+    from django.test import RequestFactory
+    from django.http import HttpResponse
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
 
-        def __setitem__(self, k, v):
-            pass
-
-    class Req:
-        path = "/ok/"
-        method = "GET"
-        META: dict = {}
-        headers: dict = {}
-
-        def build_absolute_uri(self):
-            return "http://x/ok/"
+    factory = RequestFactory()
+    req = factory.get("/ok/")
 
     original = req_mod._prime_request
     req_mod._prime_request = lambda *a, **k: None  # no ids readable
     try:
-        response = req_mod.traced_get_response(lambda *a, **k: Resp(), None, (Req(),), {})
+        mw = _DjangoMiddleware(lambda *a, **k: HttpResponse("ok", status=200))
+        response = mw(req)
     finally:
         req_mod._prime_request = original
 
@@ -402,86 +395,222 @@ def test_server_wrapper_survives_read_only_trace_id():
     rejects the write loses its correlation attrs but keeps the traceparent
     header and, above all, the application response.
     """
-    import tp_trace.integrations.django.request as req_mod
-
     tp_trace.init(project_name="read-only-fault", export_batch=False)
 
-    class Resp:
-        status_code = 200
-        headers: dict = {}
+    from django.test import RequestFactory
+    from django.http import HttpResponse
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
 
-        def __setitem__(self, k, v):
-            self.headers[k] = v
+    factory = RequestFactory()
+    base_req = factory.get("/ok/")
 
     class ReadOnlyReq:
         """Writes to trace_id fail, the way a frozen or slotted request would."""
 
-        path = "/ok/"
-        method = "GET"
-        META: dict = {}
-        headers: dict = {}
+        def __init__(self, inner):
+            self._inner = inner
 
-        def build_absolute_uri(self):
-            return "http://x/ok/"
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
 
         def __setattr__(self, name, value):
             if name in ("trace_id", "span_id", "_tp_span"):
                 raise AttributeError(f"{name} is read-only")
-            object.__setattr__(self, name, value)
+            if name == "_inner":
+                object.__setattr__(self, name, value)
+            else:
+                setattr(self._inner, name, value)
 
     calls = []
 
     def app(*a, **k):
         calls.append(1)
-        return Resp()
+        return HttpResponse("ok", status=200)
 
-    req = ReadOnlyReq()
-    response = req_mod.traced_get_response(app, None, (req,), {})
+    req = ReadOnlyReq(base_req)
+    mw = _DjangoMiddleware(app)
+    response = mw(req)
 
     assert response.status_code == 200
     assert len(calls) == 1
     # Header injection is independent of the request binding and must survive it.
-    assert "traceparent" in response.headers
-    assert response.headers["X-Trace-ID"]
+    assert "traceparent" in response.headers or response.has_header("traceparent")
+    assert response.headers.get("X-Trace-ID") or response.has_header("X-Trace-ID")
 
 
 def test_server_span_records_exception_exactly_once():
-    """One failure must produce one exception event, not two.
-
-    This wrapper records the exception itself on the error path, so OTel's
-    automatic handling is disabled. Without record_exception=False the same
-    exception lands on the span twice (and set_status runs twice), which
-    double-counts errors in anything reading exception events.
-    """
-    import tp_trace.integrations.django.request as req_mod
+    """One failure must produce one exception event on the server span."""
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from django.conf import settings
+    from django.urls import clear_url_caches, path
+    from django.test import RequestFactory
+    from django.core.handlers.wsgi import WSGIHandler
+    from tests import test_django
+
+    orig_urlconf = settings.ROOT_URLCONF
+    settings.ROOT_URLCONF = "tests.test_django"
+    clear_url_caches()
 
     exporter = InMemorySpanExporter()
     tp_trace.init(project_name="single-exception", exporter=exporter, export_batch=False)
 
-    class Resp:
-        status_code = 200
-
-        def __setitem__(self, k, v):
-            pass
-
-    class Req:
-        path = "/boom/"
-        method = "GET"
-        META: dict = {}
-        headers: dict = {}
-
-        def build_absolute_uri(self):
-            return "http://x/boom/"
-
-    def app(*a, **k):
+    def boom_view(request):
         raise ValueError("handler exploded")
 
-    with pytest.raises(ValueError):
-        req_mod.traced_get_response(app, None, (Req(),), {})
+    if not any(getattr(p, "pattern", None) and str(p.pattern) == "test/safety-boom/" for p in test_django.urlpatterns):
+        test_django.urlpatterns.append(path("test/safety-boom/", boom_view))
 
-    exception_events = [e for s in exporter.get_finished_spans() for e in s.events if e.name == "exception"]
-    assert len(exception_events) == 1
+    try:
+        handler = WSGIHandler()
+        handler.load_middleware()
+
+        factory = RequestFactory()
+        req = factory.get("/test/safety-boom/")
+        response = handler.get_response(req)
+        assert response.status_code == 500
+
+        server_spans = [s for s in exporter.get_finished_spans() if s.kind == SpanKind.SERVER]
+        assert len(server_spans) == 1
+        exception_events = [evt for evt in server_spans[0].events if evt.name == "exception"]
+        assert len(exception_events) == 1
+    finally:
+        settings.ROOT_URLCONF = orig_urlconf
+        clear_url_caches()
+
+
+def test_django_request_hook_fault_preserves_application():
+    """If request hook raises an exception, application code must still run and return response."""
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from django.conf import settings
+    from django.urls import clear_url_caches
+    from django.test import RequestFactory
+    from django.core.handlers.wsgi import WSGIHandler
+    import tp_trace.integrations.django.request as req_mod
+
+    orig_urlconf = settings.ROOT_URLCONF
+    settings.ROOT_URLCONF = "tests.test_django"
+    clear_url_caches()
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="request-hook-fault", exporter=exporter, export_batch=False)
+
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    orig_prime = req_mod._prime_request
+    req_mod._prime_request = _boom
+    try:
+        factory = RequestFactory()
+        req = factory.get("/test/sample/")
+        response = handler.get_response(req)
+        assert response.status_code == 200
+        assert response.content == b"Hello from Django View"
+    finally:
+        req_mod._prime_request = orig_prime
+        settings.ROOT_URLCONF = orig_urlconf
+        clear_url_caches()
+
+
+def test_django_response_hook_fault_preserves_response():
+    """If response hook raises an exception, the application response must be preserved."""
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from django.conf import settings
+    from django.urls import clear_url_caches
+    from django.test import RequestFactory
+    from django.core.handlers.wsgi import WSGIHandler
+    import tp_trace.integrations.django.request as req_mod
+
+    orig_urlconf = settings.ROOT_URLCONF
+    settings.ROOT_URLCONF = "tests.test_django"
+    clear_url_caches()
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="response-hook-fault", exporter=exporter, export_batch=False)
+
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    orig_eval = req_mod._evaluate_repeated_queries
+    req_mod._evaluate_repeated_queries = _boom
+    try:
+        factory = RequestFactory()
+        req = factory.get("/test/sample/")
+        response = handler.get_response(req)
+        assert response.status_code == 200
+        assert response.content == b"Hello from Django View"
+    finally:
+        req_mod._evaluate_repeated_queries = orig_eval
+        settings.ROOT_URLCONF = orig_urlconf
+        clear_url_caches()
+
+
+def test_django_integration_uninstrument_preserves_host_instrumentor():
+    """If host project already enabled DjangoInstrumentor, tp_trace uninstrument must preserve it."""
+    from django.conf import settings
+    from opentelemetry.instrumentation.django import DjangoInstrumentor
+    from tp_trace.integrations.django import DjangoIntegration
+    from tp_trace.integrations.django.middleware import OTEL_DJANGO_MIDDLEWARE
+
+    instrumentor = DjangoInstrumentor()
+    if not instrumentor.is_instrumented_by_opentelemetry:
+        instrumentor.instrument()
+
+    orig_mw = list(settings.MIDDLEWARE)
+    if OTEL_DJANGO_MIDDLEWARE not in settings.MIDDLEWARE:
+        settings.MIDDLEWARE = [OTEL_DJANGO_MIDDLEWARE] + list(settings.MIDDLEWARE)
+
+    try:
+        integ = DjangoIntegration()
+        integ.instrument()
+        # Ownership flags must reflect that tp_trace did NOT install them
+        assert integ._installed_django_instrumentor is False
+        assert integ._injected_otel_middleware is False
+
+        # Uninstrumenting tp_trace must NOT remove host's instrumentor or middleware
+        integ.uninstrument()
+        assert instrumentor.is_instrumented_by_opentelemetry is True
+        assert OTEL_DJANGO_MIDDLEWARE in settings.MIDDLEWARE
+    finally:
+        settings.MIDDLEWARE = orig_mw
+
+
+def test_django_middleware_error_path_telemetry_fault_preserves_original_exception():
+    """If an application exception occurs and process_exception/process_response fail,
+
+    the original application exception must be re-raised unchanged.
+    """
+    tp_trace.init(project_name="error-telemetry-fault", export_batch=False)
+    from django.test import RequestFactory
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
+
+    factory = RequestFactory()
+    req = factory.get("/error/")
+
+    class DomainSpecificError(Exception):
+        pass
+
+    def app(request):
+        raise DomainSpecificError("important domain error")
+
+    mw = _DjangoMiddleware(app)
+    orig_proc_exc = mw.process_exception
+    orig_proc_resp = mw.process_response
+
+    def failing_proc_exc(r, exc):
+        raise RuntimeError("process_exception boom")
+
+    def failing_proc_resp(r, resp):
+        raise RuntimeError("process_response boom")
+
+    mw.process_exception = failing_proc_exc
+    mw.process_response = failing_proc_resp
+    try:
+        with pytest.raises(DomainSpecificError) as exc_info:
+            mw(req)
+        assert "important domain error" in str(exc_info.value)
+    finally:
+        mw.process_exception = orig_proc_exc
+        mw.process_response = orig_proc_resp
 
 
 def test_django_native_wrapper_rowcount_fault_preserves_result():

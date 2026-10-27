@@ -791,7 +791,7 @@ def test_drf_dispatch_is_wrapped_when_drf_becomes_available(monkeypatch):
 
 def test_django_server_span_respects_query_mode(monkeypatch):
     """Verify that Django server spans respect query_mode='expose' vs 'redact'."""
-    from tp_trace.integrations.django.request import traced_get_response
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
     from tp_trace.config import SDKConfig
 
     factory = RequestFactory()
@@ -812,7 +812,8 @@ def test_django_server_span_respects_query_mode(monkeypatch):
     def view(req):
         return HttpResponse("OK")
 
-    traced_get_response(view, None, (request,), {})
+    mw = _DjangoMiddleware(view)
+    mw(request)
 
     spans = exporter.get_finished_spans()
     server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
@@ -824,8 +825,52 @@ def test_django_server_span_respects_query_mode(monkeypatch):
     exporter.clear()
     cfg_redact = SDKConfig(project_name="test-query-mode", query_mode="redact")
     set_config(cfg_redact)
-    traced_get_response(view, None, (request,), {})
+    mw = _DjangoMiddleware(view)
+    mw(request)
     server_spans = [s for s in exporter.get_finished_spans() if s.kind == SpanKind.SERVER]
     assert len(server_spans) == 1
     assert "token=REDACTED" in server_spans[0].attributes["url.full"]
     assert "q=python" in server_spans[0].attributes["url.full"]
+
+
+def test_load_middleware_ensures_otel_middleware_at_position_zero():
+    """Verify that if settings.MIDDLEWARE was overwritten without _DjangoMiddleware,
+
+    load_middleware() restores _DjangoMiddleware to index 0 so inbound HTTP requests
+    create the root SERVER span and trace headers.
+    """
+    from django.conf import settings
+    from django.core.handlers.wsgi import WSGIHandler
+    from tp_trace.integrations.django.middleware import OTEL_DJANGO_MIDDLEWARE
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
+
+    orig_mw = list(settings.MIDDLEWARE)
+    try:
+        # Simulate settings.MIDDLEWARE being overwritten without _DjangoMiddleware
+        settings.MIDDLEWARE = [
+            "django.middleware.common.CommonMiddleware",
+            "django.middleware.clickjacking.XFrameOptionsMiddleware",
+        ]
+        assert OTEL_DJANGO_MIDDLEWARE not in settings.MIDDLEWARE
+
+        handler = WSGIHandler()
+        handler.load_middleware()
+
+        assert settings.MIDDLEWARE[0] == OTEL_DJANGO_MIDDLEWARE
+
+        factory = RequestFactory()
+        request = factory.get("/test/sample/")
+        response = handler.get_response(request)
+
+        assert response.status_code == 200
+        assert "X-Trace-ID" in response
+        assert "traceparent" in response
+
+        spans = exporter.get_finished_spans()
+        server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+        assert "/test/sample/" in server_spans[0].attributes.get("http.route")
+        assert server_spans[0].attributes.get("http.route_template") == "/test/sample/"
+    finally:
+        settings.MIDDLEWARE = orig_mw

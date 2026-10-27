@@ -2,7 +2,7 @@
 
 import importlib
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from opentelemetry.trace import SpanKind
 
@@ -23,6 +23,12 @@ class DjangoIntegration(BaseIntegration):
         self._wrapped_middleware: set[str] = set()
         self._populate_patched: bool = False
         self._armed: bool = False
+        self._installed_django_instrumentor: bool = False
+        self._injected_otel_middleware: bool = False
+        self._orig_host_request_hook: Optional[Any] = None
+        self._orig_host_response_hook: Optional[Any] = None
+        self._composed_host_request_hook: bool = False
+        self._composed_host_response_hook: bool = False
 
     def is_installed(self) -> bool:
         try:
@@ -72,6 +78,9 @@ class DjangoIntegration(BaseIntegration):
             if getattr(instance, "ready", False):
                 try:
                     self._retry_patch_after_ready()
+                    from .middleware import ensure_django_instrumented
+
+                    ensure_django_instrumented(self)
                 except Exception as exc:
                     logger.debug("post-populate instrumentation retry failed: %s", exc)
             return result
@@ -94,8 +103,7 @@ class DjangoIntegration(BaseIntegration):
             logger.debug("Django is not installed, skipping patch.")
             return
 
-        from .middleware import make_traced_load_middleware
-        from .request import traced_get_response
+        from .middleware import ensure_django_instrumented, make_traced_load_middleware
         from .template import traced_template_render, traced_template_response_render
         from .view import traced_get_response as traced_view, traced_view_dispatch, traced_view_setup
 
@@ -113,15 +121,15 @@ class DjangoIntegration(BaseIntegration):
         _view.set_config(self._config)
         _middleware.set_config(self._config)
 
-        # 0. Middleware waterfall
+        # 0. Official OpenTelemetry DjangoInstrumentor
+        ensure_django_instrumented(self)
+
+        # 1. Middleware waterfall
         self.wrap(
             "django.core.handlers.base.BaseHandler",
             "load_middleware",
             make_traced_load_middleware(self),
         )
-
-        # 1. Request (SERVER) + metrics
-        self.wrap("django.core.handlers.base.BaseHandler", "get_response", traced_get_response)
 
         # 2. View (INTERNAL, View.setup, View.dispatch & DRF APIView.dispatch)
         self.wrap("django.core.handlers.base.BaseHandler", "_get_response", traced_view)
@@ -243,6 +251,36 @@ class DjangoIntegration(BaseIntegration):
             logger.debug("Django REST Framework instrumentation skipped: %s", exc)
 
     def _remove_patch(self) -> None:
+        if getattr(self, "_installed_django_instrumentor", False):
+            try:
+                from opentelemetry.instrumentation.django import DjangoInstrumentor
+
+                instrumentor = DjangoInstrumentor()
+                if instrumentor.is_instrumented_by_opentelemetry:
+                    instrumentor.uninstrument()
+            except Exception as exc:
+                logger.debug("Failed to uninstrument django: %s", exc)
+            self._installed_django_instrumentor = False
+        else:
+            try:
+                from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
+
+                if getattr(self, "_composed_host_request_hook", False):
+                    current_req = getattr(_DjangoMiddleware, "_otel_request_hook", None)
+                    if getattr(current_req, "_tp_composed", False):
+                        _DjangoMiddleware._otel_request_hook = self._orig_host_request_hook  # type: ignore[assignment]
+                    self._orig_host_request_hook = None
+                    self._composed_host_request_hook = False
+
+                if getattr(self, "_composed_host_response_hook", False):
+                    current_resp = getattr(_DjangoMiddleware, "_otel_response_hook", None)
+                    if getattr(current_resp, "_tp_composed", False):
+                        _DjangoMiddleware._otel_response_hook = self._orig_host_response_hook  # type: ignore[assignment]
+                    self._orig_host_response_hook = None
+                    self._composed_host_response_hook = False
+            except Exception:
+                pass
+
         try:
             from django.core.handlers.base import BaseHandler
 
@@ -253,6 +291,16 @@ class DjangoIntegration(BaseIntegration):
                     pass
         except Exception:
             pass
+
+        if getattr(self, "_injected_otel_middleware", False):
+            try:
+                from .middleware import remove_otel_middleware_from_settings
+
+                remove_otel_middleware_from_settings()
+            except Exception:
+                pass
+            self._injected_otel_middleware = False
+
         try:
             from .middleware import unpatch_handler_base_import_string
 

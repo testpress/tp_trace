@@ -8,11 +8,10 @@ import time
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
-from opentelemetry.trace import SpanKind, StatusCode, get_tracer
-from opentelemetry.propagate import extract
+from opentelemetry.trace import StatusCode
 
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
-from tp_trace.safety import attempt, safe_enrich, safe_record_exception, safe_set_attribute, safe_set_status
+from tp_trace.safety import attempt, safe_enrich, safe_set_attribute, safe_set_status
 from tp_trace.route_context import (
     get_current_route,
     get_current_tags,
@@ -27,7 +26,6 @@ from tp_trace.route_context import (
     set_request_view,
 )
 from tp_trace.sanitize import sanitize_url
-from tp_trace.tracing import reentrant_guard
 
 logger = logging.getLogger("tp_trace.integrations.django")
 _MAX_REPEATED_QUERY_TRACE_CANDIDATES = 5
@@ -114,15 +112,6 @@ def _apply_request_callback(span: Any, request: Any = None, response: Any = None
     except Exception:
         pass
 
-
-def _apply_custom_tags(span: Any, request: Any = None, on_request_span: Any = None) -> None:
-    """Apply static tags and the user callback. Self-contained: never raises."""
-    _apply_static_tags(span)
-    callback = on_request_span or getattr(
-        attempt(_get_config, default=None, _label="request_config"), "on_request_span", None
-    )
-    if callback and request is not None:
-        attempt(callback, span, request, _label="on_request_span")
 
 
 _PARAM_REGEX = re.compile(r"<(?:[a-zA-Z0-9_]+:)?([a-zA-Z0-9_]+)>")
@@ -425,354 +414,6 @@ def _resolve_view_name(request, method: str) -> str:
     return "view"
 
 
-def traced_get_response(wrapped, instance, args, kwargs):
-    """Wrapper for BaseHandler.get_response — SERVER span + metrics."""
-    request = args[0] if args else kwargs.get("request")
-    if request is None:
-        return wrapped(*args, **kwargs)
-
-    # Re-entrancy guard: same request object can be re-entered if middleware
-    # calls get_response recursively. The flag lives on the request object
-    # (per-request, not global), preventing nested SERVER spans for the same
-    # logical request.
-    with reentrant_guard(request, "_tp_traced_request") as should_trace:
-        if not should_trace:
-            return wrapped(*args, **kwargs)
-
-        reset_request_tags()
-        try:
-            inst = getattr(request, "institute", None)
-            if inst and hasattr(inst, "subdomain") and inst.subdomain:
-                set_request_tag("institute.subdomain", str(inst.subdomain))
-                set_request_tag("institute", str(inst.subdomain))
-        except Exception:
-            pass
-
-        tracer = get_tracer("tp_trace.django")
-        method = getattr(request, "method", "GET").upper()
-        path = getattr(request, "path", "/")
-        scheme = getattr(request, "scheme", "http")
-
-        # W3C propagation
-        carrier: Dict[str, str] = {}
-        if hasattr(request, "headers"):
-            try:
-                carrier.update({k.lower(): str(v) for k, v in request.headers.items()})
-            except Exception:
-                pass
-        elif hasattr(request, "META") and isinstance(request.META, dict):
-            for k, v in request.META.items():
-                if k.startswith("HTTP_"):
-                    carrier[k[5:].replace("_", "-").lower()] = str(v)
-                elif k in ("CONTENT_TYPE", "CONTENT_LENGTH"):
-                    carrier[k.replace("_", "-").lower()] = str(v)
-
-        cfg = attempt(_get_config, default=None, _label="request_config")
-        extract_setting = getattr(cfg, "extract_trace_context", True) if cfg else True
-        if callable(extract_setting):
-            try:
-                should_extract = bool(extract_setting(request))
-            except Exception:
-                logger.debug("extract_trace_context callable raised", exc_info=True)
-                should_extract = True
-        else:
-            should_extract = bool(extract_setting)
-
-        parent_ctx = extract(carrier) if should_extract else None
-
-        try:
-            raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
-        except Exception:
-            raw_url = path
-        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
-        sanitized = sanitize_url(raw_url, mode=query_mode)
-        url_path = path
-        url_query = ""
-        try:
-            parsed = urlparse(sanitized)
-            url_path = parsed.path or path
-            url_query = parsed.query
-        except Exception:
-            pass
-
-        target_url = f"{url_path}?{url_query}" if url_query else url_path
-        ua = carrier.get("user-agent", "")
-        span_attrs: Dict[str, Any] = {
-            "span.type": "web",
-            "component": "django",
-            "http.request.method": method,
-            "http.method": method,
-            "http.route": sanitized or target_url or url_path,
-            "url.full": sanitized,
-            "http.url": sanitized,
-            "url.path": url_path,
-            "http.target": target_url,
-            "url.scheme": scheme,
-            "user_agent.original": ua,
-            "http.user_agent": ua,
-        }
-        if not should_extract and carrier.get("traceparent"):
-            span_attrs["http.client.traceparent"] = carrier["traceparent"]
-        if url_query:
-            span_attrs["url.query"] = url_query
-        if hasattr(request, "META") and isinstance(request.META, dict):
-            trusted = cfg.trusted_proxies if cfg else []
-            client_ip = _resolve_client_address(request, trusted)
-            if client_ip:
-                span_attrs["client.address"] = str(client_ip)
-                span_attrs["http.client_ip"] = str(client_ip)
-            remote_port = request.META.get("REMOTE_PORT")
-            if remote_port:
-                try:
-                    span_attrs["client.port"] = int(remote_port)
-                except Exception:
-                    pass
-            host = request.META.get("HTTP_HOST") or request.META.get("SERVER_NAME")
-            if host:
-                span_attrs["server.address"] = str(host).split(":")[0]
-            server_proto = request.META.get("SERVER_PROTOCOL")
-            if server_proto:
-                span_attrs["network.protocol.version"] = str(server_proto)
-                span_attrs["http.flavor"] = str(server_proto)
-
-        # Resolve against path_info (what Django itself resolves against),
-        # never request.path -- the latter still carries SCRIPT_NAME, so on a
-        # sub-path mount every route pre-resolves to __unmatched__ and, via
-        # RouteEnrichingSpanProcessor, poisons every child span in the request.
-        # A per-request URLconf set by middleware is honoured too.
-        resolve_path = getattr(request, "path_info", None) or path
-        preresolved_route = _preresolve_route(resolve_path, getattr(request, "urlconf", None), request=request)
-        if preresolved_route and preresolved_route != "__unmatched__":
-            span_attrs["http.route_template"] = preresolved_route
-
-        start = time.monotonic()
-        final_route = preresolved_route if (preresolved_route and preresolved_route != "__unmatched__") else path
-
-        # Publish the pre-resolved route so child spans started inside the
-        # handler carry http.route even though resolver_match is only
-        # populated after the handler returns. Never publish __unmatched__
-        # as it would poison child spans.
-        route_to_publish = preresolved_route if (preresolved_route and preresolved_route != "__unmatched__") else None
-        route_token = set_request_route(route_to_publish, method)
-        preresolved_view = _preresolve_view(
-            resolve_path, getattr(request, "urlconf", None), request=request, method=method
-        )
-        view_token = set_request_view(preresolved_view)
-        max_fp = getattr(cfg, "n_plus_one_max_fingerprints", 256) if cfg else 256
-        tracker_token = init_request_db_tracker(max_fingerprints=max_fp)
-        start_span_name = (
-            f"{method} {preresolved_route}"
-            if (preresolved_route and preresolved_route != "__unmatched__")
-            else f"{method} {path}"
-        )
-        final_span_name = start_span_name
-        status_code = 500
-        error = False
-        metric_recorded = False
-        try:
-            with tracer.start_as_current_span(
-                start_span_name,
-                context=parent_ctx,
-                kind=SpanKind.SERVER,
-                attributes=span_attrs,
-                # This wrapper records errors itself on the paths below, so OTel's
-                # automatic handling is disabled -- otherwise the exception is
-                # recorded twice and set_status is called twice for one failure.
-                record_exception=False,
-                set_status_on_exception=False,
-            ) as span:
-                span_ctx = _prime_request(span, request)
-                trace_id_hex = _format_trace_id(span_ctx.trace_id) if span_ctx is not None else ""
-                span_id_hex = _format_span_id(span_ctx.span_id) if span_ctx is not None else ""
-
-                status_code = 200
-                error = False
-                route_for_metrics = path
-                # The application call is isolated from all telemetry enrichment.
-                # An exception here is the application's own and must propagate.
-                # Enrichment happens afterwards and can never turn a successful
-                # response into an error, nor raise into the host application.
-                try:
-                    response = wrapped(*args, **kwargs)
-                except Exception as exc:
-                    error = True
-                    status_code = 500
-                    route_for_metrics = attempt(
-                        _normalize_route, request, path, default="__unmatched__", _label="normalize_route"
-                    )
-                    if not route_for_metrics or route_for_metrics == "__unmatched__":
-                        current_ctx_route = get_current_route()
-                        if current_ctx_route and current_ctx_route != "__unmatched__":
-                            route_for_metrics = current_ctx_route
-                        elif preresolved_route and preresolved_route != "__unmatched__":
-                            route_for_metrics = preresolved_route
-                    final_span_name = (
-                        f"{method} {status_code}"
-                        if (not route_for_metrics or route_for_metrics == "__unmatched__")
-                        else f"{method} {route_for_metrics}"
-                    )
-                    final_route = (
-                        str(status_code)
-                        if (not route_for_metrics or route_for_metrics == "__unmatched__")
-                        else route_for_metrics
-                    )
-                    attempt(span.update_name, final_span_name, _label="update_span_name")
-                    safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
-                    safe_set_attribute(span, "http.route_template", final_route)
-                    if route_for_metrics and route_for_metrics != "__unmatched__":
-                        safe_set_attribute(span, "django.route", route_for_metrics)
-                    safe_set_attribute(span, "resource.name", final_span_name)
-                    safe_set_attribute(span, "normalized.service", "django")
-                    safe_set_attribute(span, "normalized.operation", final_span_name)
-                    safe_set_attribute(span, "http.response.status_code", 500)
-                    safe_set_attribute(span, "http.status_code", 500)
-                    safe_set_attribute(span, "error", True)
-                    safe_set_attribute(span, "error.type", exc.__class__.__name__)
-                    safe_record_exception(span, exc)
-                    safe_set_status(span, StatusCode.ERROR, description=str(exc))
-                    _apply_request_callback(span, request)
-                    raise
-                else:
-                    status_code = attempt(getattr, response, "status_code", default=200, _label="response.status_code")
-                    norm_route = attempt(
-                        _normalize_route, request, path, default="__unmatched__", _label="normalize_route"
-                    )
-                    if not norm_route or norm_route == "__unmatched__":
-                        current_ctx_route = get_current_route()
-                        if current_ctx_route and current_ctx_route != "__unmatched__":
-                            norm_route = current_ctx_route
-                        elif preresolved_route and preresolved_route != "__unmatched__":
-                            norm_route = preresolved_route
-                    route_for_metrics = norm_route
-                    final_span_name = (
-                        f"{method} {status_code}"
-                        if (not norm_route or norm_route == "__unmatched__")
-                        else f"{method} {norm_route}"
-                    )
-                    final_route = str(status_code) if (not norm_route or norm_route == "__unmatched__") else norm_route
-                    attempt(span.update_name, final_span_name, _label="update_span_name")
-                    view_name = attempt(_resolve_view_name, request, method, default="view", _label="view_name")
-
-                    safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
-                    safe_set_attribute(span, "http.route_template", final_route)
-                    if norm_route and norm_route != "__unmatched__":
-                        safe_set_attribute(span, "django.route", norm_route)
-                    safe_set_attribute(span, "http.response.status_code", status_code)
-                    safe_set_attribute(span, "http.status_code", status_code)
-                    safe_set_attribute(span, "django.view", str(view_name))
-                    safe_set_attribute(span, "django.view.name", str(view_name))
-                    safe_set_attribute(span, "resource.name", final_span_name)
-                    safe_set_attribute(span, "normalized.service", "django")
-                    safe_set_attribute(span, "normalized.operation", final_span_name)
-
-                    def _set_phrase() -> None:
-                        import http
-
-                        phrase = http.HTTPStatus(status_code).phrase
-                        safe_set_attribute(span, "http.status_text", phrase)
-                        safe_set_attribute(span, "http.response.status_text", phrase)
-
-                    attempt(_set_phrase, _label="status_text")
-
-                    def _set_user() -> None:
-                        user = getattr(request, "user", None)
-                        if user is None:
-                            return
-                        try:
-                            from django.utils.functional import SimpleLazyObject
-
-                            if isinstance(user, SimpleLazyObject):
-                                if hasattr(request, "_cached_user"):
-                                    user = request._cached_user
-                                else:
-                                    # User was never evaluated during request; do not force DB query
-                                    return
-                        except Exception:
-                            pass
-
-                        is_auth = False
-                        try:
-                            is_auth_attr = getattr(user, "is_authenticated", False)
-                            is_auth = is_auth_attr() if callable(is_auth_attr) else bool(is_auth_attr)
-                        except Exception:
-                            pass
-
-                        if is_auth:
-                            user_id = str(getattr(user, "pk", getattr(user, "id", "")))
-                            if user_id:
-                                safe_set_attribute(span, "usr.id", user_id)
-                                safe_set_attribute(span, "user.id", user_id)
-                                safe_set_attribute(span, "enduser.id", user_id)
-                            safe_set_attribute(span, "user.is_authenticated", True)
-
-                    attempt(_set_user, _label="user_attrs")
-                    _apply_request_callback(span, request, response)
-
-                    if status_code >= 500:
-                        error = True
-                        safe_set_attribute(span, "error", True)
-                        safe_set_attribute(span, "error.type", str(status_code))
-                        safe_set_status(span, StatusCode.ERROR, description=f"HTTP {status_code}")
-                    else:
-                        safe_set_attribute(span, "error", False)
-                        safe_set_status(span, StatusCode.OK)
-
-                    if span_ctx is not None and (hasattr(response, "headers") or hasattr(response, "__setitem__")):
-
-                        def _set_headers() -> None:
-                            response["X-Trace-ID"] = trace_id_hex
-                            response["X-Span-ID"] = span_id_hex
-                            # W3C trace context so downstream consumers can correlate
-                            # the response back to this trace without knowing our
-                            # custom headers.
-                            trace_flags = f"{span_ctx.trace_flags:02x}"
-                            response["traceparent"] = f"00-{trace_id_hex}-{span_id_hex}-{trace_flags}"
-
-                        attempt(_set_headers, _label="trace_headers")
-
-                    return response
-                finally:
-                    duration_ms = (time.monotonic() - start) * 1000.0
-                    safe_set_attribute(span, "http.request.duration_ms", duration_ms)
-                    try:
-                        from tp_trace.metrics import record_request
-
-                        record_request(
-                            method=method,
-                            route=final_route,
-                            status_code=status_code,
-                            error=error,
-                            duration_ms=duration_ms,
-                            service="django",
-                            operation=final_span_name,
-                            extra_attributes=get_current_tags(),
-                        )
-                        metric_recorded = True
-                    except Exception as metric_exc:
-                        logger.debug("Failed to record request metrics: %s", metric_exc)
-                    _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
-        finally:
-            reset_request_db_tracker(tracker_token)
-            if not metric_recorded:
-                try:
-                    from tp_trace.metrics import record_request
-
-                    duration_ms = (time.monotonic() - start) * 1000.0
-                    record_request(
-                        method=method,
-                        route=final_route,
-                        status_code=status_code,
-                        error=True,
-                        duration_ms=duration_ms,
-                        service="django",
-                        operation=final_span_name,
-                        extra_attributes=get_current_tags(),
-                    )
-                except Exception as metric_exc:
-                    logger.debug("Failed to record fallback request metrics: %s", metric_exc)
-            reset_request_view(view_token)
-            reset_request_route(route_token)
-            reset_request_tags()
 
 def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
     """Attach repeated-query evidence and emit its low-cardinality metric."""
@@ -842,3 +483,323 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
                 )
     except Exception as n_plus_one_exc:
         logger.debug("Failed to evaluate/record repeated query anomaly: %s", n_plus_one_exc)
+
+
+# -----------------------------------------------------------------------------
+# Official OpenTelemetry DjangoInstrumentor Hooks & Middleware Extensions
+# -----------------------------------------------------------------------------
+
+
+def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
+    """Official OTel DjangoInstrumentor request hook.
+
+    Initializes route pre-resolution, sets route contextvars for child spans,
+    primes request trace identifiers, enables N+1 DB query tracking, and applies
+    tags and client/server attributes.
+    """
+    try:
+        if span is None:
+            return
+
+        # 1. Reset and propagate tags
+        reset_request_tags()
+        try:
+            inst = getattr(request, "institute", None)
+            if inst and hasattr(inst, "subdomain") and inst.subdomain:
+                sub = str(inst.subdomain)
+                safe_set_attribute(span, "institute.subdomain", sub)
+                safe_set_attribute(span, "institute", sub)
+                set_request_tag("institute.subdomain", sub)
+                set_request_tag("institute", sub)
+        except Exception:
+            pass
+
+        # 2. Context tokens & pre-resolution
+        cfg = attempt(_get_config, default=None, _label="request_config")
+        method = getattr(request, "method", "GET").upper()
+        path = getattr(request, "path", "/")
+        resolve_path = getattr(request, "path_info", None) or path
+
+        preresolved_route = _preresolve_route(resolve_path, getattr(request, "urlconf", None), request=request)
+        route_to_publish = preresolved_route if (preresolved_route and preresolved_route != "__unmatched__") else None
+        route_token = set_request_route(route_to_publish, method)
+
+        preresolved_view = _preresolve_view(
+            resolve_path, getattr(request, "urlconf", None), request=request, method=method
+        )
+        view_token = set_request_view(preresolved_view)
+
+        max_fp = getattr(cfg, "n_plus_one_max_fingerprints", 256) if cfg else 256
+        tracker_token = init_request_db_tracker(max_fingerprints=max_fp)
+
+        start_time = time.monotonic()
+        request._tp_request_context = (tracker_token, route_token, view_token, start_time, preresolved_route)
+
+        # 3. Prime request (request.trace_id, request.span_id, static tags)
+        _prime_request(span, request)
+
+        # 4. URL sanitization & query mode
+        try:
+            raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
+        except Exception:
+            raw_url = path
+        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
+        sanitized = sanitize_url(raw_url, mode=query_mode)
+        url_path = path
+        url_query = ""
+        try:
+            parsed = urlparse(sanitized)
+            url_path = parsed.path or path
+            url_query = parsed.query
+        except Exception:
+            pass
+
+        target_url = f"{url_path}?{url_query}" if url_query else url_path
+
+        # 5. Set attributes
+        safe_set_attribute(span, "span.type", "web")
+        safe_set_attribute(span, "component", "django")
+        safe_set_attribute(span, "normalized.service", "django")
+        safe_set_attribute(span, "http.request.method", method)
+        safe_set_attribute(span, "http.method", method)
+        safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
+        safe_set_attribute(span, "url.full", sanitized)
+        safe_set_attribute(span, "http.url", sanitized)
+        safe_set_attribute(span, "url.path", url_path)
+        safe_set_attribute(span, "http.target", target_url)
+        safe_set_attribute(span, "url.scheme", getattr(request, "scheme", "http"))
+
+        ua = ""
+        if hasattr(request, "headers") and isinstance(request.headers, dict):
+            ua = request.headers.get("user-agent", "")
+        elif hasattr(request, "META") and isinstance(request.META, dict):
+            ua = request.META.get("HTTP_USER_AGENT", "")
+        if ua:
+            safe_set_attribute(span, "user_agent.original", ua)
+            safe_set_attribute(span, "http.user_agent", ua)
+
+        if query_mode == "strip" or not url_query:
+            safe_set_attribute(span, "url.query", "")
+            if hasattr(span, "_attributes") and hasattr(span._attributes, "pop"):
+                span._attributes.pop("url.query", None)
+        else:
+            safe_set_attribute(span, "url.query", url_query)
+
+        if hasattr(request, "META") and isinstance(request.META, dict):
+            from tp_trace.propagator import get_django_extraction_decision
+
+            if get_django_extraction_decision() is False:
+                tp = request.META.get("HTTP_TRACEPARENT") or request.META.get("traceparent")
+                if tp:
+                    safe_set_attribute(span, "http.client.traceparent", str(tp))
+
+        if hasattr(request, "META") and isinstance(request.META, dict):
+            trusted = cfg.trusted_proxies if cfg else []
+            client_ip = _resolve_client_address(request, trusted)
+            if client_ip:
+                safe_set_attribute(span, "client.address", str(client_ip))
+                safe_set_attribute(span, "http.client_ip", str(client_ip))
+            remote_port = request.META.get("REMOTE_PORT")
+            if remote_port:
+                try:
+                    safe_set_attribute(span, "client.port", int(remote_port))
+                except Exception:
+                    pass
+            host = request.META.get("HTTP_HOST") or request.META.get("SERVER_NAME")
+            if host:
+                safe_set_attribute(span, "server.address", str(host).split(":")[0])
+            server_proto = request.META.get("SERVER_PROTOCOL")
+            if server_proto:
+                safe_set_attribute(span, "network.protocol.version", str(server_proto))
+                safe_set_attribute(span, "http.flavor", str(server_proto))
+
+        if preresolved_route and preresolved_route != "__unmatched__":
+            safe_set_attribute(span, "http.route_template", preresolved_route)
+            start_span_name = f"{method} {preresolved_route}"
+        else:
+            start_span_name = f"{method} {path}"
+
+        attempt(span.update_name, start_span_name)
+        safe_set_attribute(span, "resource.name", start_span_name)
+        safe_set_attribute(span, "normalized.operation", start_span_name)
+
+        _apply_static_tags(span)
+    except Exception:
+        logger.debug("Error in django request hook", exc_info=True)
+
+
+def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> None:
+    """Official OTel DjangoInstrumentor response hook.
+
+    Finalizes normalized route, view name, status code, response headers
+    (X-Trace-ID, X-Span-ID, traceparent), user attribution, repeated query
+    anomaly detection, request metrics, and resets context tokens.
+    """
+    ctx = getattr(request, "_tp_request_context", None)
+    tracker_token = ctx[0] if ctx else None
+    route_token = ctx[1] if ctx else None
+    view_token = ctx[2] if ctx else None
+    start_time = ctx[3] if ctx else None
+    preresolved_route = ctx[4] if ctx else None
+
+    try:
+        if span is None:
+            return
+
+        cfg = attempt(_get_config, default=None, _label="request_config")
+        method = getattr(request, "method", "GET").upper()
+        path = getattr(request, "path", "/")
+
+        duration_ms = ((time.monotonic() - start_time) * 1000.0) if start_time else 0.0
+        safe_set_attribute(span, "http.request.duration_ms", duration_ms)
+
+        status_code = attempt(getattr, response, "status_code", default=200, _label="response.status_code")
+        error = status_code >= 500
+
+        norm_route = attempt(_normalize_route, request, path, default="__unmatched__", _label="normalize_route")
+        if not norm_route or norm_route == "__unmatched__":
+            current_ctx_route = get_current_route()
+            if current_ctx_route and current_ctx_route != "__unmatched__":
+                norm_route = current_ctx_route
+            elif preresolved_route and preresolved_route != "__unmatched__":
+                norm_route = preresolved_route
+
+        final_span_name = (
+            f"{method} {status_code}"
+            if (not norm_route or norm_route == "__unmatched__")
+            else f"{method} {norm_route}"
+        )
+        final_route = str(status_code) if (not norm_route or norm_route == "__unmatched__") else norm_route
+        attempt(span.update_name, final_span_name, _label="update_span_name")
+
+        view_name = attempt(_resolve_view_name, request, method, default="view", _label="view_name")
+
+        try:
+            raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
+        except Exception:
+            raw_url = path
+        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
+        sanitized = sanitize_url(raw_url, mode=query_mode)
+        url_path = path
+        url_query = ""
+        try:
+            parsed = urlparse(sanitized)
+            url_path = parsed.path or path
+            url_query = parsed.query
+        except Exception:
+            pass
+        target_url = f"{url_path}?{url_query}" if url_query else url_path
+
+        safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
+        safe_set_attribute(span, "http.route_template", final_route)
+        safe_set_attribute(span, "url.full", sanitized)
+        safe_set_attribute(span, "http.url", sanitized)
+        safe_set_attribute(span, "url.path", url_path)
+        safe_set_attribute(span, "http.target", target_url)
+        if query_mode == "strip" or not url_query:
+            safe_set_attribute(span, "url.query", "")
+            if hasattr(span, "_attributes") and hasattr(span._attributes, "pop"):
+                span._attributes.pop("url.query", None)
+        else:
+            safe_set_attribute(span, "url.query", url_query)
+
+        if norm_route and norm_route != "__unmatched__":
+            safe_set_attribute(span, "django.route", norm_route)
+        safe_set_attribute(span, "http.response.status_code", status_code)
+        safe_set_attribute(span, "http.status_code", status_code)
+        safe_set_attribute(span, "django.view", str(view_name))
+        safe_set_attribute(span, "django.view.name", str(view_name))
+        safe_set_attribute(span, "resource.name", final_span_name)
+        safe_set_attribute(span, "normalized.service", "django")
+        safe_set_attribute(span, "normalized.operation", final_span_name)
+
+        def _set_phrase() -> None:
+            import http
+            phrase = http.HTTPStatus(status_code).phrase
+            safe_set_attribute(span, "http.status_text", phrase)
+            safe_set_attribute(span, "http.response.status_text", phrase)
+
+        attempt(_set_phrase, _label="status_text")
+
+        def _set_user() -> None:
+            user = getattr(request, "user", None)
+            if user is None:
+                return
+            try:
+                from django.utils.functional import SimpleLazyObject
+                if isinstance(user, SimpleLazyObject):
+                    if hasattr(request, "_cached_user"):
+                        user = request._cached_user
+                    else:
+                        return
+            except Exception:
+                pass
+
+            is_auth = False
+            try:
+                is_auth_attr = getattr(user, "is_authenticated", False)
+                is_auth = is_auth_attr() if callable(is_auth_attr) else bool(is_auth_attr)
+            except Exception:
+                pass
+
+            if is_auth:
+                user_id = str(getattr(user, "pk", getattr(user, "id", "")))
+                if user_id:
+                    safe_set_attribute(span, "usr.id", user_id)
+                    safe_set_attribute(span, "user.id", user_id)
+                    safe_set_attribute(span, "enduser.id", user_id)
+                safe_set_attribute(span, "user.is_authenticated", True)
+
+        attempt(_set_user, _label="user_attrs")
+        _apply_request_callback(span, request, response)
+
+        if error:
+            safe_set_attribute(span, "error", True)
+            safe_set_attribute(span, "error.type", str(status_code))
+            safe_set_status(span, StatusCode.ERROR, description=f"HTTP {status_code}")
+        else:
+            safe_set_attribute(span, "error", False)
+            safe_set_status(span, StatusCode.OK)
+
+        span_ctx = attempt(span.get_span_context, default=None, _label="response_span_ctx")
+        if span_ctx is not None and (hasattr(response, "headers") or hasattr(response, "__setitem__")):
+            trace_id_hex = _format_trace_id(span_ctx.trace_id)
+            span_id_hex = _format_span_id(span_ctx.span_id)
+
+            def _set_headers() -> None:
+                response["X-Trace-ID"] = trace_id_hex
+                response["X-Span-ID"] = span_id_hex
+                trace_flags = f"{span_ctx.trace_flags:02x}"
+                response["traceparent"] = f"00-{trace_id_hex}-{span_id_hex}-{trace_flags}"
+
+            attempt(_set_headers, _label="trace_headers")
+
+        try:
+            from tp_trace.metrics import record_request
+            record_request(
+                method=method,
+                route=final_route,
+                status_code=status_code,
+                error=error,
+                duration_ms=duration_ms,
+                service="django",
+                operation=final_span_name,
+                extra_attributes=get_current_tags(),
+            )
+        except Exception as metric_exc:
+            logger.debug("Failed to record request metrics: %s", metric_exc)
+
+        _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
+    finally:
+        if tracker_token is not None:
+            reset_request_db_tracker(tracker_token)
+        if view_token is not None:
+            reset_request_view(view_token)
+        if route_token is not None:
+            reset_request_route(route_token)
+        reset_request_tags()
+        if hasattr(request, "_tp_request_context"):
+            try:
+                delattr(request, "_tp_request_context")
+            except Exception:
+                pass
