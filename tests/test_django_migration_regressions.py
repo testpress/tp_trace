@@ -283,3 +283,69 @@ def test_extraction_predicate_receives_actual_request_once(allow):
         assert server_span.context.trace_id != 0x12345678901234567890123456789012
         assert server_span.parent is None
         assert server_span.attributes["http.client.traceparent"] == request.META["HTTP_TRACEPARENT"]
+
+
+def test_uninstrument_leaves_host_hooks_intact_when_never_composed():
+    """If host installed hooks and tp_trace never composed them, uninstrument must not erase host hooks."""
+    from opentelemetry.instrumentation.django import DjangoInstrumentor
+    from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
+
+    def host_req(span, req):
+        pass
+
+    def host_resp(span, req, resp):
+        pass
+
+    instrumentor = DjangoInstrumentor()
+    if instrumentor.is_instrumented_by_opentelemetry:
+        instrumentor.uninstrument()
+
+    instrumentor.instrument(request_hook=host_req, response_hook=host_resp)
+    try:
+        assert _DjangoMiddleware._otel_request_hook == host_req
+        assert _DjangoMiddleware._otel_response_hook == host_resp
+
+        # Create DjangoIntegration without composing (e.g. uninstrumenting directly)
+        integration = DjangoIntegration()
+        integration.uninstrument()
+
+        # Host hooks must remain intact, not set to None
+        assert _DjangoMiddleware._otel_request_hook == host_req
+        assert _DjangoMiddleware._otel_response_hook == host_resp
+    finally:
+        instrumentor.uninstrument()
+
+
+def test_sampled_out_request_records_metrics_and_response_headers(monkeypatch):
+    """Even when a request is sampled out (sample_rate=0.0), response headers and request metrics are still emitted."""
+    recorded_metrics = []
+
+    def mock_record_request(**kwargs):
+        recorded_metrics.append(kwargs)
+
+    import tp_trace.metrics
+
+    monkeypatch.setattr(tp_trace.metrics, "record_request", mock_record_request)
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="sampled-out-svc", exporter=exporter, sample_rate=0.0, export_batch=False)
+
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    factory = RequestFactory()
+    req = factory.get("/test/sample/")
+    resp = handler.get_response(req)
+
+    assert resp.status_code == 200
+    # Trace headers must still be injected into response
+    assert "X-Trace-ID" in resp
+    assert "traceparent" in resp
+    # No spans should be exported by in-memory exporter when sampled out
+    assert len(exporter.get_finished_spans()) == 0
+    # Metrics must still be recorded unconditionally
+    assert len(recorded_metrics) == 1
+    assert recorded_metrics[0]["status_code"] == 200
+    assert recorded_metrics[0]["route"] == "/test/sample/"
+    assert recorded_metrics[0]["error"] is False
+

@@ -121,7 +121,14 @@ _orig_handler_base_import_string: Optional[Callable] = None
 
 
 def _make_otel_middleware_factory(integration: Any, middleware_class: Any) -> Callable:
-    """Keep OTel's middleware intact while scoping policy and owned-instance lifetime."""
+    """Keep OTel's middleware intact while scoping policy and owned-instance lifetime.
+
+    NOTE: Asynchronous / ASGI request handling is deliberately deferred for now.
+    This middleware wrapper is intentionally synchronous for WSGI. Under ASGI, Django
+    executes sync-only middleware via its sync_to_async/async_to_sync adaptors. Native
+    async middleware wrapping, coroutine detection, and async context preservation
+    across await points are intentionally deferred for future async-stack work.
+    """
     owns_instrumentor = integration._installed_django_instrumentor
 
     @functools.wraps(middleware_class)
@@ -311,6 +318,7 @@ def _compose_django_hooks(integration: Optional[Any] = None) -> None:
         if curr_req != _tp_trace_django_request_hook and not getattr(curr_req, "_tp_composed", False):
             if integration is not None:
                 integration._orig_host_request_hook = curr_req
+                integration._composed_host_request_hook = True
 
             def composed_req_hook(span: Any, req: Any) -> None:
                 if curr_req is not None:
@@ -327,6 +335,7 @@ def _compose_django_hooks(integration: Optional[Any] = None) -> None:
         if curr_resp != _tp_trace_django_response_hook and not getattr(curr_resp, "_tp_composed", False):
             if integration is not None:
                 integration._orig_host_response_hook = curr_resp
+                integration._composed_host_response_hook = True
 
             def composed_resp_hook(span: Any, req: Any, resp: Any) -> None:
                 _tp_trace_django_response_hook(span, req, resp)

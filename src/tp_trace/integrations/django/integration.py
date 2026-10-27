@@ -27,6 +27,8 @@ class DjangoIntegration(BaseIntegration):
         self._injected_otel_middleware: bool = False
         self._orig_host_request_hook: Optional[Any] = None
         self._orig_host_response_hook: Optional[Any] = None
+        self._composed_host_request_hook: bool = False
+        self._composed_host_response_hook: bool = False
 
     def is_installed(self) -> bool:
         try:
@@ -263,12 +265,19 @@ class DjangoIntegration(BaseIntegration):
             try:
                 from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
 
-                if hasattr(self, "_orig_host_request_hook"):
-                    _DjangoMiddleware._otel_request_hook = self._orig_host_request_hook  # type: ignore[assignment]
+                if getattr(self, "_composed_host_request_hook", False):
+                    current_req = getattr(_DjangoMiddleware, "_otel_request_hook", None)
+                    if getattr(current_req, "_tp_composed", False):
+                        _DjangoMiddleware._otel_request_hook = self._orig_host_request_hook  # type: ignore[assignment]
                     self._orig_host_request_hook = None
-                if hasattr(self, "_orig_host_response_hook"):
-                    _DjangoMiddleware._otel_response_hook = self._orig_host_response_hook  # type: ignore[assignment]
+                    self._composed_host_request_hook = False
+
+                if getattr(self, "_composed_host_response_hook", False):
+                    current_resp = getattr(_DjangoMiddleware, "_otel_response_hook", None)
+                    if getattr(current_resp, "_tp_composed", False):
+                        _DjangoMiddleware._otel_response_hook = self._orig_host_response_hook  # type: ignore[assignment]
                     self._orig_host_response_hook = None
+                    self._composed_host_response_hook = False
             except Exception:
                 pass
 
