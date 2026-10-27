@@ -46,10 +46,13 @@ _HOOK_METHODS = (
 )
 
 
-def _make_hook_wrapper(mw_path: str, mw_short: str, method_name: str):
+def _make_hook_wrapper(integration: Optional[Any], mw_path: str, mw_short: str, method_name: str):
     span_name = f"{mw_path}.{method_name}"
 
     def _wrapper(wrapped_call: Callable, inst: Any, a: Any, k: Any):
+        if integration is not None and not getattr(integration, "_instrumented", False):
+            return wrapped_call(*a, **k)
+
         attrs = {
             "span.type": "web",
             "component": "django",
@@ -86,6 +89,9 @@ def _make_traced_middleware_factory(integration, mw_path, factory):
 
         @functools.wraps(inner)
         def traced_get_response(request):
+            if integration is not None and not getattr(integration, "_instrumented", False):
+                return inner(request)
+
             attrs = {
                 "span.type": "web",
                 "component": "django",
@@ -114,6 +120,35 @@ _active_middleware_integration: ContextVar[Optional[Any]] = ContextVar("active_m
 _orig_handler_base_import_string: Optional[Callable] = None
 
 
+def _make_otel_middleware_factory(integration: Any, middleware_class: Any) -> Callable:
+    """Keep OTel's middleware intact while scoping policy and owned-instance lifetime."""
+    owns_instrumentor = integration._installed_django_instrumentor
+
+    @functools.wraps(middleware_class)
+    def factory(get_response):
+        official_middleware = middleware_class(get_response)
+
+        def middleware(request):
+            if not integration._instrumented:
+                if owns_instrumentor:
+                    return get_response(request)
+                return official_middleware(request)
+
+            from tp_trace.propagator import django_extraction_context
+
+            with django_extraction_context(request):
+                return official_middleware(request)
+
+        # Django registers these separately when it builds the handler chain.
+        for name in ("process_view", "process_exception", "process_template_response"):
+            hook = getattr(official_middleware, name, None)
+            if hook is not None:
+                setattr(middleware, name, hook)
+        return middleware
+
+    return factory
+
+
 def _patch_handler_base_import_string() -> None:
     """Safely patch django.core.handlers.base.import_string once with ContextVar guard."""
     global _orig_handler_base_import_string
@@ -134,6 +169,8 @@ def _patch_handler_base_import_string() -> None:
     def patched_import_string(dotted_path: str) -> Any:
         obj = orig(dotted_path)
         active_integration = _active_middleware_integration.get()
+        if active_integration is not None and dotted_path == OTEL_DJANGO_MIDDLEWARE:
+            return _make_otel_middleware_factory(active_integration, obj)
         if active_integration is not None and not isinstance(obj, type) and callable(obj):
             return _make_traced_middleware_factory(active_integration, dotted_path, obj)
         return obj
@@ -168,6 +205,9 @@ def _instrument_class_middleware(integration, middleware_list):
         for middleware_path in middleware_list:
             if middleware_path in integration._wrapped_middleware:
                 continue
+            if "opentelemetry.instrumentation.django" in middleware_path:
+                integration._wrapped_middleware.add(middleware_path)
+                continue
             try:
                 middleware = import_string(middleware_path)
                 if not isinstance(middleware, type):
@@ -184,7 +224,7 @@ def _instrument_class_middleware(integration, middleware_list):
                                 integration.wrap(
                                     middleware,
                                     method_name,
-                                    _make_hook_wrapper(middleware_path, middleware_short, method_name),
+                                    _make_hook_wrapper(integration, middleware_path, middleware_short, method_name),
                                 )
                             except Exception as exc:
                                 logger.debug("Failed to wrap %s on %s: %s", method_name, middleware_path, exc)
@@ -196,13 +236,158 @@ def _instrument_class_middleware(integration, middleware_list):
         logger.debug("Middleware instrumentation post-load failed: %s", exc)
 
 
+OTEL_DJANGO_MIDDLEWARE = "opentelemetry.instrumentation.django.middleware.otel_middleware._DjangoMiddleware"
+
+
+def ensure_otel_middleware_in_settings(integration: Optional[Any] = None) -> bool:
+    """Ensure OpenTelemetry's _DjangoMiddleware is at index 0 of settings.MIDDLEWARE."""
+    try:
+        from django.conf import settings
+
+        if not getattr(settings, "configured", False):
+            return False
+
+        mw_setting = (
+            "MIDDLEWARE"
+            if hasattr(settings, "MIDDLEWARE") and getattr(settings, "MIDDLEWARE") is not None
+            else "MIDDLEWARE_CLASSES"
+        )
+        mw_list = getattr(settings, mw_setting, None)
+        if mw_list is None:
+            return False
+
+        if OTEL_DJANGO_MIDDLEWARE in mw_list:
+            if mw_list[0] != OTEL_DJANGO_MIDDLEWARE:
+                cleaned = [m for m in mw_list if m != OTEL_DJANGO_MIDDLEWARE]
+                cleaned.insert(0, OTEL_DJANGO_MIDDLEWARE)
+                final_ordered: Any = tuple(cleaned) if isinstance(mw_list, tuple) else cleaned
+                setattr(settings, mw_setting, final_ordered)
+                logger.debug("tp_trace: Reordered %s to index 0 of settings.%s", OTEL_DJANGO_MIDDLEWARE, mw_setting)
+            return True
+
+        final_mw: Any = (
+            (OTEL_DJANGO_MIDDLEWARE,) + tuple(mw_list)
+            if isinstance(mw_list, tuple)
+            else [OTEL_DJANGO_MIDDLEWARE] + list(mw_list)
+        )
+        setattr(settings, mw_setting, final_mw)
+        if integration is not None:
+            integration._injected_otel_middleware = True
+        logger.debug("tp_trace: Inserted %s at index 0 of settings.%s", OTEL_DJANGO_MIDDLEWARE, mw_setting)
+        return True
+    except Exception as exc:
+        logger.debug("tp_trace: Failed to ensure _DjangoMiddleware in settings: %s", exc)
+        return False
+
+
+def remove_otel_middleware_from_settings() -> None:
+    """Remove OpenTelemetry's _DjangoMiddleware from settings on uninstrument."""
+    try:
+        from django.conf import settings
+
+        if not getattr(settings, "configured", False):
+            return
+
+        for mw_setting in ("MIDDLEWARE", "MIDDLEWARE_CLASSES"):
+            mw_list = getattr(settings, mw_setting, None)
+            if mw_list and OTEL_DJANGO_MIDDLEWARE in mw_list:
+                cleaned_mw: Any = (
+                    tuple(m for m in mw_list if m != OTEL_DJANGO_MIDDLEWARE)
+                    if isinstance(mw_list, tuple)
+                    else [m for m in mw_list if m != OTEL_DJANGO_MIDDLEWARE]
+                )
+                setattr(settings, mw_setting, cleaned_mw)
+    except Exception:
+        pass
+
+
+def _compose_django_hooks(integration: Optional[Any] = None) -> None:
+    """Compose tp_trace request and response hooks with any existing host hooks."""
+    try:
+        from opentelemetry.instrumentation.django.middleware.otel_middleware import _DjangoMiddleware
+        from .request import _tp_trace_django_request_hook, _tp_trace_django_response_hook
+
+        curr_req = getattr(_DjangoMiddleware, "_otel_request_hook", None)
+        if curr_req != _tp_trace_django_request_hook and not getattr(curr_req, "_tp_composed", False):
+            if integration is not None:
+                integration._orig_host_request_hook = curr_req
+
+            def composed_req_hook(span: Any, req: Any) -> None:
+                if curr_req is not None:
+                    try:
+                        curr_req(span, req)
+                    except Exception:
+                        logger.debug("Host Django request_hook failed", exc_info=True)
+                _tp_trace_django_request_hook(span, req)
+
+            composed_req_hook._tp_composed = True  # type: ignore[attr-defined]
+            _DjangoMiddleware._otel_request_hook = composed_req_hook
+
+        curr_resp = getattr(_DjangoMiddleware, "_otel_response_hook", None)
+        if curr_resp != _tp_trace_django_response_hook and not getattr(curr_resp, "_tp_composed", False):
+            if integration is not None:
+                integration._orig_host_response_hook = curr_resp
+
+            def composed_resp_hook(span: Any, req: Any, resp: Any) -> None:
+                _tp_trace_django_response_hook(span, req, resp)
+                if curr_resp is not None:
+                    try:
+                        curr_resp(span, req, resp)
+                    except Exception:
+                        logger.debug("Host Django response_hook failed", exc_info=True)
+
+            composed_resp_hook._tp_composed = True  # type: ignore[attr-defined]
+            _DjangoMiddleware._otel_response_hook = composed_resp_hook
+    except Exception as exc:
+        logger.debug("tp_trace: Failed to compose Django hooks: %s", exc)
+
+
+def ensure_django_instrumented(integration: Optional[Any] = None) -> bool:
+    """Ensure official OpenTelemetry DjangoInstrumentor is instrumented and its middleware is in settings.
+
+    Defers instrumentation when Django settings are not yet configured.
+    """
+    try:
+        from django.conf import settings
+
+        if not getattr(settings, "configured", False):
+            logger.debug("tp_trace: Django settings not configured yet; deferring official instrumentation.")
+            return False
+    except Exception:
+        return False
+
+    try:
+        from opentelemetry.instrumentation.django import DjangoInstrumentor
+        from .request import (
+            _tp_trace_django_request_hook,
+            _tp_trace_django_response_hook,
+        )
+
+        instrumentor = DjangoInstrumentor()
+        if not instrumentor.is_instrumented_by_opentelemetry:
+            instrumentor.instrument(
+                request_hook=_tp_trace_django_request_hook,
+                response_hook=_tp_trace_django_response_hook,
+            )
+            if integration is not None:
+                integration._installed_django_instrumentor = True
+        else:
+            _compose_django_hooks(integration)
+    except Exception as exc:
+        logger.debug("tp_trace: Failed to instrument official DjangoInstrumentor: %s", exc)
+
+    return ensure_otel_middleware_in_settings(integration)
+
+
 def make_traced_load_middleware(integration):
     """Factory that captures the DjangoIntegration instance so we can track wrapped middlewares."""
     _patch_handler_base_import_string()
 
     def traced_load_middleware(wrapped: Callable, instance: Any, args: Any, kwargs: Any):
-        if getattr(instance, "_tp_middleware_instrumented", False):
+        if not getattr(integration, "_instrumented", False):
             return wrapped(*args, **kwargs)
+
+        ensure_django_instrumented(integration)
 
         try:
             from django.conf import settings

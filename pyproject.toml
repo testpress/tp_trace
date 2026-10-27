@@ -17,12 +17,14 @@ dependencies = [
     "opentelemetry-instrumentation-redis>=0.44b0",
     "opentelemetry-instrumentation-botocore>=0.44b0",
     "opentelemetry-instrumentation-celery>=0.54b1",
+    "opentelemetry-instrumentation-django>=0.44b0",
     "wrapt>=1.14.0",
 ]
 
 [project.optional-dependencies]
 django = [
     "django>=4.2",
+    "opentelemetry-instrumentation-django>=0.44b0",
 ]
 dev = [
     "pytest>=7.0.0",

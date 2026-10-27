@@ -18,7 +18,6 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, Sampler
 from opentelemetry.trace import get_current_span, get_tracer
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.baggage.propagation import W3CBaggagePropagator
-from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.propagate import set_global_textmap
 
 from tp_trace.config import SDKConfig
@@ -241,11 +240,15 @@ def init(
         _ACTIVE_PROVIDER = provider
         _INITIALIZED = True
 
-        # Setup W3C Trace Context and Baggage composite propagator
+        # Setup W3C Trace Context and Baggage composite propagator wrapped with TpTrace filtering
+        from tp_trace.propagator import TpTraceFilteringPropagator
+
         try:
-            set_global_textmap(CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()]))
+            set_global_textmap(
+                TpTraceFilteringPropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])
+            )
         except Exception:
-            set_global_textmap(TraceContextTextMapPropagator())
+            set_global_textmap(TpTraceFilteringPropagator([TraceContextTextMapPropagator()]))
 
         # Auto-patch installed integrations if requested
         if config.auto_patch and not config.disabled:
