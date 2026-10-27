@@ -319,9 +319,6 @@ services:
           - sample-app
 
   celery-worker:
-    build:
-      context: ..
-      dockerfile: sample-app/Dockerfile
     image: tp-trace-dev-sample-app:latest
     container_name: tp-celery-worker
     restart: on-failure:5
@@ -341,11 +338,22 @@ services:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       CELERY_TASK_ALWAYS_EAGER: "false"
       TP_TRACE_PROJECT_NAME: otel-sample
+
     volumes:
       - ../sample-app/api:/app/api
       - ../sample-app/config:/app/config
       - ../src:/app/src
-    command: ["celery", "-A", "api.celery_app:app", "worker", "--loglevel=info", "--concurrency=2"]
+
+    command:
+      [
+        "celery",
+        "-A",
+        "api.celery_app:app",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=2"
+      ]
+
     depends_on:
       sample-app:
         condition: service_healthy
@@ -353,6 +361,7 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
+
     networks:
       tp-net:
         aliases:
