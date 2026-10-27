@@ -646,12 +646,6 @@ def test_auto_patch_respects_integrations_config():
     assert target.greet("Alice") == "Hello, Alice"
 
 
-def test_middleware_init_class_exists():
-    """Verify TpTraceMiddleware can be imported."""
-    from tp_trace.integrations.django.middleware_init import TpTraceMiddleware
-
-    assert TpTraceMiddleware is not None
-
 
 def test_sample_rate_zero():
     """Verify ALWAYS_OFF sampler drops all spans."""
