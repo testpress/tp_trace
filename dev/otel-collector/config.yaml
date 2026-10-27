@@ -50,13 +50,6 @@ processors:
       - key: telemetry.sdk.name
         action: delete
 
-  transform/drop_metric_worker_id:
-    error_mode: ignore
-    metric_statements:
-      - context: datapoint
-        statements:
-          - delete_key(attributes, "worker_id")
-
   # Exclude internal spans and Django SERVER spans from spanmetrics.
   # Django HTTP RED metrics are emitted natively by the SDK, while
   # dependencies (Postgres, Redis, Celery, requests) use spanmetrics.
@@ -68,8 +61,8 @@ processors:
         - kind == SPAN_KIND_INTERNAL
         # Invariant 2: Django SERVER spans are skipped; metrics are emitted natively by SDK
         # Primary classification: normalized.service == "django"
-        # Migration fallback: route attributes
-        - kind == SPAN_KIND_SERVER and (attributes["normalized.service"] == "django" or attributes["django.route"] != nil or attributes["http.route_template"] != nil)
+        # Migration fallback: django.route attribute for legacy tp_trace SDK spans
+        - kind == SPAN_KIND_SERVER and (attributes["normalized.service"] == "django" or attributes["django.route"] != nil)
 
   transform/spanmetrics_route:
     error_mode: ignore

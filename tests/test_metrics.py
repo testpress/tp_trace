@@ -154,10 +154,7 @@ def test_red_metrics_attribute_contract():
     assert attrs["span_kind"] == "SPAN_KIND_SERVER"
     assert attrs["error"] == "false"
     assert "worker_id" in attrs
-    assert "service.instance.id" in attrs
-    assert attrs["worker_id"] == attrs["service.instance.id"]
-    assert f":{os.getpid()}:" in attrs["worker_id"]
-    assert socket.gethostname() in attrs["worker_id"]
+    assert attrs["worker_id"] == f"{socket.gethostname()}:{os.getpid()}"
 
 
 def test_worker_identity_contains_hostname_and_pid():
@@ -177,8 +174,7 @@ def test_worker_identity_contains_hostname_and_pid():
     assert len(calls_points) == 1
     attrs = calls_points[0].attributes
     worker_id = attrs["worker_id"]
-    assert worker_id.startswith(f"{socket.gethostname()}:{os.getpid()}:")
-    assert attrs["service.instance.id"] == worker_id
+    assert worker_id == f"{socket.gethostname()}:{os.getpid()}"
 
 
 def test_worker_identity_stable_inside_same_process():
@@ -201,11 +197,11 @@ def test_worker_identity_stable_inside_same_process():
 
 
 def test_worker_identity_changes_after_fork(monkeypatch):
-    """When a process forks (PID changes), worker identity refreshes with a new PID and UUID."""
+    """When a process forks (PID changes), worker identity refreshes with the new PID."""
     from tp_trace.metrics import get_process_worker_identity
 
     orig_identity = get_process_worker_identity()
-    assert f":{os.getpid()}:" in orig_identity
+    assert orig_identity == f"{socket.gethostname()}:{os.getpid()}"
 
     # Simulate fork to new PID
     new_pid = os.getpid() + 1000
@@ -213,7 +209,7 @@ def test_worker_identity_changes_after_fork(monkeypatch):
 
     forked_identity = get_process_worker_identity()
     assert forked_identity != orig_identity
-    assert f":{new_pid}:" in forked_identity
+    assert forked_identity == f"{socket.gethostname()}:{new_pid}"
 
 
 def test_real_fork_produces_distinct_worker_identities():
@@ -239,7 +235,7 @@ def test_real_fork_produces_distinct_worker_identities():
         _, status = os.waitpid(pid, 0)
         assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
         assert child_id != parent_id
-        assert f":{pid}:" in child_id
+        assert child_id.endswith(f":{pid}")
 
 
 def test_worker_identity_unique_with_shared_env_instance_id(monkeypatch):
@@ -280,12 +276,12 @@ def test_worker_identity_unique_with_shared_env_instance_id(monkeypatch):
     assert len(calls_points) == 2
     worker_ids = [pt.attributes.get("worker_id") for pt in calls_points]
     assert worker_ids[0] != worker_ids[1]
-    assert worker_ids[0].startswith("shared-container-env:20001:")
-    assert worker_ids[1].startswith("shared-container-env:20002:")
+    assert worker_ids[0] == "shared-container-env:20001"
+    assert worker_ids[1] == "shared-container-env:20002"
 
 
 def test_request_attributes_cannot_override_worker_identity():
-    """Verify request extra tags cannot override process worker_id or service.instance.id."""
+    """Verify request extra tags cannot override process worker_id."""
     from tp_trace.metrics import get_metrics_recorder
 
     metric_reader = InMemoryMetricReader()
@@ -305,7 +301,6 @@ def test_request_attributes_cannot_override_worker_identity():
         duration_ms=12.0,
         extra_attributes={
             "worker_id": "malicious-worker-override",
-            "service.instance.id": "malicious-instance-override",
         },
     )
 
@@ -313,9 +308,7 @@ def test_request_attributes_cannot_override_worker_identity():
     assert len(calls_points) == 1
     attrs = calls_points[0].attributes
     assert attrs["worker_id"] != "malicious-worker-override"
-    assert attrs["service.instance.id"] != "malicious-instance-override"
-    assert f":{os.getpid()}:" in attrs["worker_id"]
-    assert attrs["service.instance.id"] == attrs["worker_id"]
+    assert attrs["worker_id"] == f"{socket.gethostname()}:{os.getpid()}"
 
 
 def test_multiworker_independent_streams(monkeypatch):
@@ -354,8 +347,8 @@ def test_multiworker_independent_streams(monkeypatch):
     assert len(calls_points) == 2
     worker_ids = {pt.attributes.get("worker_id") for pt in calls_points}
     assert len(worker_ids) == 2
-    assert any(":10001:" in wid for wid in worker_ids)
-    assert any(":10002:" in wid for wid in worker_ids)
+    assert any(wid.endswith(":10001") for wid in worker_ids)
+    assert any(wid.endswith(":10002") for wid in worker_ids)
 
 
 class _DummyInstitute:

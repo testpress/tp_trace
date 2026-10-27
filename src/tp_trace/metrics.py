@@ -7,7 +7,6 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 import logging
 import os
 import socket
-import uuid
 from typing import Any, Dict, List, Optional
 
 from opentelemetry.metrics import Counter, Histogram
@@ -35,25 +34,22 @@ LATENCY_BUCKETS_MS: List[float] = [
 ]
 
 _PROCESS_PID: Optional[int] = None
-_PROCESS_UUID: Optional[str] = None
 _HOSTNAME: str = socket.gethostname()
 
 
 def get_process_worker_identity() -> str:
-    """Return a globally unique, fork-safe process identity.
+    """Return a bounded, fork-safe process identity.
 
-    Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured), PID,
-    and a random process UUID that refreshes automatically if os.getpid() changes
-    after an os.fork(). Never overridden by request tags or shared container
-    environment variables across processes.
+    Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured) and PID.
+    Automatically refreshes if os.getpid() changes after an os.fork().
+    Bounded to the host PID space to prevent series churn from worker recycles.
     """
-    global _PROCESS_PID, _PROCESS_UUID
+    global _PROCESS_PID
     current_pid = os.getpid()
-    if _PROCESS_PID != current_pid or _PROCESS_UUID is None:
+    if _PROCESS_PID != current_pid:
         _PROCESS_PID = current_pid
-        _PROCESS_UUID = uuid.uuid4().hex[:12]
     prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
-    return f"{prefix}:{current_pid}:{_PROCESS_UUID}"
+    return f"{prefix}:{current_pid}"
 
 
 _ACTIVE_RECORDER: Optional["RedMetricsRecorder"] = None
@@ -151,9 +147,9 @@ class RedMetricsRecorder:
                     if v is not None and k not in attributes:
                         attributes[k] = str(v)
 
-            # Authoritatively set process/worker identity so request tags cannot override it
+            # Authoritatively set process/worker identity so request tags cannot override it.
+            # worker_id isolates independent worker metric streams in multi-process runtimes (Gunicorn).
             attributes["worker_id"] = worker_identity
-            attributes["service.instance.id"] = worker_identity
 
             self.calls_total.add(1, attributes)
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
