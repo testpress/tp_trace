@@ -22,7 +22,7 @@ Django web app / Celery worker
 ```
 
 ### Multi-worker metric aggregation
-In multi-worker WSGI environments (such as Gunicorn or uWSGI), each worker process maintains its own independent in-memory meter and counter streams. To prevent counter stream collisions when multiple workers push cumulative counters to Prometheus, `worker_id` and `service.instance.id` are preserved on metric data points. Queries in Grafana aggregate across worker streams using `sum by (...) (rate(calls_total[5m]))`.
+In multi-worker WSGI environments (such as Gunicorn or uWSGI), each worker process maintains its own independent in-memory meter and counter streams. To prevent counter stream collisions when multiple workers push cumulative counters to Prometheus, `worker_id` (`<host>:<pid>` or `<OTEL_SERVICE_INSTANCE_ID>:<pid>`) is attached as a bounded label on native metric datapoints, while `service.instance.id` is maintained on the OpenTelemetry Resource. Queries in Grafana aggregate across worker streams using `sum by (...) (rate(calls_total[5m]))` without grouping by `worker_id`.
 
 Django HTTP `SPAN_KIND_SERVER` spans are excluded from the Collector's `spanmetrics` connector pipeline (`filter/spanmetrics_drop_non_dependencies`), ensuring that request metrics are emitted exclusively through the native SDK metrics pipeline without duplicate connector metrics. In addition, `SPAN_KIND_INTERNAL` spans are blocked from `spanmetrics` to ensure framework implementation details never generate RED metrics.
 
