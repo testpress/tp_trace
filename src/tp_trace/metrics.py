@@ -7,6 +7,7 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 import logging
 import os
 import socket
+import threading
 from typing import Any, Dict, List, Optional
 
 from opentelemetry.metrics import Counter, Histogram
@@ -33,23 +34,31 @@ LATENCY_BUCKETS_MS: List[float] = [
     5000.0,
 ]
 
-_PROCESS_PID: Optional[int] = None
+_IDENTITY_LOCK = threading.Lock()
+_CACHED_PID: Optional[int] = None
+_CACHED_IDENTITY: Optional[str] = None
 _HOSTNAME: str = socket.gethostname()
 
 
 def get_process_worker_identity() -> str:
-    """Return a bounded, fork-safe process identity.
+    """Return a bounded, fork-safe and thread-safe process identity.
 
     Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured) and PID.
     Automatically refreshes if os.getpid() changes after an os.fork().
+    Thread-safe double-checked caching eliminates lock contention on the request path.
     Bounded to the host PID space to prevent series churn from worker recycles.
     """
-    global _PROCESS_PID
+    global _CACHED_PID, _CACHED_IDENTITY
     current_pid = os.getpid()
-    if _PROCESS_PID != current_pid:
-        _PROCESS_PID = current_pid
-    prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
-    return f"{prefix}:{current_pid}"
+    if _CACHED_PID == current_pid and _CACHED_IDENTITY is not None:
+        return _CACHED_IDENTITY
+
+    with _IDENTITY_LOCK:
+        if _CACHED_PID != current_pid or _CACHED_IDENTITY is None:
+            _CACHED_PID = current_pid
+            prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
+            _CACHED_IDENTITY = f"{prefix}:{current_pid}"
+        return _CACHED_IDENTITY
 
 
 _ACTIVE_RECORDER: Optional["RedMetricsRecorder"] = None

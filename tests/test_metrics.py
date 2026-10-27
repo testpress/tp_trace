@@ -212,6 +212,27 @@ def test_worker_identity_changes_after_fork(monkeypatch):
     assert forked_identity == f"{socket.gethostname()}:{new_pid}"
 
 
+def test_worker_identity_thread_safe_concurrent_initialization():
+    """Verify concurrent calls from multiple threads initialize identity safely without racing."""
+    import concurrent.futures
+    import tp_trace.metrics as tm
+
+    # Reset cache to simulate cold start
+    with tm._IDENTITY_LOCK:
+        tm._CACHED_PID = None
+        tm._CACHED_IDENTITY = None
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(tm.get_process_worker_identity) for _ in range(50)]
+        for f in concurrent.futures.as_completed(futures):
+            results.append(f.result())
+
+    expected = f"{socket.gethostname()}:{os.getpid()}"
+    assert len(results) == 50
+    assert all(r == expected for r in results)
+
+
 def test_real_fork_produces_distinct_worker_identities():
     """Verify that an actual OS fork generates distinct identities in parent and child."""
     if not hasattr(os, "fork"):

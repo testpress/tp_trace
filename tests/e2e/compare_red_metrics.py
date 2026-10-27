@@ -6,6 +6,7 @@ Verifies:
 - Errors: Locust failures vs Prometheus server errors (5xx) and client errors (4xx)
 - Duration: Locust P50 / P95 / P99 latency percentiles vs Prometheus histogram quantiles
 - Breakdown: Per-endpoint side-by-side reconciliation
+- Synchronization: Reset-aware counter increases over shared time intervals or active benchmark windows
 """
 
 import argparse
@@ -63,16 +64,13 @@ def format_table(headers: list, rows: list) -> str:
 
 def normalize_route_pattern(route: str) -> str:
     """Normalize parameterized URL patterns between Locust and Django."""
-    # Convert <exam_slug>, <course_id>, <pk>, <slug>, etc. to standard <*>
     cleaned = re.sub(r"<[^>]+>", "<*>", route.strip())
-    # Strip trailing query params if present
     cleaned = cleaned.split("?")[0]
     return cleaned.rstrip("/")
 
 
 def match_endpoints(locust_stats: list, prom_routes: list) -> list:
     """Match Locust endpoints with Prometheus routes for side-by-side comparison."""
-    # Build dictionary of Prometheus routes by normalized pattern
     prom_by_pattern = {}
     for pr in prom_routes:
         method = pr.get("metric", {}).get("http_method", "")
@@ -105,13 +103,86 @@ def match_endpoints(locust_stats: list, prom_routes: list) -> list:
             "loc_p95": f"{loc_p95:.0f}ms",
         })
 
-    # Sort by locust requests descending
     rows.sort(key=lambda x: x["loc_reqs"], reverse=True)
     return rows
 
 
+def run_benchmark(locust_url: str, prom_url: str, project_name: str, duration: int):
+    """Benchmark a synchronized measurement interval (t0 -> t1) to measure exact deltas."""
+    print(f"[*] Starting synchronized benchmark for {duration} seconds...")
+    loc_t0 = query_locust_stats(locust_url)
+    if not loc_t0:
+        print("[!] Cannot reach Locust. Start Locust before benchmarking.")
+        return
+
+    filter_proj = f'project_name="{project_name}"'
+    res_t0 = query_prometheus(prom_url, f"sum(calls_total{{{filter_proj}}})")
+    prom_t0 = float(res_t0[0]["value"][1]) if res_t0 else 0.0
+
+    loc_agg_t0 = next((s for s in loc_t0.get("stats", []) if s.get("name") == "Aggregated"), {})
+    loc_reqs_t0 = loc_agg_t0.get("num_requests", 0)
+    loc_fails_t0 = loc_agg_t0.get("num_failures", 0)
+
+    start_time = time.time()
+    for remaining in range(duration, 0, -1):
+        elapsed = int(time.time() - start_time)
+        print(f"\r[+] Benchmarking: {elapsed}s elapsed, {remaining}s remaining...", end="", flush=True)
+        time.sleep(1)
+    print("\r[+] Benchmark window complete! Querying final state...                ")
+
+    # Give a brief 2s buffer for in-flight SDK metric exports
+    time.sleep(2)
+
+    loc_t1 = query_locust_stats(locust_url)
+    res_t1 = query_prometheus(prom_url, f"sum(calls_total{{{filter_proj}}})")
+    prom_t1 = float(res_t1[0]["value"][1]) if res_t1 else 0.0
+
+    loc_agg_t1 = next((s for s in loc_t1.get("stats", []) if s.get("name") == "Aggregated"), {})
+    loc_reqs_t1 = loc_agg_t1.get("num_requests", 0)
+    loc_fails_t1 = loc_agg_t1.get("num_failures", 0)
+
+    delta_loc_reqs = loc_reqs_t1 - loc_reqs_t0
+    delta_prom_reqs = int(prom_t1 - prom_t0)
+    delta_loc_fails = loc_fails_t1 - loc_fails_t0
+
+    # Rates
+    loc_rps = delta_loc_reqs / duration
+    prom_rps = delta_prom_reqs / duration
+
+    # Quantiles over benchmark duration
+    bench_window = f"{max(1, duration)}s"
+    res_p50 = query_prometheus(
+        prom_url,
+        f"histogram_quantile(0.50, sum by (le) (rate(duration_milliseconds_bucket{{{filter_proj}}}[{bench_window}])))"
+    )
+    prom_p50 = float(res_p50[0]["value"][1]) if res_p50 else 0.0
+
+    res_p95 = query_prometheus(
+        prom_url,
+        f"histogram_quantile(0.95, sum by (le) (rate(duration_milliseconds_bucket{{{filter_proj}}}[{bench_window}])))"
+    )
+    prom_p95 = float(res_p95[0]["value"][1]) if res_p95 else 0.0
+
+    match_ratio = (delta_prom_reqs / delta_loc_reqs * 100) if delta_loc_reqs > 0 else 0.0
+
+    print("=" * 80)
+    print(f" SYNCHRONIZED BENCHMARK DELTA ({duration}s Window)")
+    print("=" * 80)
+
+    headers = ["Metric Dimension", "Locust (Client Delta)", f"Prometheus (SDK Delta [{duration}s])", "Match %"]
+    rows = [
+        ["Requests Sent / Recorded", f"{delta_loc_reqs:,}", f"{delta_prom_reqs:,}", f"{match_ratio:.1f}%"],
+        ["Average Throughput (RPS)", f"{loc_rps:.1f} req/s", f"{prom_rps:.1f} req/s", f"{match_ratio:.1f}%"],
+        ["Client Failures Delta", f"{delta_loc_fails:,}", "-", "-"],
+        ["Median Latency P50", "-", f"{prom_p50:.1f} ms", "-"],
+        ["95th Percentile P95", "-", f"{prom_p95:.1f} ms", "-"],
+    ]
+    print(format_table(headers, rows))
+    print()
+
+
 def run_comparison(locust_url: str, prom_url: str, project_name: str, window: str = "5m"):
-    """Fetch metrics and output formatted RED comparison."""
+    """Fetch metrics and output formatted RED comparison with reset-aware window increases."""
     loc_data = query_locust_stats(locust_url)
     if not loc_data:
         print("[!] No Locust data available. Ensure Locust is running.")
@@ -129,6 +200,10 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     # Prometheus Queries
     filter_proj = f'project_name="{project_name}"'
 
+    # Reset-aware window increase:
+    res_increase = query_prometheus(prom_url, f"sum(increase(calls_total{{{filter_proj}}}[{window}]))")
+    prom_window_calls = int(float(res_increase[0]["value"][1])) if res_increase else 0
+
     res_total = query_prometheus(prom_url, f"sum(calls_total{{{filter_proj}}})")
     prom_total_calls = int(float(res_total[0]["value"][1])) if res_total else 0
 
@@ -139,10 +214,10 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     prom_rps_window = float(res_rate_window[0]["value"][1]) if res_rate_window else 0.0
 
     # Errors
-    res_err_5xx = query_prometheus(prom_url, f'sum(calls_total{{{filter_proj}, error="true"}})')
+    res_err_5xx = query_prometheus(prom_url, f'sum(increase(calls_total{{{filter_proj}, error="true"}}[{window}]))')
     prom_err_5xx = int(float(res_err_5xx[0]["value"][1])) if res_err_5xx else 0
 
-    res_err_4xx = query_prometheus(prom_url, f'sum(calls_total{{{filter_proj}, status_code=~"4.."}})')
+    res_err_4xx = query_prometheus(prom_url, f'sum(increase(calls_total{{{filter_proj}, status_code=~"4.."}}[{window}]))')
     prom_err_4xx = int(float(res_err_4xx[0]["value"][1])) if res_err_4xx else 0
 
     prom_client_server_fails = prom_err_5xx + prom_err_4xx
@@ -166,8 +241,8 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     )
     prom_p99 = float(res_p99[0]["value"][1]) if res_p99 else 0.0
 
-    # Match ratio
-    match_ratio = (prom_total_calls / loc_total_reqs * 100) if loc_total_reqs > 0 else 0.0
+    # Match ratio over shared window vs cumulative
+    match_ratio = (prom_window_calls / loc_total_reqs * 100) if loc_total_reqs > 0 else 0.0
 
     print("=" * 80)
     print(f" RED METRICS SYNCHRONIZED COMPARISON ({project_name.upper()})")
@@ -176,10 +251,16 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     summary_headers = ["RED Metric Dimension", "Locust (Client)", "Prometheus (SDK Native)", "Status / Match"]
     summary_rows = [
         [
-            "Total Requests (R)",
-            f"{loc_total_reqs:,}",
-            f"{prom_total_calls:,}",
-            f"{match_ratio:.1f}% (Synchronized)" if match_ratio >= 98 else f"{match_ratio:.1f}%",
+            f"Window Increase [{window}]",
+            f"{loc_total_reqs:,} (run total)",
+            f"{prom_window_calls:,} (reset-aware increase)",
+            f"{match_ratio:.1f}% Match" if loc_total_reqs > 0 else "Active Interval",
+        ],
+        [
+            "Cumulative Calls (All-time)",
+            "-",
+            f"{prom_total_calls:,} (counter total)",
+            "Process Lifetime",
         ],
         [
             "Current RPS (Rate)",
@@ -194,13 +275,13 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
             "Averaged",
         ],
         [
-            "Server Errors (5xx)",
+            f"Server Errors [{window}]",
             f"{loc_failures:,} total non-2xx",
             f"{prom_err_5xx:,} (error='true')",
             "APM Standard" if prom_err_5xx > 0 else "0",
         ],
         [
-            "Client Errors (4xx)",
+            f"Client Errors [{window}]",
             "-",
             f"{prom_err_4xx:,} (e.g. 405s)",
             f"Total non-200: {prom_client_server_fails:,}",
@@ -228,12 +309,14 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     print(format_table(summary_headers, summary_rows))
     print()
 
-    # Per endpoint comparison
-    prom_routes = query_prometheus(prom_url, f"sum(calls_total{{{filter_proj}}}) by (http_method, http_route)")
+    # Per endpoint comparison using reset-aware increase over window
+    prom_routes = query_prometheus(prom_url, f"sum by (http_method, http_route) (increase(calls_total{{{filter_proj}}}[{window}]))")
+    if not prom_routes:
+        prom_routes = query_prometheus(prom_url, f"sum by (http_method, http_route) (calls_total{{{filter_proj}}})")
     ep_rows = match_endpoints(loc_data.get("stats", []), prom_routes)
 
     if ep_rows:
-        print("PER-ENDPOINT RECONCILIATION:")
+        print(f"PER-ENDPOINT RECONCILIATION (Window [{window}]):")
         ep_headers = ["Method", "Locust Route Pattern", "Locust Reqs", "Prom Calls", "Match", "Loc Fail", "Loc P95"]
         formatted_ep_rows = [
             [r["method"], r["route"], f"{r['loc_reqs']:,}", f"{r['prom_reqs']:,}", r["match_pct"], str(r["loc_fails"]), r["loc_p95"]]
@@ -251,15 +334,17 @@ def main():
     parser.add_argument("--prom-url", default="http://localhost:9090", help="Prometheus URL (default: http://localhost:9090)")
     parser.add_argument("--project", default="testpress", help="Project name to filter in Prometheus (default: testpress)")
     parser.add_argument("--window", default="5m", help="Prometheus rate/histogram window (default: 5m)")
+    parser.add_argument("--benchmark", type=int, default=0, help="Run a synchronized delta benchmark for N seconds")
     parser.add_argument("--watch", type=int, default=0, help="Continuously poll every N seconds (0 for single run)")
 
     args = parser.parse_args()
 
-    if args.watch > 0:
+    if args.benchmark > 0:
+        run_benchmark(args.locust_url, args.prom_url, args.project, args.benchmark)
+    elif args.watch > 0:
         print(f"[*] Starting live continuous comparison every {args.watch}s (Ctrl+C to stop)...")
         try:
             while True:
-                # Clear terminal screen for smooth dashboard view
                 print("\033[2J\033[H", end="")
                 run_comparison(args.locust_url, args.prom_url, args.project, args.window)
                 time.sleep(args.watch)
