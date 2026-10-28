@@ -244,9 +244,7 @@ def init(
         from tp_trace.propagator import TpTraceFilteringPropagator
 
         try:
-            set_global_textmap(
-                TpTraceFilteringPropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])
-            )
+            set_global_textmap(TpTraceFilteringPropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()]))
         except Exception:
             set_global_textmap(TpTraceFilteringPropagator([TraceContextTextMapPropagator()]))
 

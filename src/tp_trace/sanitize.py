@@ -20,7 +20,7 @@ _UNCLOSED_DOLLAR_QUOTE_RE = re.compile(r"\$[a-zA-Z_]\w*\$|\$\$")
 _SAVEPOINT_RE = re.compile(
     r"\b(SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+([\"`']?)(?:s\d+_\w+|\w+)\2", re.IGNORECASE
 )
-_SEARCH_PATH_ITEM = r'(?:\"(?:\"\"|[^\"])*\"|\?|[^,;\s]+)'
+_SEARCH_PATH_ITEM = r"(?:\"(?:\"\"|[^\"])*\"|\?|[^,;\s]+)"
 _SEARCH_PATH_RE = re.compile(
     rf"\b(SET\s+(?:(?:SESSION|LOCAL)\s+)?)search_path\s*(?:TO\b|=)\s*"
     rf"{_SEARCH_PATH_ITEM}(?:\s*,\s*{_SEARCH_PATH_ITEM})*",

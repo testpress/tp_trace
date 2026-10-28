@@ -1264,4 +1264,3 @@ def test_unified_view_formatting_fbv_and_cbv():
     viewset_match = DummyMatch(func=viewset_as_view)
     assert _format_view_from_match(viewset_match, "POST") == f"{DRFViewSet.__module__}.DRFViewSet.create"
     assert _format_view_from_match(viewset_match, "GET") == f"{DRFViewSet.__module__}.DRFViewSet.list"
-

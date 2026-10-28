@@ -8,7 +8,8 @@ import pytest
 
 
 SPEC = importlib.util.spec_from_file_location(
-    "compare_red_metrics", Path(__file__).parent / "e2e/compare_red_metrics.py",
+    "compare_red_metrics",
+    Path(__file__).parent / "e2e/compare_red_metrics.py",
 )
 comparison = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(comparison)
@@ -77,18 +78,26 @@ def test_benchmark_rejects_client_reset_and_too_short_window(monkeypatch):
     with pytest.raises(ValueError, match="two metric export intervals"):
         comparison.run_benchmark("locust", "prometheus", "project", 10)
     snapshots = iter([100, 1])
-    monkeypatch.setattr(comparison, "query_locust_stats", lambda url: {
-        "stats": [{"name": "Aggregated", "num_requests": next(snapshots)}],
-    })
+    monkeypatch.setattr(
+        comparison,
+        "query_locust_stats",
+        lambda url: {
+            "stats": [{"name": "Aggregated", "num_requests": next(snapshots)}],
+        },
+    )
     monkeypatch.setattr(comparison, "wait_for_exports", lambda seconds: None)
     with pytest.raises(RuntimeError, match="Locust counters reset"):
         comparison.run_benchmark("locust", "prometheus", "project", 120)
 
 
 def test_observations_do_not_compare_run_totals_with_window_counts(monkeypatch, capsys):
-    monkeypatch.setattr(comparison, "query_locust_stats", lambda url: {
-        "stats": [{"name": "Aggregated", "num_requests": 500}],
-    })
+    monkeypatch.setattr(
+        comparison,
+        "query_locust_stats",
+        lambda url: {
+            "stats": [{"name": "Aggregated", "num_requests": 500}],
+        },
+    )
     queries = []
 
     def query(url, expr, timestamp):

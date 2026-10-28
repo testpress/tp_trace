@@ -64,11 +64,7 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
         task_name = getattr(task, "name", None)
 
         bounded_op = compute_bounded_operation("run", task_name, registered=task is not None)
-        span_name = (
-            f"🟣 {task_name}.run"
-            if task_name and task_name != "unknown"
-            else "🟣 celery.run"
-        )
+        span_name = f"🟣 {task_name}.run" if task_name and task_name != "unknown" else "🟣 celery.run"
         meta = CeleryCreationMeta(
             action="run",
             bounded_operation=bounded_op,
@@ -171,11 +167,7 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                     task_name = "unknown"
 
         bounded_op = compute_bounded_operation("apply_async", task_name, registered=task is not None)
-        span_name = (
-            f"🟣 {task_name}.apply_async"
-            if task_name and task_name != "unknown"
-            else "🟣 celery.apply_async"
-        )
+        span_name = f"🟣 {task_name}.apply_async" if task_name and task_name != "unknown" else "🟣 celery.apply_async"
         meta = CeleryCreationMeta(
             action="apply_async",
             bounded_operation=bounded_op,

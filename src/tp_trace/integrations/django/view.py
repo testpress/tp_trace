@@ -70,7 +70,9 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         if pre_route and pre_route != "__unmatched__":
             route_token = set_request_route(pre_route, method)
         match = getattr(request, "resolver_match", None)
-        resolved_view = attempt(_format_view_from_match, match, method, default=None, _label="view_format") if match else None
+        resolved_view = (
+            attempt(_format_view_from_match, match, method, default=None, _label="view_format") if match else None
+        )
         view_token = set_request_view(resolved_view) if resolved_view else None
 
         try:
@@ -264,14 +266,19 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
 
                 def _traced_handler(*h_args, **h_kwargs):
                     with traced_span(
-                        handler_span_name, kind=SpanKind.INTERNAL, attributes=handler_attrs, tracer_name="tp_trace.django"
+                        handler_span_name,
+                        kind=SpanKind.INTERNAL,
+                        attributes=handler_attrs,
+                        tracer_name="tp_trace.django",
                     ):
                         h_res = handler(*h_args, **h_kwargs)
                         attempt(_bind_response_parent, h_res, _label="bind_response_parent")
                         return h_res
 
                 setattr(_traced_handler, "_tp_traced", True)
-                orig_action_handler = attempt(getattr, instance, handler_method, default=None, _label="orig_action_handler")
+                orig_action_handler = attempt(
+                    getattr, instance, handler_method, default=None, _label="orig_action_handler"
+                )
                 orig_method_handler = (
                     attempt(getattr, instance, method, default=None, _label="orig_method_handler")
                     if method != handler_method

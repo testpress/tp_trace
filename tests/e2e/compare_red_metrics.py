@@ -86,10 +86,14 @@ def match_endpoints(locust_stats: list, prom_routes: list) -> list:
         if stat.get("name") == "Aggregated":
             continue
         method, name = stat.get("method", "").upper(), stat.get("name", "")
-        rows.append([
-            method, name, str(stat.get("num_requests", 0)),
-            display(routes.get((method, normalize_route_pattern(name)))),
-        ])
+        rows.append(
+            [
+                method,
+                name,
+                str(stat.get("num_requests", 0)),
+                display(routes.get((method, normalize_route_pattern(name)))),
+            ]
+        )
     return rows
 
 
@@ -104,8 +108,12 @@ def wait_for_exports(seconds: float) -> None:
 
 
 def run_benchmark(
-    locust_url: str, prom_url: str, project_name: str, duration: int,
-    export_interval: float = 60, export_wait: Optional[float] = None,
+    locust_url: str,
+    prom_url: str,
+    project_name: str,
+    duration: int,
+    export_interval: float = 60,
+    export_wait: Optional[float] = None,
 ) -> None:
     """Compare client deltas with approximate reset-aware server window increases."""
     if duration < 2 * export_interval:
@@ -139,16 +147,23 @@ def run_benchmark(
     p50 = value(f"histogram_quantile(0.50, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))")
     p95 = value(f"histogram_quantile(0.95, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))")
     print(f"APPROXIMATE BENCHMARK ({elapsed:.2f}s, evaluated at {evaluation_time:.3f})")
-    print(format_table(["Metric", "Locust interval", "Prometheus estimate"], [
-        ["Requests", str(requests), display(calls)],
-        ["Throughput", display(requests / elapsed, " req/s"), display(server_rps, " req/s")],
-        ["Client failures", str(failures), "Different server error semantics"],
-        ["Server P50", "N/A", display(p50, " ms")],
-        ["Server P95", "N/A", display(p95, " ms")],
-        ["Server/client count ratio", "N/A", display(ratio, "% (approximate)")],
-    ]))
-    print("Not an exact-count assertion: export boundaries, worker exits, new series, other traffic, "
-          "and client/server observation differences affect reconciliation.")
+    print(
+        format_table(
+            ["Metric", "Locust interval", "Prometheus estimate"],
+            [
+                ["Requests", str(requests), display(calls)],
+                ["Throughput", display(requests / elapsed, " req/s"), display(server_rps, " req/s")],
+                ["Client failures", str(failures), "Different server error semantics"],
+                ["Server P50", "N/A", display(p50, " ms")],
+                ["Server P95", "N/A", display(p95, " ms")],
+                ["Server/client count ratio", "N/A", display(ratio, "% (approximate)")],
+            ],
+        )
+    )
+    print(
+        "Not an exact-count assertion: export boundaries, worker exits, new series, other traffic, "
+        "and client/server observation differences affect reconciliation."
+    )
 
 
 def run_comparison(locust_url: str, prom_url: str, project_name: str, window: str = "5m") -> None:
@@ -171,12 +186,20 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
         ["RPS", display(client.get("total_rps"), " req/s"), display(rps, " req/s")],
         ["Client failures / server errors", str(client.get("num_failures", 0)), display(errors)],
     ]
-    for quantile, key in [(0.50, "median_response_time"), (0.95, "response_time_percentile_0.95"), (0.99, "response_time_percentile_0.99")]:
-        latency = value(f"histogram_quantile({quantile}, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))")
+    for quantile, key in [
+        (0.50, "median_response_time"),
+        (0.95, "response_time_percentile_0.95"),
+        (0.99, "response_time_percentile_0.99"),
+    ]:
+        latency = value(
+            f"histogram_quantile({quantile}, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))"
+        )
         rows.append([f"P{int(quantile * 100)}", display(client.get(key), " ms"), display(latency, " ms")])
     print(format_table(["Metric", "Locust run", f"Prometheus [{window}] estimate"], rows))
     routes = query_prometheus(
-        prom_url, f"sum by (http_method, http_route) (increase(calls_total{{{selector}}}[{window}]))", evaluation_time,
+        prom_url,
+        f"sum by (http_method, http_route) (increase(calls_total{{{selector}}}[{window}]))",
+        evaluation_time,
     )
     rows = match_endpoints(locust.get("stats", []), routes)
     if rows:
@@ -190,8 +213,12 @@ def main() -> int:
     parser.add_argument("--project", default="testpress")
     parser.add_argument("--window", default="5m", help="Prometheus rate/histogram window")
     parser.add_argument("--benchmark", type=int, default=0, help="Measure client deltas over N seconds")
-    parser.add_argument("--export-interval", type=float, default=60, help="SDK metric export interval in seconds (default: 60)")
-    parser.add_argument("--export-wait", type=float, help="Ingestion wait after benchmark; defaults to one export interval")
+    parser.add_argument(
+        "--export-interval", type=float, default=60, help="SDK metric export interval in seconds (default: 60)"
+    )
+    parser.add_argument(
+        "--export-wait", type=float, help="Ingestion wait after benchmark; defaults to one export interval"
+    )
     parser.add_argument("--watch", type=int, default=0, help="Observation refresh interval in seconds")
     args = parser.parse_args()
     if args.benchmark < 0 or args.watch < 0 or not math.isfinite(args.export_interval) or args.export_interval <= 0:
@@ -200,7 +227,9 @@ def main() -> int:
         parser.error("Export wait must be non-negative and finite")
     try:
         if args.benchmark:
-            run_benchmark(args.locust_url, args.prom_url, args.project, args.benchmark, args.export_interval, args.export_wait)
+            run_benchmark(
+                args.locust_url, args.prom_url, args.project, args.benchmark, args.export_interval, args.export_wait
+            )
         else:
             while True:
                 run_comparison(args.locust_url, args.prom_url, args.project, args.window)

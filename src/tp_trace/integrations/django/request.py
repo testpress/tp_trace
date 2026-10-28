@@ -113,7 +113,6 @@ def _apply_request_callback(span: Any, request: Any = None, response: Any = None
         pass
 
 
-
 _PARAM_REGEX = re.compile(r"<(?:[a-zA-Z0-9_]+:)?([a-zA-Z0-9_]+)>")
 _TRAILING_SLASH = re.compile(r"/+$")
 _MULTIPLE_SLASHES = re.compile(r"/+")
@@ -414,7 +413,6 @@ def _resolve_view_name(request, method: str) -> str:
     return "view"
 
 
-
 def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
     """Attach repeated-query evidence and emit its low-cardinality metric."""
     # This runs from the server span's own finally, including handler errors.
@@ -438,15 +436,18 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
             safe_set_attribute(span, "repeated_query.candidate_queries", [p.fingerprint for p in candidates])
             safe_set_attribute(span, "repeated_query.candidate_counts", [p.count for p in candidates])
             safe_set_attribute(
-                span, "repeated_query.candidate_duration_ms",
+                span,
+                "repeated_query.candidate_duration_ms",
                 [p.total_duration_ms for p in candidates],
             )
             safe_set_attribute(
-                span, "repeated_query.candidate_avg_duration_ms",
+                span,
+                "repeated_query.candidate_avg_duration_ms",
                 [p.total_duration_ms / p.count for p in candidates],
             )
             safe_set_attribute(
-                span, "repeated_query.omitted_candidate_count",
+                span,
+                "repeated_query.omitted_candidate_count",
                 max(0, stats.candidate_count - len(candidates)),
             )
             if len(candidates) > 1:
@@ -461,12 +462,12 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
             safe_set_attribute(span, "n_plus_one.dominant_duration_ms", stats.dominant_duration_ms)
             if stats.dominant_count > 0:
                 safe_set_attribute(
-                    span, "n_plus_one.dominant_avg_duration_ms",
+                    span,
+                    "n_plus_one.dominant_avg_duration_ms",
                     stats.dominant_duration_ms / stats.dominant_count,
                 )
             request_impact_pct = (
-                min(100.0, (stats.dominant_duration_ms / duration_ms) * 100.0)
-                if duration_ms > 0 else 0.0
+                min(100.0, (stats.dominant_duration_ms / duration_ms) * 100.0) if duration_ms > 0 else 0.0
             )
             safe_set_attribute(span, "n_plus_one.request_impact_pct", request_impact_pct)
             severity, severity_reason = _repeated_query_severity(stats.dominant_count, request_impact_pct)
@@ -475,6 +476,7 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
             safe_set_attribute(span, "n_plus_one.tracker_overflowed", stats.tracker_overflowed)
             if final_route and final_route != "__unmatched__" and not str(final_route).isdigit():
                 from tp_trace.metrics import record_repeated_query_affected_request
+
                 record_repeated_query_affected_request(
                     method=method,
                     route=final_route,
@@ -665,9 +667,7 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
                 norm_route = preresolved_route
 
         final_span_name = (
-            f"{method} {status_code}"
-            if (not norm_route or norm_route == "__unmatched__")
-            else f"{method} {norm_route}"
+            f"{method} {status_code}" if (not norm_route or norm_route == "__unmatched__") else f"{method} {norm_route}"
         )
         final_route = str(status_code) if (not norm_route or norm_route == "__unmatched__") else norm_route
         attempt(span.update_name, final_span_name, _label="update_span_name")
@@ -715,6 +715,7 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
 
         def _set_phrase() -> None:
             import http
+
             phrase = http.HTTPStatus(status_code).phrase
             safe_set_attribute(span, "http.status_text", phrase)
             safe_set_attribute(span, "http.response.status_text", phrase)
@@ -727,6 +728,7 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
                 return
             try:
                 from django.utils.functional import SimpleLazyObject
+
                 if isinstance(user, SimpleLazyObject):
                     if hasattr(request, "_cached_user"):
                         user = request._cached_user
@@ -776,6 +778,7 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
 
         try:
             from tp_trace.metrics import record_request
+
             record_request(
                 method=method,
                 route=final_route,

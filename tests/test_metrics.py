@@ -279,7 +279,10 @@ def test_worker_identity_fork_during_initialization():
         pytest.skip("os.fork is not available on this platform")
     # Isolate the fork and timeout from pytest and its SDK background threads.
     result = subprocess.run(
-        [sys.executable, "-c", textwrap.dedent('''
+        [
+            sys.executable,
+            "-c",
+            textwrap.dedent("""
             import os
             import signal
             import threading
@@ -308,8 +311,11 @@ def test_worker_identity_fork_during_initialization():
             thread.join(3)
             _, status = os.waitpid(child, 0)
             assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0, status
-        ''')],
-        capture_output=True, text=True, timeout=10,
+        """),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     assert result.returncode == 0, result.stderr
 
@@ -906,6 +912,7 @@ def test_default_init_creates_otlp_metric_reader():
     assert isinstance(reader._exporter, SafeMetricExporter)
     assert reader._exporter._endpoint == "http://collector.local:4318/v1/metrics"
     assert reader._export_interval_millis == 60000
+
 
 def test_metrics_disabled_flag():
     """Verify metrics_enabled=False prevents creating metric readers."""

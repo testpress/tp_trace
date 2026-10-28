@@ -646,7 +646,6 @@ def test_auto_patch_respects_integrations_config():
     assert target.greet("Alice") == "Hello, Alice"
 
 
-
 def test_sample_rate_zero():
     """Verify ALWAYS_OFF sampler drops all spans."""
     from opentelemetry.sdk.trace import TracerProvider

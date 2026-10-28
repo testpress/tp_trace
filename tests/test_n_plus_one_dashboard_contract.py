@@ -1,4 +1,5 @@
 """Dashboard contracts for the repeated-query signal."""
+
 import json
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
     # Grafana regex formatter escapes route slashes as \/; PromQL rejects
     # that escape inside a quoted matcher.
     assert all('http_route="${route:raw}"' in t["expr"] for t in prometheus)
-    assert all('${route:regex}' not in t["expr"] for t in prometheus)
+    assert all("${route:regex}" not in t["expr"] for t in prometheus)
 
     # Ensure codebase styling is configured on the SQL code box panel
     assert query_panel["type"] == "marcusolsson-dynamictext-panel"
@@ -90,8 +91,12 @@ def test_n_plus_one_targets_use_primary_metric_and_service_overview_has_rate():
         _load("Supporting Dashboards/operational_issues.json"),
         _load("service_catalog.json"),
     ]
-    n1_targets = [t for d in dashboards for _, t in _all_targets(d)
-                  if "apm_repeated_query_affected_requests_total" in t.get("expr", "")]
+    n1_targets = [
+        t
+        for d in dashboards
+        for _, t in _all_targets(d)
+        if "apm_repeated_query_affected_requests_total" in t.get("expr", "")
+    ]
     assert n1_targets
     assert all("apm_n_plus_one_total" not in t["expr"] for t in n1_targets)
 
@@ -134,8 +139,8 @@ def test_service_overview_error_rate_selects_whole_metric_source():
     panel = next(p for p in dashboard["panels"] if p.get("title") == "Error Rate Over Time")
     expr = panel["targets"][0]["expr"]
 
-    assert 'rate(calls_total{' in expr
-    assert 'rate(apm_calls_total{' in expr
+    assert "rate(calls_total{" in expr
+    assert "rate(apm_calls_total{" in expr
     assert 'span_kind!~"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER"' in expr
     assert expr.count('error="true"') == 2
 
@@ -170,5 +175,3 @@ def test_dashboard_links_use_queryparam_not_raw_for_project():
         assert "var-project=${project:raw}" not in content, (
             f"{p.name} contains 'var-project=${{project:raw}}' which breaks 'All' selection."
         )
-
-

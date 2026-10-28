@@ -190,9 +190,7 @@ def _build_db_span_context(
     return span_name, span_attrs, tracker_fingerprint
 
 
-def _emit_db_span(
-    span_name: str, span_attrs: dict, execute_fn: Callable, cursor_obj: Any
-) -> Tuple[Any, float]:
+def _emit_db_span(span_name: str, span_attrs: dict, execute_fn: Callable, cursor_obj: Any) -> Tuple[Any, float]:
     with traced_span(
         span_name,
         kind=SpanKind.CLIENT,
@@ -203,9 +201,7 @@ def _emit_db_span(
         with suppress_db_instrumentation():
             result = execute_fn()
         execution_duration_ms = (time.monotonic() - execution_started) * 1000.0
-        rowcount = attempt(
-            getattr, cursor_obj, "rowcount", default=None, _label="db.rowcount"
-        )
+        rowcount = attempt(getattr, cursor_obj, "rowcount", default=None, _label="db.rowcount")
         if isinstance(rowcount, int) and rowcount >= 0:
             safe_set_attribute(span, "db.row_count", rowcount)
             safe_set_attribute(span, "db.response.returned_rows", rowcount)
@@ -277,9 +273,7 @@ def traced_django_cursor_exec(
             span_name, span_attrs, tracker_fingerprint = db_ctx
 
             cursor = attempt(getattr, instance, "cursor", default=instance, _label="db.cursor")
-            result, duration_ms = _emit_db_span(
-                span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor
-            )
+            result, duration_ms = _emit_db_span(span_name, span_attrs, lambda: wrapped(*args, **kwargs), cursor)
             attempt(record_request_db_query, tracker_fingerprint, duration_ms, _label="n_plus_one_record")
             return result
     except Exception as exc:

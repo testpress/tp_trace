@@ -264,7 +264,9 @@ def test_extraction_predicate_receives_actual_request_once(allow):
 
     exporter = InMemorySpanExporter()
     tp_trace.init(
-        project_name="request-policy", exporter=exporter, export_batch=False,
+        project_name="request-policy",
+        exporter=exporter,
+        export_batch=False,
         extract_trace_context=policy,
     )
     handler = WSGIHandler()
@@ -348,4 +350,3 @@ def test_sampled_out_request_records_metrics_and_response_headers(monkeypatch):
     assert recorded_metrics[0]["status_code"] == 200
     assert recorded_metrics[0]["route"] == "/test/sample/"
     assert recorded_metrics[0]["error"] is False
-

@@ -703,8 +703,7 @@ class SDKConfig:
             if n_plus_one_max_fingerprints is not None
             else extra.get("n_plus_one_max_fingerprints")
             if extra.get("n_plus_one_max_fingerprints") is not None
-            else os.getenv("TP_TRACE_N_PLUS_ONE_MAX_FINGERPRINTS")
-            or os.getenv("TP_DOG_N_PLUS_ONE_MAX_FINGERPRINTS")
+            else os.getenv("TP_TRACE_N_PLUS_ONE_MAX_FINGERPRINTS") or os.getenv("TP_DOG_N_PLUS_ONE_MAX_FINGERPRINTS")
         )
         resolved_n_plus_one_max_fp = _parse_positive_int_default(
             raw_n_plus_one_max_fp, default=256, min_val=1, field_name="n_plus_one_max_fingerprints"

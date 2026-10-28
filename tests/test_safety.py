@@ -1019,6 +1019,7 @@ def test_integration_manager_rlock_reentrancy():
 
 def test_base_integration_reinstrument_after_uninstrument_rewraps():
     """Uninstrumenting clears _wrapped_keys so re-instrumenting wraps targets again."""
+
     class DummyService:
         def compute(self):
             return 100
@@ -1050,6 +1051,3 @@ def test_base_integration_reinstrument_after_uninstrument_rewraps():
 
     integ.uninstrument()
     assert svc.compute() == 100
-
-
-

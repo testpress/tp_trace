@@ -211,16 +211,8 @@ class RedMetricsRecorder:
         """
         try:
             cfg = self.config
-            resolved_project = (
-                project_name
-                or (cfg.project_name if cfg else None)
-                or "default"
-            )
-            resolved_cluster = (
-                cluster_name
-                or (cfg.cluster_name if cfg else None)
-                or ""
-            )
+            resolved_project = project_name or (cfg.project_name if cfg else None) or "default"
+            resolved_cluster = cluster_name or (cfg.cluster_name if cfg else None) or ""
 
             attributes: Dict[str, Any] = {
                 "project_name": str(resolved_project),
