@@ -4,6 +4,6 @@ The stack uses OpenTelemetry and OTLP so application instrumentation is not tied
 
 The project favours traces as the detailed diagnostic signal. Metrics provide the fast overview: error rate, throughput, and latency identify where to look; a trace explains the work performed by one request.
 
-Sampling happens in the SDK before export. It reduces storage and transport cost, but metrics derived from sampled traces are less precise. Critical routes can use endpoint sampling rules to remain fully sampled.
+Trace sampling happens in the SDK before export to reduce trace storage and transport cost. To prevent trace sampling from distorting golden signals, root API request RED metrics (throughput, error rate, duration) are recorded natively by the SDK for 100% of requests. Downstream dependency metrics (database queries, Redis calls, Celery tasks) are derived from exported spans by the Collector to minimize application runtime overhead. INTERNAL spans are strictly excluded from spanmetrics as they represent internal framework waterfall detail.
 
 SQL is sanitised to avoid exporting literal values. Redis command and endpoint data are exposed by default because the team owns the infrastructure; masking options are available for deployments with different privacy boundaries.

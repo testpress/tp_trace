@@ -20,6 +20,7 @@ BASE_URL="${BASE_URL:-http://localhost:8002}"
 MODE="loop"
 DURATION=0
 SLEEP_DELAY=0.3
+REQUEST_GAP=0
 VERBOSE=0
 CONCURRENCY=1
 REQUEST_COUNT=0
@@ -86,12 +87,30 @@ while [[ "$#" -gt 0 ]]; do
     SLEEP_DELAY="$2"
     shift
     ;;
+  -g | --gap)
+    REQUEST_GAP="${2:-}"
+    if [[ ! "$REQUEST_GAP" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+      echo "--gap requires a non-negative number of seconds" >&2
+      exit 1
+    fi
+    shift
+    ;;
   -c | --concurrency)
-    CONCURRENCY="$2"
+    CONCURRENCY="${2:-}"
+    if [[ ! "$CONCURRENCY" =~ ^[0-9]{1,9}$ ]] || [ "$((10#$CONCURRENCY))" -eq 0 ]; then
+      echo "--concurrency requires a positive integer (maximum 999999999)" >&2
+      exit 1
+    fi
+    CONCURRENCY=$((10#$CONCURRENCY))
     shift
     ;;
   -n | --count)
-    REQUEST_COUNT="$2"
+    REQUEST_COUNT="${2:-}"
+    if [[ ! "$REQUEST_COUNT" =~ ^[0-9]{1,9}$ ]] || [ "$((10#$REQUEST_COUNT))" -eq 0 ]; then
+      echo "--count requires a positive integer (maximum 999999999)" >&2
+      exit 1
+    fi
+    REQUEST_COUNT=$((10#$REQUEST_COUNT))
     shift
     ;;
   -u | --url)
@@ -163,8 +182,10 @@ while [[ "$#" -gt 0 ]]; do
     echo "  --once            Run a single sweep through all endpoint scenarios"
     echo "  -d, --duration N  Run continuously for N seconds"
     echo "  -s, --sleep SEC   Delay between request cycles in seconds (default: 0.3)"
+    echo "  -g, --gap SEC     Delay between individual requests in seconds (default: 0)"
     echo "  -c, --concurrency N  Run N parallel workers (default: 1)"
-    echo "  -n, --count N        Run exactly N requests then exit (default: unlimited)"
+    echo "  -n, --count N        Send exactly N total request attempts across all workers"
+    echo "                       Overrides --once, --loop and --duration (default: unlimited)"
     echo "  -u, --url URL     Base URL (default: http://localhost:8002)"
     echo "  -v, --verbose     Print response body snippets"
     echo "  -h, --help        Show this help message"
@@ -207,6 +228,10 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+if [ "$REQUEST_COUNT" -gt 0 ]; then
+  MODE="count"
+fi
+
 # Check if any specific database target or slow filter was selected
 HAS_DB_FILTER=0
 if [ "$TARGET_DB_PRIMARY" -eq 1 ] || [ "$TARGET_DB_SLAVE1" -eq 1 ] || [ "$TARGET_DB_SLAVE2" -eq 1 ] || [ "$TARGET_DB_SLAVE3" -eq 1 ] || [ "$TARGET_DB_PGBOUNCER" -eq 1 ] || [ "$TARGET_DB_ALL" -eq 1 ]; then
@@ -225,6 +250,9 @@ echo "   🚀  APM Observability Traffic Generator"
 echo "   Target Base URL: ${BASE_URL}"
 echo "   Mode: ${MODE} $([ $DURATION -gt 0 ] && echo "(for ${DURATION}s)")"
 echo "   Concurrency: ${CONCURRENCY} worker(s)"
+if [ -n "$REQUEST_GAP" ] && ! [[ "$REQUEST_GAP" =~ ^0*(\.0*)?$ ]]; then
+  echo "   Request Gap: ${REQUEST_GAP}s"
+fi
 if [ "$RUN_ALL" -eq 1 ]; then
   echo "   Scope: ALL Instrumentations (Postgres Primary & Slaves 1-3, Redis, Requests HTTP, S3, Celery, Django)"
 fi
@@ -270,6 +298,11 @@ cleanup() {
 
 # Helper function to send an HTTP request
 send_req() {
+  # Enforce each worker's budget before curl, including mid-scenario sweeps.
+  if [ "$REQUEST_COUNT" -gt 0 ] && [ "$COUNT_TOTAL" -ge "$REQUEST_COUNT" ]; then
+    return 0
+  fi
+
   local method="$1"
   local path="$2"
   local data="$3"
@@ -290,7 +323,10 @@ send_req() {
     response=$(curl -s -w "\n%{http_code}" -X GET "$url" --max-time 10 2>/dev/null || echo "000")
   fi
 
-  http_code=$(echo "$response" | tail -n1)
+  http_code=$(echo "$response" | tail -n1 | tr -d '\r')
+  if [ -z "$http_code" ] || [ "${#http_code}" -ne 3 ]; then
+    http_code="000"
+  fi
   body=$(echo "$response" | sed '$d')
 
   local code_color="${C_GREEN}"
@@ -310,6 +346,12 @@ send_req() {
 
   if [ "$VERBOSE" -eq 1 ] && [ -n "$body" ]; then
     echo -e "        ${C_YELLOW}Response:${C_RESET} $(echo "$body" | head -c 120)..."
+  fi
+
+  if [ -n "$REQUEST_GAP" ] && ! [[ "$REQUEST_GAP" =~ ^0*(\.0*)?$ ]]; then
+    if [ "$REQUEST_COUNT" -eq 0 ] || [ "$COUNT_TOTAL" -lt "$REQUEST_COUNT" ]; then
+      sleep "$REQUEST_GAP"
+    fi
   fi
 }
 
@@ -566,7 +608,16 @@ if [ "$CONCURRENCY" -gt 1 ]; then
   echo -e "   ${C_YELLOW}⚡ Launching ${CONCURRENCY} concurrent workers...${C_RESET}"
 
   for i in $(seq 1 "$CONCURRENCY"); do
-    WORKER_ID=$i run_worker_loop "$i" &
+    if [ "$REQUEST_COUNT" -gt 0 ]; then
+      worker_budget=$((REQUEST_COUNT / CONCURRENCY))
+      if [ "$i" -le "$((REQUEST_COUNT % CONCURRENCY))" ]; then
+        worker_budget=$((worker_budget + 1))
+      fi
+      [ "$worker_budget" -eq 0 ] && continue
+      WORKER_ID=$i REQUEST_COUNT=$worker_budget REQUEST_GAP=$REQUEST_GAP run_worker_loop "$i" &
+    else
+      WORKER_ID=$i REQUEST_GAP=$REQUEST_GAP run_worker_loop "$i" &
+    fi
   done
 
   wait

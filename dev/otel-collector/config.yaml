@@ -50,21 +50,19 @@ processors:
       - key: telemetry.sdk.name
         action: delete
 
-  transform/drop_metric_worker_id:
-    error_mode: ignore
-    metric_statements:
-      - context: datapoint
-        statements:
-          - delete_key(attributes, "worker_id")
-
-  # Django INTERNAL spans (middleware, views, templates) inherit http.route, so
-  # they multiply the span metrics by every route. No dashboard reads them, so
-  # they are only exported as traces. Mirrors the production role default.
-  filter/spanmetrics_drop_internal:
+  # Exclude internal spans and Django SERVER spans from spanmetrics.
+  # Django HTTP RED metrics are emitted natively by the SDK, while
+  # dependencies (Postgres, Redis, Celery, requests) use spanmetrics.
+  filter/spanmetrics_drop_non_dependencies:
     error_mode: ignore
     traces:
       span:
+        # Invariant 1: INTERNAL spans must NEVER generate RED metrics
         - kind == SPAN_KIND_INTERNAL
+        # Invariant 2: Django SERVER spans are skipped; metrics are emitted natively by SDK
+        # Primary classification: normalized.service == "django"
+        # Migration fallback: django.route attribute for legacy tp_trace SDK spans
+        - kind == SPAN_KIND_SERVER and (attributes["normalized.service"] == "django" or attributes["django.route"] != nil)
 
   transform/spanmetrics_route:
     error_mode: ignore
@@ -207,7 +205,7 @@ service:
         - memory_limiter
         - resource/drop_ephemeral
         - resource/spanmetrics_drop_sdk
-        - filter/spanmetrics_drop_internal
+        - filter/spanmetrics_drop_non_dependencies
         - transform/spanmetrics_route
         - transform/spanmetrics_sanitize
         - batch
@@ -221,7 +219,6 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
-        - transform/drop_metric_worker_id
         - batch
       exporters:
         - prometheusremotewrite

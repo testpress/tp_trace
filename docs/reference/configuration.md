@@ -25,7 +25,8 @@
 | `TP_TRACE_QUERY_MODE` | `query_mode` | `expose` | URL query handling: `expose`, `redact`, or `strip`. |
 | `TP_TRACE_N_PLUS_ONE_DUPLICATE_THRESHOLD` | `n_plus_one_duplicate_threshold` | `15` | Successful executions of one normalized SQL shape needed for a repeated-query candidate; minimum `2`. |
 | `TP_TRACE_N_PLUS_ONE_MAX_FINGERPRINTS` | `n_plus_one_max_fingerprints` | `256` | Maximum distinct SQL shapes tracked per Django request; minimum `1`. |
+| `TP_TRACE_SERVICE_INSTANCE_ID` | `service_instance_id` | hostname | Prefix for native metric `worker_id` attribute (`<prefix>:<pid>`). Overrides the prefix for multi-process worker metric streams. Does not modify the OpenTelemetry Resource's `service.instance.id`. |
 
-`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, and `OTEL_SERVICE_VERSION` are also recognised where applicable.
+`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_SERVICE_INSTANCE_ID` are also recognised where applicable.
 
 Repeated-query detection runs by default when Django request and database instrumentation are active. Invalid N+1 values fall back to the defaults. `TP_DOG_N_PLUS_ONE_DUPLICATE_THRESHOLD` and `TP_DOG_N_PLUS_ONE_MAX_FINGERPRINTS` are supported legacy aliases.

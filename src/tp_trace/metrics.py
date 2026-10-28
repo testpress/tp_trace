@@ -6,7 +6,8 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+import socket
+from typing import Any, Dict, List, Optional, Tuple
 
 from opentelemetry.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics import MeterProvider
@@ -32,6 +33,44 @@ LATENCY_BUCKETS_MS: List[float] = [
     5000.0,
 ]
 
+_PROCESS_IDENTITY: Optional[Tuple[int, str, str]] = None
+_HOSTNAME: Optional[str] = None
+
+
+def _get_hostname() -> str:
+    global _HOSTNAME
+    if _HOSTNAME is None:
+        try:
+            _HOSTNAME = socket.gethostname() or "localhost"
+        except Exception:
+            _HOSTNAME = "localhost"
+    return _HOSTNAME
+
+
+def get_process_worker_identity(prefix: Optional[str] = None) -> str:
+    """Return a process identity bounded to PID space and resolved prefix.
+
+    Lock-free memo keyed by (pid, prefix) that derives fork safety by checking
+    os.getpid() on invocation. Multiple services or recorders with different
+    prefixes in the same process do not clash.
+    """
+    global _PROCESS_IDENTITY
+    current_pid = os.getpid()
+    resolved_prefix = (
+        prefix
+        or os.environ.get("TP_TRACE_SERVICE_INSTANCE_ID")
+        or os.environ.get("OTEL_SERVICE_INSTANCE_ID")
+        or _get_hostname()
+    )
+    cached = _PROCESS_IDENTITY
+    if cached is not None and cached[0] == current_pid and cached[1] == resolved_prefix:
+        return cached[2]
+
+    identity = f"{resolved_prefix}:{current_pid}"
+    _PROCESS_IDENTITY = (current_pid, resolved_prefix, identity)
+    return identity
+
+
 _ACTIVE_RECORDER: Optional["RedMetricsRecorder"] = None
 
 
@@ -46,6 +85,16 @@ class RedMetricsRecorder:
     ) -> None:
         self.meter_provider = meter_provider
         self.config = config
+        self.worker_id_prefix: str = (
+            config.service_instance_id
+            if (config and config.service_instance_id)
+            else (
+                os.environ.get("TP_TRACE_SERVICE_INSTANCE_ID")
+                or os.environ.get("OTEL_SERVICE_INSTANCE_ID")
+                or _get_hostname()
+            )
+        )
+        self._cached_identity: Optional[Tuple[int, str]] = None
         self.readers: List[MetricReader] = readers or []
         self.meter = meter_provider.get_meter("tp_trace")
 
@@ -106,6 +155,14 @@ class RedMetricsRecorder:
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
             attributes: Dict[str, Any] = {
                 "project_name": str(resolved_project),
                 "cluster_name": str(resolved_cluster),
@@ -118,13 +175,16 @@ class RedMetricsRecorder:
                 "span_kind": "SPAN_KIND_SERVER",
                 "error": error_str,
                 "metric_source": "tp_trace_sdk",
-                "worker_id": str(os.getpid()),
             }
 
             if extra_attributes:
                 for k, v in extra_attributes.items():
                     if v is not None and k not in attributes:
                         attributes[k] = str(v)
+
+            # Authoritatively set process/worker identity so request tags cannot override it.
+            # worker_id isolates independent worker metric streams in multi-process runtimes (Gunicorn).
+            attributes["worker_id"] = worker_identity
 
             self.calls_total.add(1, attributes)
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
