@@ -651,6 +651,95 @@ def test_service_instance_id_sets_worker_id_not_resource_instance_id():
     assert not res_attrs["service.instance.id"].startswith("worker-prefix-only")
 
 
+def test_no_config_recorder_tp_trace_service_instance_id_env(monkeypatch):
+    """create_red_metrics_recorder without config honors TP_TRACE_SERVICE_INSTANCE_ID."""
+    from tp_trace.metrics import create_red_metrics_recorder
+
+    monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "tp-noconf")
+    reader = InMemoryMetricReader()
+    recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    pts = _get_metric_data_points(reader, "calls_total")
+    assert len(pts) == 1
+    assert pts[0].attributes["worker_id"] == f"tp-noconf:{os.getpid()}"
+
+
+def test_no_config_recorder_otel_service_instance_id_env(monkeypatch):
+    """create_red_metrics_recorder without config honors OTEL_SERVICE_INSTANCE_ID."""
+    from tp_trace.metrics import create_red_metrics_recorder
+
+    monkeypatch.setenv("OTEL_SERVICE_INSTANCE_ID", "otel-noconf")
+    reader = InMemoryMetricReader()
+    recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    pts = _get_metric_data_points(reader, "calls_total")
+    assert len(pts) == 1
+    assert pts[0].attributes["worker_id"] == f"otel-noconf:{os.getpid()}"
+
+
+def test_no_config_recorder_env_precedence(monkeypatch):
+    """Without config, TP_TRACE_SERVICE_INSTANCE_ID takes precedence over OTEL_SERVICE_INSTANCE_ID."""
+    from tp_trace.metrics import create_red_metrics_recorder
+
+    monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "tp-wins")
+    monkeypatch.setenv("OTEL_SERVICE_INSTANCE_ID", "otel-loses")
+    reader = InMemoryMetricReader()
+    recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    pts = _get_metric_data_points(reader, "calls_total")
+    assert len(pts) == 1
+    assert pts[0].attributes["worker_id"] == f"tp-wins:{os.getpid()}"
+
+
+def test_no_config_recorder_identity_unchanged_after_later_env_mutation(monkeypatch):
+    """Prefix resolved at recorder creation remains unchanged even if env variables mutate later."""
+    from tp_trace.metrics import create_red_metrics_recorder
+
+    monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "frozen-prefix")
+    reader = InMemoryMetricReader()
+    recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
+
+    # Mutate environment after recorder creation
+    monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "mutated-tp")
+    monkeypatch.setenv("OTEL_SERVICE_INSTANCE_ID", "mutated-otel")
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    pts = _get_metric_data_points(reader, "calls_total")
+    assert len(pts) == 1
+    assert pts[0].attributes["worker_id"] == f"frozen-prefix:{os.getpid()}"
+
+
 class _DummyInstitute:
     subdomain = "demo"
 
