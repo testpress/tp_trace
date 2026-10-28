@@ -238,10 +238,15 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
             logger.debug("Error during _trace_before_publish enrichment", exc_info=True)
 
     def _trace_after_publish(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
-        task = utils.retrieve_task_from_sender(kwargs)
-        task_id = utils.retrieve_task_id_from_message(kwargs)
+        try:
+            task = utils.retrieve_task_from_sender(kwargs)
+            task_id = utils.retrieve_task_id_from_message(kwargs)
+            ctx = utils.retrieve_context(task, task_id, is_publish=True) if (task and task_id) else None
+        except Exception:
+            task = None
+            task_id = None
+            ctx = None
 
-        ctx = utils.retrieve_context(task, task_id, is_publish=True) if (task and task_id) else None
         try:
             super()._trace_after_publish(*args, **kwargs)
         except Exception as exc:

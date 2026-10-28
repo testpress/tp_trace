@@ -858,7 +858,8 @@ def test_celery_signal_trace_after_publish_error_does_not_raise(monkeypatch):
     monkeypatch.setattr(CeleryInstrumentor, "_trace_after_publish", exploding_after_publish)
 
     instrumentor = TpTraceCeleryInstrumentor()
-    # Must not raise RuntimeError
+    # Must not raise RuntimeError on valid headers or on malformed body kwargs
+    instrumentor._trace_after_publish(sender="test_task", headers={"id": "task-123"}, body={})
     instrumentor._trace_after_publish(sender="test_task", message={"id": "task-123"})
 
 
