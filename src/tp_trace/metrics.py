@@ -206,6 +206,7 @@ class RedMetricsRecorder:
         status_code: Optional[Any] = None,
         project_name: Optional[str] = None,
         cluster_name: Optional[str] = None,
+        subdomain: Optional[str] = None,
         extra_attributes: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Record RED metrics for a completed dependency span (Postgres, Redis, Requests, Celery).
@@ -252,7 +253,9 @@ class RedMetricsRecorder:
             if db_instance:
                 attributes["db.instance"] = str(db_instance)
 
-            if extra_attributes:
+            if subdomain:
+                attributes["institute.subdomain"] = str(subdomain)
+            elif extra_attributes:
                 for k in ("institute.subdomain", "institute_subdomain"):
                     val = extra_attributes.get(k)
                     if val is not None:
@@ -456,6 +459,7 @@ def record_dependency_span(
     status_code: Optional[Any] = None,
     project_name: Optional[str] = None,
     cluster_name: Optional[str] = None,
+    subdomain: Optional[str] = None,
     extra_attributes: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Record RED metrics for a completed dependency span.
@@ -482,6 +486,7 @@ def record_dependency_span(
         status_code=status_code,
         project_name=project_name,
         cluster_name=cluster_name,
+        subdomain=subdomain,
         extra_attributes=extra_attributes,
     )
 

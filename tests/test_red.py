@@ -293,8 +293,8 @@ def test_red_span_processor_cardinality_limits():
         metric_readers=[reader],
     )
 
-    # Limit cardinality to 3
-    processor = RedSpanProcessor(cardinality_limit=3)
+    # Limit cardinality to 3 per service and 3 routes
+    processor = RedSpanProcessor(cardinality_limit_per_service=3, route_limit=3)
 
     for i in range(6):
         span = _create_mock_span(
@@ -329,6 +329,17 @@ def test_sampled_only_span_processor_drops_unsampled():
     sampled_span = _create_mock_span(name="sampled", sampled=True)
     unsampled_span = _create_mock_span(name="unsampled", sampled=False)
 
+    ctx = Context()
+
+    # on_start: forwarded for sampled, dropped for unsampled
+    processor.on_start(sampled_span, ctx)
+    delegate.on_start.assert_called_once_with(sampled_span, parent_context=ctx)
+    delegate.on_start.reset_mock()
+
+    processor.on_start(unsampled_span, ctx)
+    delegate.on_start.assert_not_called()
+
+    # on_end: forwarded for sampled, dropped for unsampled
     processor.on_end(sampled_span)
     assert delegate.on_end.call_count == 1
     assert delegate.on_end.call_args[0][0] == sampled_span
@@ -337,10 +348,6 @@ def test_sampled_only_span_processor_drops_unsampled():
     assert delegate.on_end.call_count == 1  # Unchanged!
 
     # Test lifecycle passthrough
-    ctx = Context()
-    processor.on_start(sampled_span, ctx)
-    delegate.on_start.assert_called_once_with(sampled_span, parent_context=ctx)
-
     processor.force_flush(5000)
     delegate.force_flush.assert_called_once_with(5000)
 
@@ -389,3 +396,85 @@ def test_e2e_dependency_red_metrics_with_zero_sample_rate():
     durations = _get_metric_points(metric_reader, "duration_milliseconds")
     total_durations = sum(pt.count for pt in durations if pt.attributes.get("normalized_service") == "postgres")
     assert total_durations == 10
+
+
+def test_ignored_request_does_not_leak_to_subsequent_request():
+    """Verify that an ignored request (e.g. /health) does not suppress metrics for later requests on the same context."""
+    span_exporter = InMemorySpanExporter()
+    metric_reader = InMemoryMetricReader()
+
+    tp_trace.init(
+        project_name="leak-test",
+        exporter=span_exporter,
+        export_batch=False,
+        sample_rate=0.0,
+        ignore_endpoints=["/health*", "/readyz"],
+        metric_readers=[metric_reader],
+    )
+
+    tracer = tp_trace.get_tracer("test")
+
+    # 1. First: Execute an ignored request (/healthz) with child database query
+    with tracer.start_as_current_span("GET /healthz", attributes={"http.target": "/healthz"}):
+        with tracer.start_as_current_span(
+            "SELECT 1",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT"},
+        ):
+            pass
+
+    # No metrics should be recorded for health check or its child
+    calls_after_health = _get_metric_points(metric_reader, "calls_total")
+    assert len(calls_after_health) == 0
+
+    # 2. Second: Immediately execute a normal business request (/api/orders/) on the SAME thread
+    with tracer.start_as_current_span("GET /api/orders/", attributes={"http.target": "/api/orders/"}):
+        with tracer.start_as_current_span(
+            "SELECT orders",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT", "db.name": "defaultdb"},
+        ):
+            pass
+
+    # Metrics MUST be recorded for the child query under the normal request!
+    calls = _get_metric_points(metric_reader, "calls_total")
+    assert len(calls) > 0
+    recorded = sum(pt.value for pt in calls if pt.attributes.get("normalized_service") == "postgres")
+    assert recorded == 1, f"Expected 1 recorded call for normal request after ignored request, got {recorded}"
+
+
+def test_red_span_processor_overhead_benchmark():
+    """Verify that RedSpanProcessor execution is fast and adds minimal CPU overhead per span."""
+    import time
+
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="bench-test",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+    span = _create_mock_span(
+        name="SELECT test_table",
+        kind=SpanKind.CLIENT,
+        attributes={
+            "db.system": "postgresql",
+            "db.operation": "SELECT",
+            "db.name": "defaultdb",
+        },
+    )
+
+    # Warmup
+    for _ in range(50):
+        processor.on_end(span)
+
+    start = time.perf_counter()
+    iterations = 2000
+    for _ in range(iterations):
+        processor.on_end(span)
+    elapsed = time.perf_counter() - start
+
+    avg_microseconds = (elapsed / iterations) * 1_000_000
+    # Must comfortably execute within 50 microseconds per span
+    assert avg_microseconds < 50.0, f"Average overhead {avg_microseconds:.2f}µs exceeded 50µs"
+

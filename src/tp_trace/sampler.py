@@ -12,10 +12,10 @@ from opentelemetry.sdk.trace.sampling import (
     SamplingResult,
     TraceIdRatioBased,
 )
-from opentelemetry.trace import Link, SpanKind, TraceState
+from opentelemetry.trace import Link, SpanKind, TraceState, get_current_span
 
 from tp_trace.config import _parse_endpoint_sample_rules, _parse_rate
-from tp_trace.route_context import is_request_ignored, set_request_ignored
+from tp_trace.route_context import is_request_ignored
 
 
 class TpTraceRuleBasedSampler(Sampler):
@@ -96,7 +96,6 @@ class TpTraceRuleBasedSampler(Sampler):
             for candidate in candidates:
                 for pattern in self.ignore_endpoints:
                     if fnmatch.fnmatch(candidate, pattern):
-                        set_request_ignored(True)
                         return SamplingResult(Decision.DROP)
 
             # 2. Check custom endpoint sampling rules
@@ -153,7 +152,10 @@ class RecordOnlySampler(Sampler):
         links: Optional[Sequence[Link]] = None,
         trace_state: Optional[TraceState] = None,
     ) -> SamplingResult:
-        if is_request_ignored():
+        parent_span = get_current_span(parent_context)
+        # If the parent span was dropped (Decision.DROP) and is non-recording,
+        # child spans must also be dropped without allocating recording spans.
+        if (parent_span is not None and not parent_span.is_recording()) or is_request_ignored():
             return SamplingResult(Decision.DROP)
         return SamplingResult(Decision.RECORD_ONLY, attributes=attributes, trace_state=trace_state)
 
@@ -188,9 +190,7 @@ class RemoteParentAwareSampler(Sampler):
         )
         if res.decision == Decision.DROP:
             return res
-        return SamplingResult(
-            Decision.RECORD_AND_SAMPLE, attributes=res.attributes, trace_state=trace_state or res.trace_state
-        )
+        return SamplingResult(Decision.RECORD_AND_SAMPLE)
 
     def get_description(self) -> str:
         return f"RemoteParentAwareSampler({self.root_sampler.get_description()})"

@@ -51,8 +51,7 @@ processors:
         action: delete
 
   # Exclude internal spans and Django SERVER spans from spanmetrics.
-  # Django HTTP RED metrics are emitted natively by the SDK, while
-  # dependencies (Postgres, Redis, Celery, requests) use spanmetrics.
+  # Django HTTP and dependency RED metrics are emitted natively by the SDK.
   filter/spanmetrics_drop_non_dependencies:
     error_mode: ignore
     traces:
@@ -63,6 +62,8 @@ processors:
         # Primary classification: normalized.service == "django"
         # Migration fallback: django.route attribute for legacy tp_trace SDK spans
         - kind == SPAN_KIND_SERVER and (attributes["normalized.service"] == "django" or attributes["django.route"] != nil)
+        # Invariant 3: Drop spans that already have RED metrics computed natively by tp_trace SDK
+        - attributes["tp_trace.red"] != nil
 
   transform/spanmetrics_route:
     error_mode: ignore
