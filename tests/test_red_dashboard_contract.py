@@ -157,3 +157,43 @@ def test_service_overview_and_n_plus_one_total_calls_handle_new_workers(tmp_path
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_variable_queries_parse_and_resolve_single_samples(tmp_path):
+    dashboards = [
+        "Supporting Dashboards/service_overview.json",
+        "Supporting Dashboards/operation_details.json",
+        "Supporting Dashboards/service_errors.json",
+    ]
+    rules = []
+    for rel in dashboards:
+        d = json.loads((DASHBOARDS / rel).read_text())
+        for v in d.get("templating", {}).get("list", []):
+            query = v.get("query", "")
+            if isinstance(query, str) and query.startswith("query_result(") and query.endswith(")"):
+                inner = query[len("query_result("):-1]
+                expr = re.sub(r"\$\{[^}]+\}", ".*", inner).replace("$__range", "1h").replace("$__rate_interval", "5m")
+                rules.append({"record": f"var_query_{len(rules)}", "expr": expr})
+
+    # Validate all variable query rules parse
+    rule_fixture = tmp_path / "var_rules.yml"
+    rule_fixture.write_text(yaml.safe_dump({"groups": [{"name": "var_queries", "rules": rules}]}))
+    res = subprocess.run([promtool(), "check", "rules", str(rule_fixture)], capture_output=True, text=True, timeout=30)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+    # Test single-sample resolution for service dropdown
+    d = json.loads((DASHBOARDS / "Supporting Dashboards/service_overview.json").read_text())
+    v_service = next(v for v in d["templating"]["list"] if v["name"] == "service")
+    expr_service = re.sub(r"\$\{[^}]+\}", ".*", v_service["query"][len("query_result("):-1]).replace("$__range", "1h")
+    labels = 'normalized_service="django",project_name="test",cluster_name="dev",institute_subdomain="demo"'
+    eval_fixture = tmp_path / "var_eval.yml"
+    eval_fixture.write_text(yaml.safe_dump({
+        "rule_files": [], "evaluation_interval": "1m", "tests": [{
+            "interval": "1m",
+            "input_series": [{"series": 'calls_total{' + labels + '}', "values": "_x59 1"}],
+            "promql_expr_test": [{"expr": expr_service, "eval_time": "60m", "exp_samples": [{"labels": '{normalized_service="django"}', "value": 1}]}],
+        }],
+    }))
+    res = subprocess.run([promtool(), "test", "rules", str(eval_fixture)], capture_output=True, text=True, timeout=30)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+
