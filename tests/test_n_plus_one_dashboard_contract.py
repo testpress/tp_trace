@@ -152,17 +152,21 @@ def test_collector_spanmetrics_blocks_internal_and_django_server_spans():
     collector_config_file = ROOT / "dev/otel-collector/config.yaml"
     cfg = yaml.safe_load(collector_config_file.read_text())
 
-    # Verify filter definition
-    filters = cfg.get("processors", {})
-    assert "filter/spanmetrics_drop_non_dependencies" in filters
-    span_rules = filters["filter/spanmetrics_drop_non_dependencies"]["traces"]["span"]
-    assert "kind == SPAN_KIND_INTERNAL" in span_rules
-    assert any("SPAN_KIND_SERVER" in r and "normalized.service" in r for r in span_rules)
-
-    # Verify pipeline wiring
     pipelines = cfg.get("service", {}).get("pipelines", {})
-    spanmetrics_pipe = pipelines.get("traces/spanmetrics", {}).get("processors", [])
-    assert "filter/spanmetrics_drop_non_dependencies" in spanmetrics_pipe
+    if "traces/spanmetrics" in pipelines:
+        # Verify filter definition
+        filters = cfg.get("processors", {})
+        assert "filter/spanmetrics_drop_non_dependencies" in filters
+        span_rules = filters["filter/spanmetrics_drop_non_dependencies"]["traces"]["span"]
+        assert "kind == SPAN_KIND_INTERNAL" in span_rules
+        assert any("SPAN_KIND_SERVER" in r and "normalized.service" in r for r in span_rules)
+
+        # Verify pipeline wiring
+        spanmetrics_pipe = pipelines.get("traces/spanmetrics", {}).get("processors", [])
+        assert "filter/spanmetrics_drop_non_dependencies" in spanmetrics_pipe
+    else:
+        # Spanmetrics connector completely removed: native metrics handle RED signals
+        assert "spanmetrics" not in cfg.get("connectors", {})
 
     metrics_pipe = pipelines.get("metrics", {}).get("processors", [])
     assert "transform/drop_metric_worker_id" not in metrics_pipe
