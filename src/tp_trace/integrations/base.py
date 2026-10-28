@@ -29,6 +29,14 @@ class BaseIntegration(abc.ABC):
         self._wrapped_keys: set = set()
         self._when_imported_hooks: List[Tuple[str, Callable]] = []
 
+    @property
+    def config(self) -> Optional[SDKConfig]:
+        return self._config
+
+    @config.setter
+    def config(self, value: Optional[SDKConfig]) -> None:
+        self._config = value
+
     @abc.abstractmethod
     def is_installed(self) -> bool:
         """Check if target library or framework is installed in the current environment."""
@@ -94,8 +102,10 @@ class BaseIntegration(abc.ABC):
 
     def unwrap_all(self) -> None:
         """Restores all wrapped targets to their original unwrapped states in reverse order."""
+        failed_targets = []
         while self._wrapped_targets:
             target_obj, attr_name, original = self._wrapped_targets.pop()
+            key = (id(target_obj), attr_name)
             try:
                 current = getattr(target_obj, attr_name, None)
                 if current is not None and hasattr(current, "__wrapped__"):
@@ -104,6 +114,7 @@ class BaseIntegration(abc.ABC):
                     setattr(target_obj, attr_name, original)
                 elif hasattr(target_obj, attr_name):
                     delattr(target_obj, attr_name)
+                self._wrapped_keys.discard(key)
             except Exception as exc:
                 logger.debug(
                     "Error unwrapping %s on %s in %s integration: %s",
@@ -112,7 +123,10 @@ class BaseIntegration(abc.ABC):
                     self.name,
                     exc,
                 )
-        self._wrapped_keys.clear()
+                failed_targets.append((target_obj, attr_name, original))
+
+        if failed_targets:
+            self._wrapped_targets.extend(failed_targets)
 
     def when_imported(self, module_name: str, callback: Callable[..., Any]) -> None:
         """
@@ -166,6 +180,13 @@ class BaseIntegration(abc.ABC):
             return True
         try:
             self._remove_patch()
+            if self._wrapped_targets:
+                logger.debug(
+                    "Failed to completely uninstrument %s; %d targets remained wrapped",
+                    self.name,
+                    len(self._wrapped_targets),
+                )
+                return False
             self._instrumented = False
             logger.debug("Successfully uninstrumented integration: %s", self.name)
             return True
