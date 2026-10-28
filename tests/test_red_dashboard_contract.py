@@ -111,3 +111,23 @@ def test_dependency_chart_reports_sampled_latency_instead_of_request_share():
         assert not re.search(r"(?<!apm_)duration_milliseconds", target["expr"])
     for filename, panel_id in [(FILES[0], 160), (FILES[1], 20)]:
         assert not any(t["refId"].endswith("_contrib") for t in panel(filename, panel_id)["targets"])
+
+
+def test_catalog_total_calls_handles_single_sample_and_flat_new_workers(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django"'
+    series = [
+        {"series": 'calls_total{' + labels + ',worker_id="w1"}', "values": "_x59 1"},
+        {"series": 'calls_total{' + labels + ',worker_id="w2"}', "values": "_x50 5x10"},
+        {"series": 'calls_total{' + labels + ',worker_id="w3"}', "values": "20x61"},
+    ]
+    expr = expression(FILES[0], 5, "D")
+    fixture = tmp_path / "catalog_total_calls.yml"
+    fixture.write_text(yaml.safe_dump({
+        "rule_files": [], "evaluation_interval": "1m", "tests": [{
+            "interval": "1m", "input_series": series,
+            "promql_expr_test": [{"expr": expr, "eval_time": "60m", "exp_samples": [{"labels": '{Service="Django"}', "value": 6}]}],
+        }],
+    }))
+    result = subprocess.run([promtool(), "test", "rules", str(fixture)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+
