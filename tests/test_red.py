@@ -306,6 +306,58 @@ def test_remote_parent_unsampled_checks_ignore_endpoints():
     assert res4.decision == Decision.RECORD_AND_SAMPLE
 
 
+def test_e2e_unsampled_traceparent_to_ignored_endpoint_drops_spans_and_metrics():
+    """Verify an incoming request with an unsampled traceparent to an ignored path drops spans and emits 0 metrics."""
+    from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+    exporter = InMemorySpanExporter()
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="unsampled-parent-test",
+        exporter=exporter,
+        export_batch=False,
+        sample_rate=0.0,
+        ignore_endpoints=["/health*", "/ping"],
+        metric_readers=[reader],
+    )
+
+    propagator = TraceContextTextMapPropagator()
+    # W3C traceparent ending in 00 (unsampled remote parent)
+    carrier = {"traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"}
+    ctx = propagator.extract(carrier)
+
+    tracer = tp_trace.get_tracer("test")
+
+    # 1. Ignored endpoint with unsampled remote parent: must drop root and child
+    with tracer.start_as_current_span("GET /health", context=ctx, attributes={"http.target": "/health"}) as root:
+        assert not root.is_recording()
+        with tracer.start_as_current_span(
+            "SELECT 1",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT"},
+        ):
+            pass
+
+    calls_health = _get_metric_points(reader, "calls_total")
+    assert len(calls_health) == 0
+    assert len(exporter.get_finished_spans()) == 0
+
+    # 2. Normal business endpoint with unsampled remote parent: records RED metrics, drops trace export
+    with tracer.start_as_current_span("GET /api/orders/", context=ctx, attributes={"http.target": "/api/orders/"}) as root:
+        assert root.is_recording()
+        with tracer.start_as_current_span(
+            "SELECT 1",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT"},
+        ):
+            pass
+
+    calls_orders = _get_metric_points(reader, "calls_total")
+    assert len(calls_orders) == 1
+    assert len(exporter.get_finished_spans()) == 0
+
+
+
 def test_red_span_processor_cardinality_limits():
     """Verify that operations and routes exceeding cardinality limits collapse to __other__."""
     reader = InMemoryMetricReader()
