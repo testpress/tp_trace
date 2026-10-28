@@ -28,7 +28,6 @@ from opentelemetry.trace import (
 
 import tp_trace
 from tp_trace.red import RedSpanProcessor, SampledOnlySpanProcessor
-from tp_trace.route_context import reset_request_ignored, set_request_ignored
 
 
 def _create_mock_span(
@@ -80,10 +79,8 @@ def _get_metric_points(metric_reader: InMemoryMetricReader, metric_name: str):
 
 @pytest.fixture(autouse=True)
 def clean_state():
-    reset_request_ignored()
     tp_trace._reset_for_testing()
     yield
-    reset_request_ignored()
     tp_trace._reset_for_testing()
 
 
@@ -263,26 +260,50 @@ def test_red_span_processor_skips_ignored_requests():
     tp_trace.init(
         project_name="test-red",
         metric_readers=[reader],
+        ignore_endpoints=["/health*"],
     )
 
-    processor = RedSpanProcessor()
+    tracer = tp_trace.get_tracer("test")
 
-    set_request_ignored(True)
-    try:
-        span = _create_mock_span(
-            name="SELECT health_status",
+    with tracer.start_as_current_span("GET /health", attributes={"http.target": "/health"}):
+        with tracer.start_as_current_span(
+            "SELECT health_status",
             kind=SpanKind.CLIENT,
             attributes={
                 "db.system": "postgresql",
                 "db.operation": "SELECT",
             },
-        )
-        processor.on_end(span)
-    finally:
-        set_request_ignored(False)
+        ):
+            pass
 
     calls = _get_metric_points(reader, "calls_total")
     assert len(calls) == 0
+
+
+def test_remote_parent_unsampled_checks_ignore_endpoints():
+    """Verify RemoteParentAwareSampler evaluates ignore_endpoints for both sampled and unsampled remote parents."""
+    from tp_trace.sampler import RemoteParentAwareSampler, TpTraceRuleBasedSampler
+    from opentelemetry.sdk.trace.sampling import Decision
+
+    root = TpTraceRuleBasedSampler(global_sample_rate=0.0, ignore_endpoints=["/health*", "/ping"])
+    unsampled_remote = RemoteParentAwareSampler(root_sampler=root, default_sampled=False)
+    sampled_remote = RemoteParentAwareSampler(root_sampler=root, default_sampled=True)
+
+    # 1. Ignored path on unsampled remote parent -> DROP
+    res1 = unsampled_remote.should_sample(None, 1234, "GET /health", attributes={"http.target": "/health"})
+    assert res1.decision == Decision.DROP
+
+    # 2. Ignored path on sampled remote parent -> DROP
+    res2 = sampled_remote.should_sample(None, 1234, "GET /ping", attributes={"http.target": "/ping"})
+    assert res2.decision == Decision.DROP
+
+    # 3. Normal path on unsampled remote parent -> RECORD_ONLY
+    res3 = unsampled_remote.should_sample(None, 1234, "GET /api/orders/", attributes={"http.target": "/api/orders/"})
+    assert res3.decision == Decision.RECORD_ONLY
+
+    # 4. Normal path on sampled remote parent -> RECORD_AND_SAMPLE
+    res4 = sampled_remote.should_sample(None, 1234, "GET /api/orders/", attributes={"http.target": "/api/orders/"})
+    assert res4.decision == Decision.RECORD_AND_SAMPLE
 
 
 def test_red_span_processor_cardinality_limits():

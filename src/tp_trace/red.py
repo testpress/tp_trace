@@ -16,7 +16,6 @@ from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.trace import SpanKind, StatusCode
 
 from tp_trace.metrics import record_dependency_span
-from tp_trace.route_context import is_request_ignored
 from tp_trace.safety import attempt
 
 logger = logging.getLogger("tp_trace.red")
@@ -46,19 +45,12 @@ class RedSpanProcessor(SpanProcessor):
         self._seen_routes: Set[str] = set()
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
-        if span.is_recording():
-            try:
-                span.set_attribute("tp_trace.red", 1)
-            except Exception:
-                pass
+        pass
 
     def on_end(self, span: ReadableSpan) -> None:
         attempt(self._process_span, span, _label="red_span_processor")
 
     def _process_span(self, span: ReadableSpan) -> None:
-        if is_request_ignored():
-            return
-
         kind = getattr(span, "kind", None)
         # Skip internal framework spans
         if kind == SpanKind.INTERNAL:
@@ -144,6 +136,14 @@ class RedSpanProcessor(SpanProcessor):
 
         # Direct extraction of subdomain without full attribute dict allocation
         subdomain = attrs.get("institute.subdomain") or attrs.get("institute_subdomain")
+
+        # Tag counted span so collector knows this span was aggregated natively by tp_trace SDK
+        try:
+            attrs_dict = getattr(span, "_attributes", None)
+            if isinstance(attrs_dict, dict):
+                attrs_dict["tp_trace.red"] = 1
+        except Exception:
+            pass
 
         record_dependency_span(
             service=str(service),

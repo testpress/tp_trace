@@ -18,7 +18,6 @@ from tp_trace.route_context import (
     get_request_db_query_stats,
     init_request_db_tracker,
     reset_request_db_tracker,
-    reset_request_ignored,
     reset_request_route,
     reset_request_tags,
     reset_request_view,
@@ -802,7 +801,6 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
         if route_token is not None:
             reset_request_route(route_token)
         reset_request_tags()
-        reset_request_ignored()
         if hasattr(request, "_tp_request_context"):
             try:
                 delattr(request, "_tp_request_context")

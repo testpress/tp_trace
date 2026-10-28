@@ -15,7 +15,6 @@ from opentelemetry.sdk.trace.sampling import (
 from opentelemetry.trace import Link, SpanKind, TraceState, get_current_span
 
 from tp_trace.config import _parse_endpoint_sample_rules, _parse_rate
-from tp_trace.route_context import is_request_ignored
 
 
 class TpTraceRuleBasedSampler(Sampler):
@@ -155,7 +154,7 @@ class RecordOnlySampler(Sampler):
         parent_span = get_current_span(parent_context)
         # If the parent span was dropped (Decision.DROP) and is non-recording,
         # child spans must also be dropped without allocating recording spans.
-        if (parent_span is not None and not parent_span.is_recording()) or is_request_ignored():
+        if parent_span is not None and not parent_span.is_recording():
             return SamplingResult(Decision.DROP)
         return SamplingResult(Decision.RECORD_ONLY, attributes=attributes, trace_state=trace_state)
 
@@ -166,8 +165,9 @@ class RecordOnlySampler(Sampler):
 class RemoteParentAwareSampler(Sampler):
     """Evaluates ignore_endpoints for remote parents before accepting upstream sampling."""
 
-    def __init__(self, root_sampler: TpTraceRuleBasedSampler):
+    def __init__(self, root_sampler: TpTraceRuleBasedSampler, default_sampled: bool = True):
         self.root_sampler = root_sampler
+        self.default_sampled = default_sampled
 
     def should_sample(
         self,
@@ -190,10 +190,13 @@ class RemoteParentAwareSampler(Sampler):
         )
         if res.decision == Decision.DROP:
             return res
-        return SamplingResult(Decision.RECORD_AND_SAMPLE)
+        if self.default_sampled:
+            return SamplingResult(Decision.RECORD_AND_SAMPLE)
+        return SamplingResult(Decision.RECORD_ONLY, attributes=attributes or res.attributes, trace_state=trace_state)
 
     def get_description(self) -> str:
-        return f"RemoteParentAwareSampler({self.root_sampler.get_description()})"
+        mode = "sampled" if self.default_sampled else "unsampled"
+        return f"RemoteParentAwareSampler({self.root_sampler.get_description()}, mode={mode})"
 
 
 def create_tp_trace_sampler(
@@ -207,11 +210,12 @@ def create_tp_trace_sampler(
         ignore_endpoints=ignore_endpoints,
         endpoint_sample_rules=endpoint_sample_rules,
     )
-    remote_sampler = RemoteParentAwareSampler(root_sampler=root_sampler)
+    remote_sampled_sampler = RemoteParentAwareSampler(root_sampler=root_sampler, default_sampled=True)
+    remote_unsampled_sampler = RemoteParentAwareSampler(root_sampler=root_sampler, default_sampled=False)
     record_only_sampler = RecordOnlySampler()
     return ParentBased(
         root=root_sampler,
-        remote_parent_sampled=remote_sampler,
-        remote_parent_not_sampled=record_only_sampler,
+        remote_parent_sampled=remote_sampled_sampler,
+        remote_parent_not_sampled=remote_unsampled_sampler,
         local_parent_not_sampled=record_only_sampler,
     )
