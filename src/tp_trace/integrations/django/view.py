@@ -228,6 +228,7 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
         view_cls_name = plan.attrs.get("django.view.class") or "View"
         exact_view = f"{view_cls_name}.{plan.handler_method}" if plan.handler_method else view_cls_name
         view_token = set_request_view(exact_view)
+        route_token = None
         try:
             with traced_span(
                 plan.span_name, kind=SpanKind.INTERNAL, attributes=plan.attrs, tracer_name="tp_trace.django"
@@ -237,7 +238,6 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                     safe_set_attribute(dispatch_span, "django.view.action", str(plan.action))
 
                 request = args[0] if args else kwargs.get("request")
-                route_token = None
                 if request:
                     norm_route = attempt(
                         _normalize_route,

@@ -44,7 +44,7 @@ class IntegrationManager:
     """Manages discovery, lifecycle, and activation of framework integrations."""
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._registered_classes: Dict[str, Union[Type[BaseIntegration], str]] = dict(_BUILTIN_INTEGRATIONS)
         self._aliases: Dict[str, str] = dict(_INTEGRATION_ALIASES)
         for alias, canonical in self._aliases.items():
@@ -166,12 +166,16 @@ class IntegrationManager:
     def uninstrument_all(self) -> None:
         """Uninstrument all active integrations and restore original behaviors."""
         with self._lock:
+            failed: Dict[str, BaseIntegration] = {}
             for name, instance in list(self._active_instances.items()):
                 try:
-                    instance.uninstrument()
+                    success = instance.uninstrument()
+                    if not success:
+                        failed[name] = instance
                 except Exception as exc:
                     logger.debug("Error uninstrumenting %s: %s", name, exc)
-            self._active_instances.clear()
+                    failed[name] = instance
+            self._active_instances = failed
 
 
 _GLOBAL_INTEGRATION_MANAGER = IntegrationManager()

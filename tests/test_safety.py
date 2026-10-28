@@ -939,3 +939,81 @@ def test_integration_manager_updates_config_on_reapply():
 
     mgr.uninstrument_all()
 
+
+def test_traced_view_dispatch_route_token_unbound_guard(monkeypatch):
+    """If dispatch fails before route extraction, route_token must not raise UnboundLocalError in finally."""
+    from tp_trace.integrations.django import view as view_mod
+
+    class CustomError(Exception):
+        pass
+
+    def exploding_apply_tags(span):
+        raise CustomError("tags failed early")
+
+    monkeypatch.setattr(view_mod, "_apply_tags", exploding_apply_tags)
+
+    class DummyView:
+        action = "list"
+
+        def dispatch(self, request, *args, **kwargs):
+            return "ok"
+
+    request = type("Request", (), {"path": "/test/", "method": "GET"})()
+
+    # Must raise CustomError, NOT UnboundLocalError
+    with pytest.raises(CustomError, match="tags failed early"):
+        view_mod.traced_view_dispatch(DummyView().dispatch, DummyView(), (request,), {})
+
+
+def test_integration_manager_uninstrument_all_retains_failed_instances():
+    """uninstrument_all retains instances that failed to uninstrument to prevent double-wrapping."""
+    from tp_trace.integrations.manager import IntegrationManager
+
+    mgr = IntegrationManager()
+
+    class FailingIntegration(BaseIntegration):
+        name = "failing"
+
+        def is_installed(self):
+            return True
+
+        def _apply_patch(self):
+            pass
+
+        def uninstrument(self):
+            return False
+
+    mgr.register("failing", FailingIntegration)
+    mgr.apply_integrations()
+    assert mgr.get("failing") is not None
+
+    mgr.uninstrument_all()
+    # Instance that failed to uninstrument must be retained
+    assert mgr.get("failing") is not None
+
+
+def test_integration_manager_rlock_reentrancy():
+    """IntegrationManager uses an RLock and allows reentrant calls from integration callbacks."""
+    from tp_trace.integrations.manager import IntegrationManager
+
+    mgr = IntegrationManager()
+
+    class ReentrantIntegration(BaseIntegration):
+        name = "reentrant"
+
+        def is_installed(self):
+            # Calls back into mgr.get() while lock is held
+            mgr.get("reentrant")
+            return True
+
+        def _apply_patch(self):
+            # Calls back into mgr.register() while lock is held
+            mgr.register("sub_plugin", _FakeIntegration)
+
+    mgr.register("reentrant", ReentrantIntegration)
+    # Must not deadlock
+    applied = mgr.apply_integrations()
+    assert "reentrant" in applied
+    mgr.uninstrument_all()
+
+
