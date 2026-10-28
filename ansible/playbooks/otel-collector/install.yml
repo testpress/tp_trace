@@ -1,0 +1,9 @@
+---
+- name: Install OpenTelemetry Collector
+  hosts: app_servers
+  become: true
+  tasks:
+    - name: Install OpenTelemetry Collector
+      ansible.builtin.import_role:
+        name: otel-collector
+        tasks_from: install.yml

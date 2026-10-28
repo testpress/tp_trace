@@ -1,0 +1,6 @@
+---
+- name: Deploy OpenTelemetry Collector
+  hosts: app_servers
+  become: true
+  roles:
+    - role: otel-collector

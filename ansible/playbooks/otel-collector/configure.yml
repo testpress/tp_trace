@@ -1,0 +1,14 @@
+---
+- name: Configure OpenTelemetry Collector
+  hosts: app_servers
+  become: true
+  tasks:
+    - name: Configure OpenTelemetry Collector
+      ansible.builtin.import_role:
+        name: otel-collector
+        tasks_from: configure.yml
+
+    - name: Run OpenTelemetry Collector validation tasks
+      ansible.builtin.import_role:
+        name: otel-collector
+        tasks_from: validate.yml

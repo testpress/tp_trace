@@ -1,0 +1,19 @@
+---
+- name: Validate required OpenTelemetry Collector variables
+  ansible.builtin.assert:
+    that:
+      - otel_collector_tempo_endpoint is defined
+      - otel_collector_tempo_endpoint | length > 0
+      - otel_collector_prometheus_remote_write_endpoint is defined
+      - otel_collector_prometheus_remote_write_endpoint | length > 0
+      - otel_collector_internal_metrics_port is defined
+      - otel_collector_config_file is defined
+      - otel_collector_network_mode is defined
+    fail_msg: OpenTelemetry Collector variables are incomplete. Please ensure all required variables are defined.
+
+- name: Validate Collector support for span-metric series expiration
+  ansible.builtin.assert:
+    that:
+      - otel_collector_version is version("0.153.0", ">=")
+      - otel_collector_spanmetrics_aggregation_cardinality_limit | int > 0
+    fail_msg: This role requires Collector 0.153.0 or later and a positive span-metric cardinality limit.
