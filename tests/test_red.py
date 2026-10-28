@@ -499,3 +499,40 @@ def test_red_span_processor_overhead_benchmark():
     # Must comfortably execute within 50 microseconds per span
     assert avg_microseconds < 50.0, f"Average overhead {avg_microseconds:.2f}µs exceeded 50µs"
 
+
+def test_exported_dependency_spans_carry_tp_trace_red_attribute():
+    """Verify exported dependency spans carry tp_trace.red=1 so Collector spanmetrics drops them."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="tag-assert-test",
+        exporter=exporter,
+        export_batch=False,
+        sample_rate=1.0,
+    )
+
+    tracer = tp_trace.get_tracer("test")
+
+    with tracer.start_as_current_span(
+        "SELECT users",
+        kind=SpanKind.CLIENT,
+        attributes={"db.system": "postgresql", "db.operation": "SELECT"},
+    ):
+        pass
+
+    with tracer.start_as_current_span(
+        "internal_step",
+        kind=SpanKind.INTERNAL,
+    ):
+        pass
+
+    spans = exporter.get_finished_spans()
+    client_spans = [s for s in spans if s.kind == SpanKind.CLIENT]
+    internal_spans = [s for s in spans if s.kind == SpanKind.INTERNAL]
+
+    assert len(client_spans) == 1
+    assert client_spans[0].attributes.get("tp_trace.red") == 1
+
+    assert len(internal_spans) == 1
+    assert "tp_trace.red" not in internal_spans[0].attributes
+
+

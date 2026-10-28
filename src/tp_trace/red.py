@@ -45,7 +45,13 @@ class RedSpanProcessor(SpanProcessor):
         self._seen_routes: Set[str] = set()
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
-        pass
+        if span.is_recording():
+            kind = getattr(span, "kind", None)
+            if kind in (SpanKind.CLIENT, SpanKind.PRODUCER, SpanKind.CONSUMER):
+                try:
+                    span.set_attribute("tp_trace.red", 1)
+                except Exception:
+                    pass
 
     def on_end(self, span: ReadableSpan) -> None:
         attempt(self._process_span, span, _label="red_span_processor")
@@ -75,6 +81,8 @@ class RedSpanProcessor(SpanProcessor):
         if not service:
             if kind in (SpanKind.PRODUCER, SpanKind.CONSUMER):
                 service = "celery"
+            elif kind == SpanKind.CLIENT:
+                service = "client"
             else:
                 return
 
@@ -136,14 +144,6 @@ class RedSpanProcessor(SpanProcessor):
 
         # Direct extraction of subdomain without full attribute dict allocation
         subdomain = attrs.get("institute.subdomain") or attrs.get("institute_subdomain")
-
-        # Tag counted span so collector knows this span was aggregated natively by tp_trace SDK
-        try:
-            attrs_dict = getattr(span, "_attributes", None)
-            if isinstance(attrs_dict, dict):
-                attrs_dict["tp_trace.red"] = 1
-        except Exception:
-            pass
 
         record_dependency_span(
             service=str(service),
