@@ -33,29 +33,51 @@ LATENCY_BUCKETS_MS: List[float] = [
     5000.0,
 ]
 
-_PROCESS_IDENTITY: Optional[Tuple[int, str]] = None
-_HOSTNAME: str = socket.gethostname()
+_PROCESS_IDENTITY: Optional[Tuple[int, str, str]] = None
+_PROCESS_IDENTITIES: Dict[Tuple[int, str], str] = {}
+_HOSTNAME: Optional[str] = None
 
 
-def get_process_worker_identity() -> str:
+def _get_hostname() -> str:
+    global _HOSTNAME
+    if _HOSTNAME is None:
+        try:
+            _HOSTNAME = socket.gethostname() or "localhost"
+        except Exception:
+            _HOSTNAME = "localhost"
+    return _HOSTNAME
+
+
+def get_process_worker_identity(prefix: Optional[str] = None) -> str:
     """Return a bounded, fork-safe and thread-safe process identity.
 
-    Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured) and PID.
+    Combines hostname (or service_instance_id / OTEL_SERVICE_INSTANCE_ID prefix if configured) and PID.
     Automatically refreshes if os.getpid() changes after an os.fork().
-    The optional environment variable overrides only the worker_id prefix.
-    Cache one immutable pair without a lock: concurrent initializers compute the
+    The cache is indexed by PID and resolved prefix, ensuring multiple services
+    or recorders with different prefixes in the same process do not clash.
+    Cache entries are stored lock-free: concurrent initializers compute the
     same identity, and a child cannot inherit a locked initialization mutex.
     Worker recycling still creates new series until host PIDs are reused.
     """
-    global _PROCESS_IDENTITY
+    global _PROCESS_IDENTITY, _PROCESS_IDENTITIES
     current_pid = os.getpid()
-    cached = _PROCESS_IDENTITY
-    if cached is not None and cached[0] == current_pid:
-        return cached[1]
+    if _PROCESS_IDENTITY is None:
+        _PROCESS_IDENTITIES.clear()
 
-    prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
-    identity = f"{prefix}:{current_pid}"
-    _PROCESS_IDENTITY = (current_pid, identity)
+    resolved_prefix = (
+        prefix
+        or os.environ.get("TP_TRACE_SERVICE_INSTANCE_ID")
+        or os.environ.get("OTEL_SERVICE_INSTANCE_ID")
+        or _get_hostname()
+    )
+    key = (current_pid, resolved_prefix)
+    cached = _PROCESS_IDENTITIES.get(key)
+    if cached is not None:
+        return cached
+
+    identity = f"{resolved_prefix}:{current_pid}"
+    _PROCESS_IDENTITIES[key] = identity
+    _PROCESS_IDENTITY = (current_pid, resolved_prefix, identity)
     return identity
 
 
@@ -73,6 +95,12 @@ class RedMetricsRecorder:
     ) -> None:
         self.meter_provider = meter_provider
         self.config = config
+        self.worker_id_prefix: str = (
+            config.service_instance_id
+            if (config and config.service_instance_id)
+            else _get_hostname()
+        )
+        self._cached_identity: Optional[Tuple[int, str]] = None
         self.readers: List[MetricReader] = readers or []
         self.meter = meter_provider.get_meter("tp_trace")
 
@@ -133,7 +161,13 @@ class RedMetricsRecorder:
             norm_operation = operation or f"{method} {route}"
             error_str = "true" if error else "false"
 
-            worker_identity = get_process_worker_identity()
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
 
             attributes: Dict[str, Any] = {
                 "project_name": str(resolved_project),

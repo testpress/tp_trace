@@ -250,6 +250,7 @@ class SDKConfig:
     metrics_endpoint: Optional[str] = None
     metrics_enabled: bool = True
     metrics_export_interval_millis: int = 60000
+    service_instance_id: Optional[str] = None
     # Masking -> exposure toggles. Defaults expose infrastructure details
     # (Redis endpoint, Redis command contents, URL query strings), matching
     # dd-trace. Deployments that do NOT own the infra can restore masking.
@@ -284,6 +285,7 @@ class SDKConfig:
         metrics_endpoint: Optional[str] = None,
         metrics_enabled: Optional[bool] = None,
         metrics_export_interval_millis: Optional[int] = None,
+        service_instance_id: Optional[str] = None,
         redis_mask_endpoint: Optional[bool] = None,
         redis_mask_command: Optional[bool] = None,
         redis_cmd_max_length: Optional[int] = None,
@@ -403,6 +405,14 @@ class SDKConfig:
             resolved_metrics_interval = int(raw_interval) if raw_interval is not None else 60000
         except Exception:
             resolved_metrics_interval = 60000
+
+        resolved_service_instance_id = (
+            service_instance_id
+            or extra.get("service_instance_id")
+            or os.getenv("TP_TRACE_SERVICE_INSTANCE_ID")
+            or os.getenv("OTEL_SERVICE_INSTANCE_ID")
+            or None
+        )
 
         env_headers = _parse_headers(os.getenv("TP_TRACE_HEADERS") or os.getenv("OTEL_EXPORTER_OTLP_HEADERS"))
         merged_headers = dict(env_headers)
@@ -728,6 +738,7 @@ class SDKConfig:
             metrics_endpoint=resolved_metrics_endpoint,
             metrics_enabled=resolved_metrics_enabled,
             metrics_export_interval_millis=resolved_metrics_interval,
+            service_instance_id=resolved_service_instance_id,
             redis_mask_endpoint=resolved_redis_mask_endpoint,
             redis_mask_command=resolved_redis_mask_command,
             redis_cmd_max_length=resolved_cmd_max_length,

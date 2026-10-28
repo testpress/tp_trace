@@ -453,6 +453,204 @@ def test_multiworker_independent_streams(monkeypatch):
     assert any(wid.endswith(":10002") for wid in worker_ids)
 
 
+def test_worker_identity_hostname_failure_fallback(monkeypatch):
+    """When hostname resolution raises an exception, identity safely falls back to localhost."""
+    import tp_trace.metrics as tm
+
+    monkeypatch.setattr(tm, "_PROCESS_IDENTITY", None, raising=False)
+    monkeypatch.setattr(tm, "_HOSTNAME", None, raising=False)
+
+    def fail_hostname():
+        raise OSError("DNS resolution failure")
+
+    monkeypatch.setattr(socket, "gethostname", fail_hostname)
+    identity = tm.get_process_worker_identity()
+    assert identity == f"localhost:{os.getpid()}"
+
+
+def test_worker_identity_with_config_service_instance_id(monkeypatch):
+    """Verify service_instance_id passed via init is propagated to worker_id."""
+    import tp_trace.metrics as tm
+    from tp_trace.metrics import get_metrics_recorder
+
+    monkeypatch.setattr(tm, "_PROCESS_IDENTITY", None, raising=False)
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="config-instance-test",
+        service_instance_id="my-custom-prefix",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1
+    attrs = calls_points[0].attributes
+    assert attrs["worker_id"] == f"my-custom-prefix:{os.getpid()}"
+
+
+def test_worker_identity_with_tp_trace_service_instance_id_env(monkeypatch):
+    """Verify TP_TRACE_SERVICE_INSTANCE_ID environment variable overrides worker_id prefix."""
+    import tp_trace.metrics as tm
+    from tp_trace.metrics import get_metrics_recorder
+
+    monkeypatch.setattr(tm, "_PROCESS_IDENTITY", None, raising=False)
+    monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "tp-env-prefix")
+    metric_reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="tp-env-test",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1
+    attrs = calls_points[0].attributes
+    assert attrs["worker_id"] == f"tp-env-prefix:{os.getpid()}"
+
+
+def test_worker_identity_already_populated_cache_respects_new_prefix():
+    """Verify that calling get_process_worker_identity with a new prefix does not return an existing cached prefix."""
+    import tp_trace.metrics as tm
+
+    pid = os.getpid()
+    id_a = tm.get_process_worker_identity(prefix="service-a")
+    assert id_a == f"service-a:{pid}"
+
+    # With cache populated with service-a, requesting service-b must respect service-b
+    id_b = tm.get_process_worker_identity(prefix="service-b")
+    assert id_b == f"service-b:{pid}"
+    assert id_b != id_a
+
+    # Requesting service-a again should retrieve cached service-a
+    assert tm.get_process_worker_identity(prefix="service-a") == f"service-a:{pid}"
+
+
+def test_two_recorders_with_different_prefixes_in_same_process():
+    """Two independent recorders in the same process must maintain distinct worker_id streams."""
+    from opentelemetry.sdk.metrics import MeterProvider
+    from tp_trace.config import SDKConfig
+    from tp_trace.metrics import RedMetricsRecorder
+
+    reader_a = InMemoryMetricReader()
+    provider_a = MeterProvider(metric_readers=[reader_a])
+    config_a = SDKConfig(project_name="svc-a", service_instance_id="prefix-alpha")
+    recorder_a = RedMetricsRecorder(meter_provider=provider_a, config=config_a)
+
+    reader_b = InMemoryMetricReader()
+    provider_b = MeterProvider(metric_readers=[reader_b])
+    config_b = SDKConfig(project_name="svc-b", service_instance_id="prefix-beta")
+    recorder_b = RedMetricsRecorder(meter_provider=provider_b, config=config_b)
+
+    pid = os.getpid()
+
+    # Interleaved requests across both recorders
+    for _ in range(3):
+        recorder_a.record_request(
+            method="GET",
+            route="/api/a/",
+            status_code=200,
+            error=False,
+            duration_ms=10.0,
+        )
+        recorder_b.record_request(
+            method="POST",
+            route="/api/b/",
+            status_code=201,
+            error=False,
+            duration_ms=20.0,
+        )
+
+    pts_a = _get_metric_data_points(reader_a, "calls_total")
+    assert len(pts_a) == 1
+    assert pts_a[0].attributes["worker_id"] == f"prefix-alpha:{pid}"
+    assert pts_a[0].value == 3
+
+    pts_b = _get_metric_data_points(reader_b, "calls_total")
+    assert len(pts_b) == 1
+    assert pts_b[0].attributes["worker_id"] == f"prefix-beta:{pid}"
+    assert pts_b[0].value == 3
+
+
+def test_service_instance_id_configuration_precedence(monkeypatch):
+    """Verify configuration precedence: explicit kwarg > TP_TRACE_* > OTEL_* > default None."""
+    from tp_trace.config import SDKConfig
+
+    # 1. Explicit kwarg overrides all env vars
+    monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "env-tp")
+    monkeypatch.setenv("OTEL_SERVICE_INSTANCE_ID", "env-otel")
+    cfg = SDKConfig.from_env_and_kwargs(service_instance_id="explicit-pfx")
+    assert cfg.service_instance_id == "explicit-pfx"
+
+    # 2. TP_TRACE_SERVICE_INSTANCE_ID overrides OTEL_SERVICE_INSTANCE_ID
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert cfg.service_instance_id == "env-tp"
+
+    # 3. OTEL_SERVICE_INSTANCE_ID applies when TP_TRACE_* is absent
+    monkeypatch.delenv("TP_TRACE_SERVICE_INSTANCE_ID")
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert cfg.service_instance_id == "env-otel"
+
+    # 4. Default is None when no options/env are configured
+    monkeypatch.delenv("OTEL_SERVICE_INSTANCE_ID")
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert cfg.service_instance_id is None
+
+
+def test_service_instance_id_sets_worker_id_not_resource_instance_id():
+    """service_instance_id configures worker_id prefix, preserving Resource service.instance.id."""
+    from tp_trace.metrics import get_metrics_recorder
+
+    metric_reader = InMemoryMetricReader()
+    provider = tp_trace.init(
+        project_name="res-id-isolation-test",
+        service_instance_id="worker-prefix-only",
+        metric_readers=[metric_reader],
+        export_batch=False,
+    )
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+
+    recorder.record_request(
+        method="GET",
+        route="/api/test/ok/",
+        status_code=200,
+        error=False,
+        duration_ms=10.0,
+    )
+
+    # 1. Datapoint worker_id uses the configured prefix
+    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    assert len(calls_points) == 1
+    attrs = calls_points[0].attributes
+    assert attrs["worker_id"] == f"worker-prefix-only:{os.getpid()}"
+
+    # 2. Resource service.instance.id is NOT modified by service_instance_id
+    res_attrs = provider.resource.attributes
+    assert "service.instance.id" in res_attrs
+    assert res_attrs["service.instance.id"] == f"{socket.gethostname()}-{os.getpid()}"
+    assert not res_attrs["service.instance.id"].startswith("worker-prefix-only")
+
+
 class _DummyInstitute:
     subdomain = "demo"
 
