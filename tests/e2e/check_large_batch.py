@@ -17,7 +17,7 @@ def counters():
     return [
         sum(
             float(value)
-            for labels, value in re.findall(r"^" + name + r"\{([^\n]+)\} ([0-9.e+]+)$", text, re.MULTILINE)
+            for labels, value in re.findall(r"^" + name + r"(?:_total)?\{([^\n]+)\} ([0-9.e+]+)$", text, re.MULTILINE)
             if 'exporter="otlp/tempo"' in labels
         )
         for name in names
