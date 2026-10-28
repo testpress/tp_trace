@@ -7,8 +7,7 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 import logging
 import os
 import socket
-import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from opentelemetry.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics import MeterProvider
@@ -34,9 +33,7 @@ LATENCY_BUCKETS_MS: List[float] = [
     5000.0,
 ]
 
-_IDENTITY_LOCK = threading.Lock()
-_CACHED_PID: Optional[int] = None
-_CACHED_IDENTITY: Optional[str] = None
+_PROCESS_IDENTITY: Optional[Tuple[int, str]] = None
 _HOSTNAME: str = socket.gethostname()
 
 
@@ -45,20 +42,21 @@ def get_process_worker_identity() -> str:
 
     Combines hostname (or OTEL_SERVICE_INSTANCE_ID prefix if configured) and PID.
     Automatically refreshes if os.getpid() changes after an os.fork().
-    Thread-safe double-checked caching eliminates lock contention on the request path.
-    Bounded to the host PID space to prevent series churn from worker recycles.
+    The optional environment variable overrides only the worker_id prefix.
+    Cache one immutable pair without a lock: concurrent initializers compute the
+    same identity, and a child cannot inherit a locked initialization mutex.
+    Worker recycling still creates new series until host PIDs are reused.
     """
-    global _CACHED_PID, _CACHED_IDENTITY
+    global _PROCESS_IDENTITY
     current_pid = os.getpid()
-    if _CACHED_PID == current_pid and _CACHED_IDENTITY is not None:
-        return _CACHED_IDENTITY
+    cached = _PROCESS_IDENTITY
+    if cached is not None and cached[0] == current_pid:
+        return cached[1]
 
-    with _IDENTITY_LOCK:
-        if _CACHED_PID != current_pid or _CACHED_IDENTITY is None:
-            _CACHED_PID = current_pid
-            prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
-            _CACHED_IDENTITY = f"{prefix}:{current_pid}"
-        return _CACHED_IDENTITY
+    prefix = os.environ.get("OTEL_SERVICE_INSTANCE_ID") or _HOSTNAME
+    identity = f"{prefix}:{current_pid}"
+    _PROCESS_IDENTITY = (current_pid, identity)
+    return identity
 
 
 _ACTIVE_RECORDER: Optional["RedMetricsRecorder"] = None

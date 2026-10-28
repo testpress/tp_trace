@@ -212,15 +212,13 @@ def test_worker_identity_changes_after_fork(monkeypatch):
     assert forked_identity == f"{socket.gethostname()}:{new_pid}"
 
 
-def test_worker_identity_thread_safe_concurrent_initialization():
+def test_worker_identity_thread_safe_concurrent_initialization(monkeypatch):
     """Verify concurrent calls from multiple threads initialize identity safely without racing."""
     import concurrent.futures
     import tp_trace.metrics as tm
 
     # Reset cache to simulate cold start
-    with tm._IDENTITY_LOCK:
-        tm._CACHED_PID = None
-        tm._CACHED_IDENTITY = None
+    monkeypatch.setattr(tm, "_PROCESS_IDENTITY", None, raising=False)
 
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
@@ -231,6 +229,89 @@ def test_worker_identity_thread_safe_concurrent_initialization():
     expected = f"{socket.gethostname()}:{os.getpid()}"
     assert len(results) == 50
     assert all(r == expected for r in results)
+
+
+def test_worker_identity_refresh_does_not_publish_parent_identity(monkeypatch):
+    """A second thread refreshing after fork must never read the parent's identity."""
+    import concurrent.futures
+    import threading
+    import tp_trace.metrics as tm
+
+    parent_identity = tm.get_process_worker_identity()
+    child_pid = os.getpid() + 1000
+    monkeypatch.setattr(os, "getpid", lambda: child_pid)
+    initializing = threading.Event()
+    release = threading.Event()
+    real_getenv = os.environ.get
+
+    def slow_prefix(key, default=None):
+        if key == "OTEL_SERVICE_INSTANCE_ID" and threading.current_thread().name == "initializer":
+            initializing.set()
+            assert release.wait(3)
+        return real_getenv(key, default)
+
+    monkeypatch.setattr(os.environ, "get", slow_prefix)
+    results = []
+    initializer = threading.Thread(target=lambda: results.append(tm.get_process_worker_identity()), name="initializer")
+    initializer.start()
+    try:
+        assert initializing.wait(3)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            second = executor.submit(tm.get_process_worker_identity)
+            try:
+                identity = second.result(timeout=1)
+            finally:
+                release.set()
+        assert identity != parent_identity
+        assert identity.endswith(f":{child_pid}")
+    finally:
+        release.set()
+        initializer.join(timeout=3)
+
+
+def test_worker_identity_fork_during_initialization():
+    """Forking during identity construction must not leave a child blocked."""
+    import subprocess
+    import sys
+    import textwrap
+
+    if not hasattr(os, "fork"):
+        pytest.skip("os.fork is not available on this platform")
+    # Isolate the fork and timeout from pytest and its SDK background threads.
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent('''
+            import os
+            import signal
+            import threading
+            import tp_trace.metrics as metrics
+
+            entered = threading.Event()
+            release = threading.Event()
+            real_get = os.environ.get
+
+            def slow_get(key, default=None):
+                if key == "OTEL_SERVICE_INSTANCE_ID" and threading.current_thread().name == "initializer":
+                    entered.set()
+                    release.wait(5)
+                return real_get(key, default)
+
+            os.environ.get = slow_get
+            thread = threading.Thread(target=metrics.get_process_worker_identity, name="initializer")
+            thread.start()
+            assert entered.wait(3)
+            child = os.fork()
+            if child == 0:
+                signal.alarm(2)
+                identity = metrics.get_process_worker_identity()
+                os._exit(0 if identity.endswith(":" + str(os.getpid())) else 1)
+            release.set()
+            thread.join(3)
+            _, status = os.waitpid(child, 0)
+            assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0, status
+        ''')],
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_real_fork_produces_distinct_worker_identities():
