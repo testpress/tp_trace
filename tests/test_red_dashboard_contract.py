@@ -131,3 +131,29 @@ def test_catalog_total_calls_handles_single_sample_and_flat_new_workers(tmp_path
     result = subprocess.run([promtool(), "test", "rules", str(fixture)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
 
+
+def test_service_overview_and_n_plus_one_total_calls_handle_new_workers(tmp_path):
+    def prep_expr(filename, panel_id, ref):
+        expr = next(t["expr"] for t in panel(filename, panel_id)["targets"] if t["refId"] == ref)
+        return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m").replace("$__range", "1h")
+
+    expr_overview = prep_expr("Supporting Dashboards/service_overview.json", 9, "B")
+    expr_n1 = prep_expr("Supporting Dashboards/n_plus_one_detail.json", 10, "A")
+    labels = 'normalized_service="django",project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_operation="GET /test/"'
+    series = [
+        {"series": 'calls_total{' + labels + ',worker_id="w1",metric_source="tp_trace_sdk",instance="host:1",http_method="GET",http_route=".*",span_kind="SPAN_KIND_SERVER"}', "values": "_x59 3"},
+    ]
+    fixture = tmp_path / "overview_and_n1.yml"
+    fixture.write_text(yaml.safe_dump({
+        "rule_files": [], "evaluation_interval": "1m", "tests": [{
+            "interval": "1m", "input_series": series,
+            "promql_expr_test": [
+                {"expr": expr_overview, "eval_time": "60m", "exp_samples": [{"labels": '{normalized_operation="GET /test/"}', "value": 3}]},
+                {"expr": expr_n1, "eval_time": "60m", "exp_samples": [{"labels": "{}", "value": 3}]},
+            ],
+        }],
+    }))
+    result = subprocess.run([promtool(), "test", "rules", str(fixture)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
