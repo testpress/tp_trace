@@ -31,6 +31,33 @@ from tp_trace.safety import safe_update_name
 
 current_route: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("tp_trace.http_route", default=None)
 current_method: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("tp_trace.http_method", default=None)
+current_request_ignored: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "tp_trace.request_ignored", default=False
+)
+
+
+def is_request_ignored() -> bool:
+    """Return True if the current in-flight request was matched by ignore_endpoints."""
+    try:
+        return current_request_ignored.get()
+    except LookupError:
+        return False
+
+
+def set_request_ignored(ignored: bool = True) -> contextvars.Token:
+    """Mark the in-flight request as ignored (or not)."""
+    return current_request_ignored.set(ignored)
+
+
+def reset_request_ignored(token: Optional[contextvars.Token] = None) -> None:
+    """Reset the request ignored token."""
+    if token is not None:
+        try:
+            current_request_ignored.reset(token)
+            return
+        except Exception:
+            pass
+    current_request_ignored.set(False)
 
 
 def get_current_route() -> Optional[str]:

@@ -1,0 +1,391 @@
+"""Unit tests for RED metrics span processing and sampling gates in tp_trace.
+
+Validates that:
+1. RedSpanProcessor captures 100% of finished dependency spans (Postgres, Redis, Requests, Celery)
+   and updates Prometheus RED metrics (calls_total, duration_milliseconds) regardless of sample rate.
+2. Server spans for Django are skipped by RedSpanProcessor to prevent double-counting.
+3. Internal framework spans are ignored.
+4. Ignored requests (e.g. health checks) suppress dependency metric recording.
+5. High-cardinality operations and routes collapse to '__other__' once configured thresholds are reached.
+6. SampledOnlySpanProcessor drops RECORD_ONLY spans from export while forwarding sampled spans.
+7. End-to-end trace sampling at 0.0% still produces 100% dependency RED metrics while exporting 0 traces.
+"""
+
+from unittest.mock import MagicMock
+import pytest
+from opentelemetry.context import Context
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import (
+    SpanContext,
+    SpanKind,
+    Status,
+    StatusCode,
+    TraceFlags,
+    TraceState,
+)
+
+import tp_trace
+from tp_trace.red import RedSpanProcessor, SampledOnlySpanProcessor
+from tp_trace.route_context import reset_request_ignored, set_request_ignored
+
+
+def _create_mock_span(
+    name: str = "test-span",
+    kind: SpanKind = SpanKind.CLIENT,
+    attributes: dict = None,
+    sampled: bool = True,
+    status_code: StatusCode = StatusCode.OK,
+    duration_ms: float = 15.0,
+) -> ReadableSpan:
+    """Create a mock ReadableSpan with standard OpenTelemetry SDK interfaces."""
+    attrs = dict(attributes or {})
+    start_time_ns = 1_000_000_000
+    end_time_ns = start_time_ns + int(duration_ms * 1_000_000)
+
+    trace_flags = TraceFlags(TraceFlags.SAMPLED if sampled else 0)
+    context = SpanContext(
+        trace_id=12345678901234567890123456789012,
+        span_id=1234567890123456,
+        is_remote=False,
+        trace_flags=trace_flags,
+        trace_state=TraceState(),
+    )
+
+    span = MagicMock(spec=ReadableSpan)
+    span.name = name
+    span.kind = kind
+    span.attributes = attrs
+    span.start_time = start_time_ns
+    span.end_time = end_time_ns
+    span.status = Status(status_code=status_code)
+    span.get_span_context.return_value = context
+    return span
+
+
+def _get_metric_points(metric_reader: InMemoryMetricReader, metric_name: str):
+    """Extract data points for a named metric from InMemoryMetricReader."""
+    data = metric_reader.get_metrics_data()
+    points = []
+    if not data:
+        return points
+    for rm in data.resource_metrics:
+        for sm in rm.scope_metrics:
+            for metric in sm.metrics:
+                if metric.name == metric_name:
+                    points.extend(metric.data.data_points)
+    return points
+
+
+@pytest.fixture(autouse=True)
+def clean_state():
+    reset_request_ignored()
+    tp_trace._reset_for_testing()
+    yield
+    reset_request_ignored()
+    tp_trace._reset_for_testing()
+
+
+def test_red_span_processor_records_postgres_span():
+    """Verify RedSpanProcessor records calls_total and duration for Postgres queries."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+    span = _create_mock_span(
+        name="SELECT test_table",
+        kind=SpanKind.CLIENT,
+        attributes={
+            "db.system": "postgresql",
+            "db.operation": "SELECT",
+            "db.name": "defaultdb",
+            "net.peer.name": "127.0.0.1",
+            "http.route": "/api/users/",
+        },
+        duration_ms=42.0,
+    )
+
+    processor.on_end(span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 1
+    pt = calls[0]
+    assert pt.value == 1
+    assert pt.attributes["normalized_service"] == "postgres"
+    assert pt.attributes["normalized_operation"] == "SELECT"
+    assert pt.attributes["error"] == "false"
+    assert pt.attributes["span_kind"] == "SPAN_KIND_CLIENT"
+    assert pt.attributes["http.route"] == "/api/users/"
+
+    durations = _get_metric_points(reader, "duration_milliseconds")
+    assert len(durations) == 1
+    d_pt = durations[0]
+    assert d_pt.count == 1
+    assert d_pt.sum == pytest.approx(42.0, rel=1e-2)
+
+
+def test_red_span_processor_records_redis_span():
+    """Verify RedSpanProcessor records Redis operations."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+    span = _create_mock_span(
+        name="GET user:123",
+        kind=SpanKind.CLIENT,
+        attributes={
+            "db.system": "redis",
+            "db.operation": "GET",
+        },
+        duration_ms=2.5,
+    )
+
+    processor.on_end(span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 1
+    assert calls[0].attributes["normalized_service"] == "redis"
+    assert calls[0].attributes["normalized_operation"] == "GET"
+    assert calls[0].attributes["error"] == "false"
+
+
+def test_red_span_processor_records_celery_spans():
+    """Verify RedSpanProcessor records Celery PRODUCER and CONSUMER spans."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+
+    # Task publish
+    producer_span = _create_mock_span(
+        name="tasks.send_email apply_async",
+        kind=SpanKind.PRODUCER,
+        attributes={
+            "normalized.service": "celery",
+            "normalized.operation": "tasks.send_email",
+        },
+    )
+    processor.on_end(producer_span)
+
+    # Task execution
+    consumer_span = _create_mock_span(
+        name="tasks.send_email execute",
+        kind=SpanKind.CONSUMER,
+        attributes={
+            "normalized.service": "celery",
+            "normalized.operation": "tasks.send_email",
+        },
+    )
+    processor.on_end(consumer_span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 2
+    services = {c.attributes["normalized_service"] for c in calls}
+    kinds = {c.attributes["span_kind"] for c in calls}
+    assert services == {"celery"}
+    assert kinds == {"SPAN_KIND_PRODUCER", "SPAN_KIND_CONSUMER"}
+
+
+def test_red_span_processor_records_error_status():
+    """Verify error spans are marked with status='ERROR' and error flag."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+    span = _create_mock_span(
+        name="HTTP POST /checkout",
+        kind=SpanKind.CLIENT,
+        attributes={
+            "peer.service": "payment-gateway",
+            "http.method": "POST",
+            "http.status_code": 500,
+            "error": True,
+        },
+        status_code=StatusCode.ERROR,
+    )
+
+    processor.on_end(span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 1
+    assert calls[0].attributes["error"] == "true"
+
+
+def test_red_span_processor_skips_internal_and_django_server_spans():
+    """Verify internal spans and Django SERVER spans are skipped by RedSpanProcessor."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+
+    # Internal span
+    internal_span = _create_mock_span(
+        name="internal_helper",
+        kind=SpanKind.INTERNAL,
+        attributes={"some.attr": "value"},
+    )
+    processor.on_end(internal_span)
+
+    # Django SERVER span (already handled by request.py)
+    server_span = _create_mock_span(
+        name="GET /api/test/",
+        kind=SpanKind.SERVER,
+        attributes={
+            "normalized.service": "django",
+            "django.route": "/api/test/",
+        },
+    )
+    processor.on_end(server_span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 0
+
+
+def test_red_span_processor_skips_ignored_requests():
+    """Verify that child dependency spans executed during ignored requests are not recorded."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+
+    set_request_ignored(True)
+    try:
+        span = _create_mock_span(
+            name="SELECT health_status",
+            kind=SpanKind.CLIENT,
+            attributes={
+                "db.system": "postgresql",
+                "db.operation": "SELECT",
+            },
+        )
+        processor.on_end(span)
+    finally:
+        set_request_ignored(False)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 0
+
+
+def test_red_span_processor_cardinality_limits():
+    """Verify that operations and routes exceeding cardinality limits collapse to __other__."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    # Limit cardinality to 3
+    processor = RedSpanProcessor(cardinality_limit=3)
+
+    for i in range(6):
+        span = _create_mock_span(
+            name=f"query_{i}",
+            kind=SpanKind.CLIENT,
+            attributes={
+                "db.system": "redis",
+                "db.operation": f"CMD_{i}",
+                "http.route": f"/route/{i}",
+            },
+        )
+        processor.on_end(span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) > 0
+
+    operations = {c.attributes["normalized_operation"] for c in calls}
+    routes = {c.attributes.get("http.route") for c in calls}
+
+    # At most 3 distinct + "__other__"
+    assert "__other__" in operations
+    assert "__other__" in routes
+    assert len(operations) <= 4
+    assert len(routes) <= 4
+
+
+def test_sampled_only_span_processor_drops_unsampled():
+    """Verify SampledOnlySpanProcessor forwards sampled spans and drops unsampled spans."""
+    delegate = MagicMock(spec=SpanProcessor)
+    processor = SampledOnlySpanProcessor(delegate)
+
+    sampled_span = _create_mock_span(name="sampled", sampled=True)
+    unsampled_span = _create_mock_span(name="unsampled", sampled=False)
+
+    processor.on_end(sampled_span)
+    assert delegate.on_end.call_count == 1
+    assert delegate.on_end.call_args[0][0] == sampled_span
+
+    processor.on_end(unsampled_span)
+    assert delegate.on_end.call_count == 1  # Unchanged!
+
+    # Test lifecycle passthrough
+    ctx = Context()
+    processor.on_start(sampled_span, ctx)
+    delegate.on_start.assert_called_once_with(sampled_span, parent_context=ctx)
+
+    processor.force_flush(5000)
+    delegate.force_flush.assert_called_once_with(5000)
+
+    processor.shutdown()
+    delegate.shutdown.assert_called_once()
+
+
+def test_e2e_dependency_red_metrics_with_zero_sample_rate():
+    """Verify that even with sample_rate=0.0, dependency spans update RED metrics while 0 traces are exported."""
+    span_exporter = InMemorySpanExporter()
+    metric_reader = InMemoryMetricReader()
+
+    tp_trace.init(
+        project_name="zero-sample-test",
+        exporter=span_exporter,
+        export_batch=False,
+        sample_rate=0.0,  # 0% trace sampling!
+        metric_readers=[metric_reader],
+    )
+
+    tracer = tp_trace.get_tracer("test")
+
+    # Simulate 10 database client spans
+    for i in range(10):
+        with tracer.start_as_current_span(
+            "SELECT users",
+            kind=SpanKind.CLIENT,
+            attributes={
+                "db.system": "postgresql",
+                "db.operation": "SELECT",
+                "db.name": "defaultdb",
+            },
+        ):
+            pass
+
+    # 1. Traces: 0 spans exported!
+    finished_spans = span_exporter.get_finished_spans()
+    assert len(finished_spans) == 0, f"Expected 0 exported spans at sample_rate=0.0, got {len(finished_spans)}"
+
+    # 2. RED Metrics: All 10 recorded!
+    calls = _get_metric_points(metric_reader, "calls_total")
+    assert len(calls) > 0
+    total_calls = sum(pt.value for pt in calls if pt.attributes.get("normalized_service") == "postgres")
+    assert total_calls == 10, f"Expected 10 calls recorded in RED metrics, got {total_calls}"
+
+    durations = _get_metric_points(metric_reader, "duration_milliseconds")
+    total_durations = sum(pt.count for pt in durations if pt.attributes.get("normalized_service") == "postgres")
+    assert total_durations == 10

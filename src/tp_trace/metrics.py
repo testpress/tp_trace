@@ -191,6 +191,81 @@ class RedMetricsRecorder:
         except Exception as exc:
             logger.debug("Failed to record independent RED metrics: %s", exc)
 
+    def record_dependency_span(
+        self,
+        *,
+        service: str,
+        operation: str,
+        duration_ms: float,
+        error: bool = False,
+        span_kind: str = "SPAN_KIND_CLIENT",
+        route: Optional[str] = None,
+        db_instance: Optional[str] = None,
+        db_system: Optional[str] = None,
+        http_method: Optional[str] = None,
+        status_code: Optional[Any] = None,
+        project_name: Optional[str] = None,
+        cluster_name: Optional[str] = None,
+        extra_attributes: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record RED metrics for a completed dependency span (Postgres, Redis, Requests, Celery).
+
+        Fail-safe: Any error during recording is safely absorbed and never disrupts
+        the host application.
+        """
+        try:
+            cfg = self.config
+            resolved_project = project_name or (cfg.project_name if cfg else None) or "default"
+            resolved_cluster = cluster_name or (cfg.cluster_name if cfg else None) or ""
+            error_str = "true" if error else "false"
+
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
+            attributes: Dict[str, Any] = {
+                "project_name": str(resolved_project),
+                "cluster_name": str(resolved_cluster),
+                "normalized_service": str(service or "unknown"),
+                "normalized_operation": str(operation or "unknown"),
+                "span_kind": str(span_kind),
+                "error": error_str,
+                "metric_source": "tp_trace_sdk",
+            }
+
+            if route:
+                attributes["http.route"] = str(route)
+            if http_method:
+                attributes["http.method"] = str(http_method)
+            if status_code is not None:
+                try:
+                    attributes["http.status_code"] = int(status_code)
+                    attributes["status_code"] = str(status_code)
+                except (ValueError, TypeError):
+                    attributes["status_code"] = str(status_code)
+            if db_system:
+                attributes["db.system"] = str(db_system)
+            if db_instance:
+                attributes["db.instance"] = str(db_instance)
+
+            if extra_attributes:
+                for k in ("institute.subdomain", "institute_subdomain"):
+                    val = extra_attributes.get(k)
+                    if val is not None:
+                        attributes["institute.subdomain"] = str(val)
+                        break
+
+            attributes["worker_id"] = worker_identity
+
+            self.calls_total.add(1, attributes)
+            self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
+        except Exception as exc:
+            logger.debug("Failed to record dependency RED metrics: %s", exc)
+
     def record_repeated_query_affected_request(
         self,
         *,
@@ -361,6 +436,50 @@ def record_request(
         duration_ms=duration_ms,
         service=service,
         operation=operation,
+        project_name=project_name,
+        cluster_name=cluster_name,
+        extra_attributes=extra_attributes,
+    )
+
+
+def record_dependency_span(
+    *,
+    service: str,
+    operation: str,
+    duration_ms: float,
+    error: bool = False,
+    span_kind: str = "SPAN_KIND_CLIENT",
+    route: Optional[str] = None,
+    db_instance: Optional[str] = None,
+    db_system: Optional[str] = None,
+    http_method: Optional[str] = None,
+    status_code: Optional[Any] = None,
+    project_name: Optional[str] = None,
+    cluster_name: Optional[str] = None,
+    extra_attributes: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Record RED metrics for a completed dependency span.
+
+    Idempotent and safe: if no recorder is active or disabled, this is a no-op.
+    """
+    recorder = _ACTIVE_RECORDER
+    if recorder is None:
+        return
+
+    if recorder.config and recorder.config.disabled:
+        return
+
+    recorder.record_dependency_span(
+        service=service,
+        operation=operation,
+        duration_ms=duration_ms,
+        error=error,
+        span_kind=span_kind,
+        route=route,
+        db_instance=db_instance,
+        db_system=db_system,
+        http_method=http_method,
+        status_code=status_code,
         project_name=project_name,
         cluster_name=cluster_name,
         extra_attributes=extra_attributes,
