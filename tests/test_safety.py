@@ -1017,3 +1017,39 @@ def test_integration_manager_rlock_reentrancy():
     mgr.uninstrument_all()
 
 
+def test_base_integration_reinstrument_after_uninstrument_rewraps():
+    """Uninstrumenting clears _wrapped_keys so re-instrumenting wraps targets again."""
+    class DummyService:
+        def compute(self):
+            return 100
+
+    svc = DummyService()
+
+    class PatchableIntegration(BaseIntegration):
+        name = "patchable"
+
+        def is_installed(self):
+            return True
+
+        def _apply_patch(self):
+            self.wrap(svc, "compute", lambda wrapped, inst, args, kw: wrapped(*args, **kw) + 1)
+
+    integ = PatchableIntegration()
+
+    # First cycle
+    integ.instrument()
+    assert svc.compute() == 101
+
+    # Uninstrument
+    assert integ.uninstrument() is True
+    assert svc.compute() == 100
+
+    # Second cycle on same instance
+    integ.instrument()
+    assert svc.compute() == 101
+
+    integ.uninstrument()
+    assert svc.compute() == 100
+
+
+

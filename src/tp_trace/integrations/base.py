@@ -105,7 +105,7 @@ class BaseIntegration(abc.ABC):
         failed_targets = []
         while self._wrapped_targets:
             target_obj, attr_name, original = self._wrapped_targets.pop()
-            key = f"{id(target_obj)}:{attr_name}"
+            key = (id(target_obj), attr_name)
             try:
                 current = getattr(target_obj, attr_name, None)
                 if current is not None and hasattr(current, "__wrapped__"):
