@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Optional
 
 from opentelemetry.trace import SpanKind, get_current_span
 
-from tp_trace.route_context import reset_request_view, set_request_route, set_request_view
+from tp_trace.route_context import reset_request_route, reset_request_view, set_request_route, set_request_view
 from tp_trace.safety import UNTRACED, attempt, safe_enrich, safe_set_attribute, safe_update_name
 from tp_trace.tracing import traced_span
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
@@ -66,8 +66,9 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         _apply_tags(span)
         method = attempt(getattr, request, "method", default="GET", _label="request.method")
         pre_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
+        route_token = None
         if pre_route and pre_route != "__unmatched__":
-            set_request_route(pre_route, method)
+            route_token = set_request_route(pre_route, method)
         match = getattr(request, "resolver_match", None)
         resolved_view = attempt(_format_view_from_match, match, method, default=None, _label="view_format") if match else None
         view_token = set_request_view(resolved_view) if resolved_view else None
@@ -84,13 +85,13 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         finally:
             if view_token is not None:
                 reset_request_view(view_token)
+            if route_token is not None:
+                reset_request_route(route_token)
         # Post-application enrichment must never alter the result. Each step
         # degrades independently so a failure here cannot affect what the
         # application returned.
         raw_view_name = attempt(_resolve_view_name, request, method, default="view", _label="view_name")
         norm_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
-        if norm_route and norm_route != "__unmatched__":
-            set_request_route(norm_route, method)
 
         safe_update_name(span, f"django.view.{raw_view_name}")
         safe_set_attribute(span, "django.view", raw_view_name)
@@ -236,6 +237,7 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                     safe_set_attribute(dispatch_span, "django.view.action", str(plan.action))
 
                 request = args[0] if args else kwargs.get("request")
+                route_token = None
                 if request:
                     norm_route = attempt(
                         _normalize_route,
@@ -246,7 +248,7 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                     )
                     if norm_route and norm_route != "__unmatched__":
                         req_method = attempt(getattr, request, "method", default="GET", _label="request.method")
-                        set_request_route(norm_route, req_method)
+                        route_token = set_request_route(norm_route, req_method)
                         safe_set_attribute(dispatch_span, "http.route", norm_route)
 
                 handler = plan.handler
@@ -299,6 +301,8 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                         else:
                             attempt(delattr, instance, method, _label="del_method")
         finally:
+            if route_token is not None:
+                reset_request_route(route_token)
             reset_request_view(view_token)
     finally:
         _in_view_dispatch.reset(token)

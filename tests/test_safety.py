@@ -807,3 +807,134 @@ def test_wrap_application_exception_does_not_log_internal_wrapper_error(caplog):
 
     assert "tp_trace internal wrapper error" not in caplog.text
     integ.unwrap_all()
+
+
+def test_django_cache_hostile_key_str_does_not_prevent_execution():
+    """A cache key whose __str__ raises an exception must not prevent cache execution."""
+    from tp_trace.integrations.django.cache import make_traced_cache_op
+
+    class HostileKey:
+        def __str__(self):
+            raise ValueError("hostile key cannot be stringified")
+
+    class FakeClient:
+        def get(self, key, default=None):
+            return "cached-value"
+
+    client = FakeClient()
+    traced_get = make_traced_cache_op("get")
+
+    # Calling with hostile key must succeed and return the cache value
+    res = traced_get(client.get, client, (HostileKey(),), {})
+    assert res == "cached-value"
+
+
+def test_suppress_instrumentation_detach_failure_preserves_app_exception(monkeypatch):
+    """If detach raises inside suppress_instrumentation, the body's exception is preserved."""
+    from opentelemetry import context as otel_context
+    from tp_trace.tracing import suppress_instrumentation
+
+    def exploding_detach(token):
+        raise ValueError("detach failed unexpectedly")
+
+    monkeypatch.setattr(otel_context, "detach", exploding_detach)
+
+    class DomainError(Exception):
+        pass
+
+    with pytest.raises(DomainError, match="application failed"):
+        with suppress_instrumentation():
+            raise DomainError("application failed")
+
+
+def test_celery_signal_trace_after_publish_error_does_not_raise(monkeypatch):
+    """If upstream _trace_after_publish raises, the exception is absorbed and does not propagate."""
+    from opentelemetry.instrumentation.celery import CeleryInstrumentor
+    from tp_trace.integrations.celery.instrumentor import TpTraceCeleryInstrumentor
+
+    def exploding_after_publish(*args, **kwargs):
+        raise RuntimeError("upstream publish error")
+
+    monkeypatch.setattr(CeleryInstrumentor, "_trace_after_publish", exploding_after_publish)
+
+    instrumentor = TpTraceCeleryInstrumentor()
+    # Must not raise RuntimeError
+    instrumentor._trace_after_publish(sender="test_task", message={"id": "task-123"})
+
+
+def test_celery_signal_trace_postrun_error_does_not_raise(monkeypatch):
+    """If upstream _trace_postrun raises, the exception is absorbed and does not propagate."""
+    from opentelemetry.instrumentation.celery import CeleryInstrumentor
+    from tp_trace.integrations.celery.instrumentor import TpTraceCeleryInstrumentor
+
+    def exploding_postrun(*args, **kwargs):
+        raise RuntimeError("upstream postrun error")
+
+    monkeypatch.setattr(CeleryInstrumentor, "_trace_postrun", exploding_postrun)
+
+    instrumentor = TpTraceCeleryInstrumentor()
+    # Must not raise RuntimeError
+    instrumentor._trace_postrun(sender=None, task_id="task-456")
+
+
+def test_django_view_route_context_does_not_leak_on_exception():
+    """traced_get_response must reset the route context even when the view raises."""
+    from tp_trace.integrations.django import view as view_mod
+    from tp_trace.route_context import get_current_route
+
+    def failing_app(request):
+        raise RuntimeError("view handler failed")
+
+    request = type("Request", (), {"path": "/api/users/", "method": "GET"})()
+
+    with pytest.raises(RuntimeError, match="view handler failed"):
+        view_mod.traced_get_response(failing_app, None, (request,), {})
+
+    assert get_current_route() is None
+
+
+def test_base_integration_uninstrument_failure_prevents_double_wrap():
+    """If unwrap fails for a target, uninstrument returns False and does not clear instrumented state."""
+    integ = _FakeIntegration()
+
+    class Target:
+        def work(self):
+            return "original"
+
+    target = Target()
+    integ.wrap(target, "work", lambda wrapped, inst, args, kw: wrapped(*args, **kw))
+    integ._instrumented = True
+
+    # Force failure on unwrap setattr via class descriptor
+    def failing_setattr(self, name, value):
+        raise PermissionError("cannot unwrap")
+
+    Target.__setattr__ = failing_setattr
+
+    try:
+        result = integ.uninstrument()
+        assert result is False
+        assert integ._instrumented is True
+    finally:
+        del Target.__setattr__
+
+
+def test_integration_manager_updates_config_on_reapply():
+    """Reapplying integrations with a new SDKConfig updates active instances."""
+    from tp_trace.config import SDKConfig
+    from tp_trace.integrations.manager import IntegrationManager
+
+    mgr = IntegrationManager()
+    cfg1 = SDKConfig(project_name="proj1")
+    mgr.apply_integrations(config=cfg1)
+
+    integ = mgr.get("django")
+    if integ:
+        assert integ.config == cfg1
+
+        cfg2 = SDKConfig(project_name="proj2")
+        mgr.apply_integrations(config=cfg2)
+        assert integ.config == cfg2
+
+    mgr.uninstrument_all()
+

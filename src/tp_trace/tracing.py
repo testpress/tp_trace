@@ -204,4 +204,7 @@ def suppress_instrumentation() -> Iterator[None]:
     try:
         yield
     finally:
-        otel_context.detach(token)
+        try:
+            otel_context.detach(token)
+        except Exception:
+            pass

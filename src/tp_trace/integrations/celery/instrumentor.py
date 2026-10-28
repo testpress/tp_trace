@@ -244,7 +244,8 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
         ctx = utils.retrieve_context(task, task_id, is_publish=True) if (task and task_id) else None
         try:
             super()._trace_after_publish(*args, **kwargs)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Upstream _trace_after_publish failed: %s", exc, exc_info=True)
             if ctx is not None:
                 _, activation, _ = ctx
                 try:
@@ -253,7 +254,6 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                     pass
                 if task and task_id:
                     utils.detach_context(task, task_id, is_publish=True)
-            raise
 
     def _trace_failure(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
         upstream_failed = False
@@ -372,7 +372,8 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
         try:
             try:
                 super()._trace_postrun(*args, **kwargs)
-            except Exception:
+            except Exception as exc:
+                logger.debug("Upstream _trace_postrun failed: %s", exc, exc_info=True)
                 # Upstream finalization failed: best-effort cleanup
                 if ctx is not None:
                     span, activation, token = ctx
@@ -392,11 +393,13 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
                             context_api.detach(token)  # type: ignore[arg-type]
                         except Exception:
                             pass
-                raise
         finally:
             restore_token = self._prerun_context_tokens.pop(task_id, None) if task_id else None
             if restore_token is not None:
-                context_api.detach(restore_token)
+                try:
+                    context_api.detach(restore_token)
+                except Exception:
+                    pass
             # Defensive timing map cleanup against leaks across all upstream versions
             if hasattr(self, "task_id_to_start_time") and isinstance(self.task_id_to_start_time, dict):
                 if task_id:

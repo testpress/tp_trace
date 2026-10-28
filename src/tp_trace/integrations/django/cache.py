@@ -145,10 +145,13 @@ def make_traced_cache_op(op_name: str):
                 pass
 
         if key is not None:
-            if isinstance(key, (list, tuple, set)):
-                span_attrs["django.cache.key"] = ", ".join(str(k) for k in key)
-            else:
-                span_attrs["django.cache.key"] = str(key)
+            try:
+                if isinstance(key, (list, tuple, set)):
+                    span_attrs["django.cache.key"] = ", ".join(str(k) for k in key)
+                else:
+                    span_attrs["django.cache.key"] = str(key)
+            except Exception:
+                pass
 
         token = _in_cache_span.set(True)
         try:
