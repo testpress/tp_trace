@@ -48,6 +48,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - run: python -m pip install -e '.[dev]'
+      - name: Install promtool
+        run: |
+          PROMETHEUS_VERSION="3.5.0"
+          ARCHIVE="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          EXPECTED_SHA="e811827af26d822afb09a4f28314f61b618b12cff5369835a67f674d8b46f39a"
+          mkdir -p "${HOME}/.local/bin"
+          curl -sSL -o "${ARCHIVE}" "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/${ARCHIVE}"
+          echo "${EXPECTED_SHA}  ${ARCHIVE}" | sha256sum -c -
+          tar -xz --strip-components=1 -C "${HOME}/.local/bin" -f "${ARCHIVE}" "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          rm -f "${ARCHIVE}"
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: python -m pytest
       - run: python -m build
       - run: docker compose config --quiet
