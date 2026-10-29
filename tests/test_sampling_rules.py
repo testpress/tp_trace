@@ -239,12 +239,13 @@ def test_remote_parent_aware_sampler_respects_ignore_endpoints():
         ignore_endpoints=["/health*", "/ping"],
     )
 
+    remote_trace_state = TraceState([("vendor", "value")])
     remote_span_context = SpanContext(
         trace_id=0x12345678123456781234567812345678,
         span_id=0x1234567812345678,
         is_remote=True,
         trace_flags=TraceFlags(TraceFlags.SAMPLED),
-        trace_state=TraceState(),
+        trace_state=remote_trace_state,
     )
     parent_ctx = set_span_in_context(NonRecordingSpan(remote_span_context))
 
@@ -257,11 +258,79 @@ def test_remote_parent_aware_sampler_respects_ignore_endpoints():
     )
     assert res1.decision == Decision.DROP
 
-    # Non-ignored endpoint should be SAMPLED as remote parent is sampled
+    # Non-ignored endpoint should be SAMPLED as remote parent is sampled,
+    # preserving start attributes and remote parent trace_state.
     res2 = sampler.should_sample(
         parent_context=parent_ctx,
         trace_id=0x12345678123456781234567812345678,
         name="GET /api/checkout",
-        attributes={"http.target": "/api/checkout"},
+        attributes={"http.target": "/api/checkout", "user.id": "42"},
     )
     assert res2.decision == Decision.RECORD_AND_SAMPLE
+    assert res2.attributes == {"http.target": "/api/checkout", "user.id": "42"}
+    assert res2.trace_state == remote_trace_state
+
+
+def test_sampler_preserves_attributes_and_trace_state_on_unsampled_and_local_parents():
+    from opentelemetry.trace import (
+        NonRecordingSpan,
+        SpanContext,
+        TraceFlags,
+        TraceState,
+        set_span_in_context,
+    )
+    from tp_trace.sampler import RecordOnlySampler, RemoteParentAwareSampler, TpTraceRuleBasedSampler
+
+    root_sampler = TpTraceRuleBasedSampler(global_sample_rate=0.0)
+    remote_unsampled = RemoteParentAwareSampler(root_sampler=root_sampler, default_sampled=False)
+    record_only = RecordOnlySampler()
+
+    state = TraceState([("ro", "1")])
+    ctx = set_span_in_context(
+        NonRecordingSpan(
+            SpanContext(
+                trace_id=0x11111111111111111111111111111111,
+                span_id=0x2222222222222222,
+                is_remote=True,
+                trace_flags=TraceFlags.DEFAULT,
+                trace_state=state,
+            )
+        )
+    )
+
+    res_unsampled = remote_unsampled.should_sample(
+        parent_context=ctx,
+        trace_id=0x11111111111111111111111111111111,
+        name="GET /data",
+        attributes={"key": "val"},
+    )
+    assert res_unsampled.decision == Decision.RECORD_ONLY
+    assert res_unsampled.attributes == {"key": "val"}
+    assert res_unsampled.trace_state == state
+
+    # Local recording parent with RecordOnlySampler
+    class RecordingSpan(NonRecordingSpan):
+        def is_recording(self) -> bool:
+            return True
+
+    recording_ctx = set_span_in_context(
+        RecordingSpan(
+            SpanContext(
+                trace_id=0x11111111111111111111111111111111,
+                span_id=0x2222222222222222,
+                is_remote=False,
+                trace_flags=TraceFlags.DEFAULT,
+                trace_state=state,
+            )
+        )
+    )
+    res_rec = record_only.should_sample(
+        parent_context=recording_ctx,
+        trace_id=0x11111111111111111111111111111111,
+        name="child",
+        attributes={"child": "true"},
+    )
+    assert res_rec.decision == Decision.RECORD_ONLY
+    assert res_rec.attributes == {"child": "true"}
+    assert res_rec.trace_state == state
+
