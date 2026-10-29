@@ -7,7 +7,8 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 import logging
 import os
 import socket
-from typing import Any, Dict, List, Optional, Tuple
+import threading
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from opentelemetry.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics import MeterProvider
@@ -97,6 +98,9 @@ class RedMetricsRecorder:
         self._cached_identity: Optional[Tuple[int, str]] = None
         self.readers: List[MetricReader] = readers or []
         self.meter = meter_provider.get_meter("tp_trace")
+        self.metric_cardinality_limit = max(1, int(getattr(config, "metric_cardinality_limit", 5000))) if config else 5000
+        self._metric_series_lock = threading.Lock()
+        self._metric_series: Set[Tuple[Tuple[str, str], ...]] = set()
 
         # Instrument contracts matching spanmetrics connector:
         # - calls_total: Counter of completed requests
@@ -195,6 +199,7 @@ class RedMetricsRecorder:
             # Authoritatively set process/worker identity so request tags cannot override it.
             # worker_id isolates independent worker metric streams in multi-process runtimes (Gunicorn).
             attributes["worker_id"] = worker_identity
+            attributes = self._bound_metric_attributes(attributes)
 
             self.calls_total.add(1, attributes)
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
@@ -277,11 +282,50 @@ class RedMetricsRecorder:
                         break
 
             attributes["worker_id"] = worker_identity
+            attributes = self._bound_metric_attributes(attributes)
 
             self.calls_total.add(1, attributes)
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
         except Exception as exc:
             logger.debug("Failed to record dependency RED metrics: %s", exc)
+
+    def _bound_metric_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep the total number of emitted label combinations bounded."""
+        key = tuple(sorted((str(k), str(v)) for k, v in attributes.items()))
+        with self._metric_series_lock:
+            if key in self._metric_series:
+                return attributes
+            if len(self._metric_series) < self.metric_cardinality_limit:
+                self._metric_series.add(key)
+                return attributes
+
+        stable_keys = {
+            "project_name",
+            "cluster_name",
+            "normalized_service",
+            "span_kind",
+            "error",
+            "metric_source",
+            "http.method",
+            "http.status_code",
+            "status_code",
+            "db.system",
+            "worker_id",
+        }
+        bounded = {k: v for k, v in attributes.items() if k in stable_keys}
+        bounded["normalized_operation"] = "__other__"
+        if "db.instance" in attributes:
+            bounded["db.instance"] = "__other__"
+        if "institute" in attributes:
+            bounded["institute"] = "__other__"
+        if "institute.subdomain" in attributes:
+            bounded["institute.subdomain"] = "__other__"
+        if "institute_subdomain" in attributes:
+            bounded["institute_subdomain"] = "__other__"
+        overflow_key = tuple(sorted((str(k), str(v)) for k, v in bounded.items()))
+        with self._metric_series_lock:
+            self._metric_series.add(overflow_key)
+        return bounded
 
     def record_repeated_query_affected_request(
         self,

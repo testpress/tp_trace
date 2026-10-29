@@ -192,6 +192,9 @@ class RedSpanProcessor(SpanProcessor):
 
         if kind == SpanKind.SERVER:
             extra_attrs = dict(get_current_tags() or {})
+            for key, value in attrs.items():
+                if str(key).startswith("tp_trace.metric."):
+                    extra_attrs[str(key)[len("tp_trace.metric.") :]] = value
             if subdomain:
                 extra_attrs["institute.subdomain"] = str(subdomain)
                 extra_attrs["institute"] = str(subdomain)

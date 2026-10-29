@@ -333,6 +333,26 @@ def test_red_span_processor_server_span_missing_status_code():
     assert calls[0].attributes["error"] == "true"
 
 
+def test_red_span_processor_uses_snapshotted_request_tags():
+    """Request tags survive context cleanup through SERVER span attributes."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(project_name="tag-snapshot-test", metric_readers=[reader])
+    processor = RedSpanProcessor()
+    processor.on_end(_create_mock_span(
+        name="GET /tagged",
+        kind=SpanKind.SERVER,
+        attributes={
+            "normalized.service": "django",
+            "http.status_code": 200,
+            "http.method": "GET",
+            "http.route_template": "/tagged",
+            "tp_trace.metric.deployment_group": "blue",
+        },
+    ))
+    calls = _get_metric_points(reader, "calls_total")
+    assert calls[0].attributes["deployment_group"] == "blue"
+
+
 def test_red_span_processor_skips_ignored_requests():
     """Verify that child dependency spans executed during ignored requests are not recorded."""
     reader = InMemoryMetricReader()
@@ -654,6 +674,41 @@ def test_red_span_processor_overhead_benchmark():
     avg_microseconds = (elapsed / iterations) * 1_000_000
     # Must comfortably execute within 200 microseconds per span on shared CI runners
     assert avg_microseconds < 200.0, f"Average overhead {avg_microseconds:.2f}µs exceeded 200µs"
+
+
+def test_metric_cardinality_budget_collapses_database_and_tenant_identities():
+    """Thousands of database/tenant combinations stay bounded within budget with sample_rate=0.0."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="cardinality-test",
+        metric_readers=[reader],
+        sample_rate=0.0,
+    )
+    processor = RedSpanProcessor()
+
+    for i in range(5100):
+        processor.on_end(_create_mock_span(
+            name="SELECT",
+            kind=SpanKind.CLIENT,
+            attributes={
+                "db.system": "postgresql",
+                "db.operation": "SELECT",
+                "db.instance": "tenant-db-{}".format(i),
+                "institute.subdomain": "tenant-inst-{}".format(i),
+            },
+        ))
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) <= 5001
+    assert sum(point.value for point in calls) == 5100
+    assert any(point.attributes.get("db.instance") == "__other__" for point in calls)
+    assert any(point.attributes.get("institute.subdomain") == "__other__" for point in calls)
+
+    durations = _get_metric_points(reader, "duration_milliseconds")
+    assert len(durations) <= 5001
+    assert sum(point.count for point in durations) == 5100
+    assert any(point.attributes.get("db.instance") == "__other__" for point in durations)
+    assert any(point.attributes.get("institute.subdomain") == "__other__" for point in durations)
 
 
 def test_exported_dependency_spans_carry_tp_trace_red_attribute():

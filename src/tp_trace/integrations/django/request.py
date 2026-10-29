@@ -778,6 +778,13 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
 
         _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
     finally:
+        if span is not None:
+            try:
+                for key, value in get_current_tags().items():
+                    if value is not None:
+                        safe_set_attribute(span, "tp_trace.metric." + str(key), str(value))
+            except Exception:
+                pass
         if tracker_token is not None:
             reset_request_db_tracker(tracker_token)
         if view_token is not None:

@@ -251,6 +251,7 @@ class SDKConfig:
     metrics_endpoint: Optional[str] = None
     metrics_enabled: bool = True
     metrics_export_interval_millis: int = 60000
+    metric_cardinality_limit: int = 5000
     service_instance_id: Optional[str] = None
     # Masking -> exposure toggles. Defaults expose infrastructure details
     # (Redis endpoint, Redis command contents, URL query strings), matching
@@ -286,6 +287,7 @@ class SDKConfig:
         metrics_endpoint: Optional[str] = None,
         metrics_enabled: Optional[bool] = None,
         metrics_export_interval_millis: Optional[int] = None,
+        metric_cardinality_limit: Optional[int] = None,
         service_instance_id: Optional[str] = None,
         redis_mask_endpoint: Optional[bool] = None,
         redis_mask_command: Optional[bool] = None,
@@ -406,6 +408,17 @@ class SDKConfig:
             resolved_metrics_interval = int(raw_interval) if raw_interval is not None else 60000
         except Exception:
             resolved_metrics_interval = 60000
+
+        try:
+            raw_cardinality_limit = (
+                metric_cardinality_limit
+                if metric_cardinality_limit is not None
+                else extra.get("metric_cardinality_limit")
+                or os.getenv("TP_TRACE_METRIC_CARDINALITY_LIMIT")
+            )
+            resolved_metric_cardinality_limit = max(1, int(raw_cardinality_limit)) if raw_cardinality_limit is not None else 5000
+        except Exception:
+            resolved_metric_cardinality_limit = 5000
 
         resolved_service_instance_id = (
             service_instance_id
@@ -738,6 +751,7 @@ class SDKConfig:
             metrics_endpoint=resolved_metrics_endpoint,
             metrics_enabled=resolved_metrics_enabled,
             metrics_export_interval_millis=resolved_metrics_interval,
+            metric_cardinality_limit=resolved_metric_cardinality_limit,
             service_instance_id=resolved_service_instance_id,
             redis_mask_endpoint=resolved_redis_mask_endpoint,
             redis_mask_command=resolved_redis_mask_command,

@@ -56,6 +56,11 @@ def sample_throttled_view(request):
     return JsonResponse({"detail": "Request was throttled. Expected available in 55 seconds."}, status=429)
 
 
+def sample_tagged_view(request):
+    tp_trace.set_tag("deployment_group", "blue")
+    return HttpResponse("Hello Tagged View", status=200)
+
+
 class MockViewSet:
     """Simulates a Django REST Framework ViewSet."""
 
@@ -76,6 +81,7 @@ urlpatterns = [
     path("test/template/", sample_template_view, name="template-view"),
     path("test/error/", sample_error_view, name="error-view"),
     path("test/throttled/", sample_throttled_view, name="throttled-view"),
+    path("test/tagged/", sample_tagged_view, name="tagged-view"),
 ]
 
 
@@ -874,3 +880,50 @@ def test_load_middleware_ensures_otel_middleware_at_position_zero():
         assert server_spans[0].attributes.get("http.route_template") == "/test/sample/"
     finally:
         settings.MIDDLEWARE = orig_mw
+
+
+def test_django_view_tag_survives_on_request_metrics_with_zero_sampling():
+    """A tag set inside a real Django view survives on request metrics with trace sampling zero."""
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="django-metric-test",
+        sample_rate=0.0,
+        metric_readers=[reader],
+    )
+
+    from django.core.handlers.wsgi import WSGIHandler
+
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    factory = RequestFactory()
+    request = factory.get("/test/tagged/")
+
+    response = handler.get_response(request)
+    assert response.status_code == 200
+
+    metric_data = reader.get_metrics_data()
+    assert metric_data is not None
+
+    calls = []
+    durations = []
+    for rm in metric_data.resource_metrics:
+        for sm in rm.scope_metrics:
+            for m in sm.metrics:
+                if m.name == "calls_total":
+                    for dp in m.data.data_points:
+                        calls.append(dp)
+                elif m.name == "duration_milliseconds":
+                    for dp in m.data.data_points:
+                        durations.append(dp)
+
+    assert len(calls) == 1
+    assert calls[0].value == 1
+    assert calls[0].attributes["deployment_group"] == "blue"
+    assert calls[0].attributes["http.route"] == "/test/tagged/"
+
+    assert len(durations) == 1
+    assert durations[0].count == 1
+    assert durations[0].attributes["deployment_group"] == "blue"

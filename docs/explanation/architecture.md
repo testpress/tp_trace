@@ -33,6 +33,10 @@ Both Django HTTP requests and dependency operations (PostgreSQL, Redis, Celery, 
 
 Because dependency RED metrics are computed directly by the SDK on 100% of finished operations, they do not depend on trace sampling rates or downstream span derivation in the Collector. Historical `apm_*` series derived by the Collector's spanmetrics connector are deprecated in favor of unified `calls_total` and `duration_milliseconds` streams.
 
+Roll out the SDK that emits native dependency metrics before, or together with, the Collector configuration that removes spanmetrics. Older SDKs do not emit dependency `calls_total` streams.
+
+The SDK cardinality budget defaults to 5,000 combinations per process and can be tuned with `TP_TRACE_METRIC_CARDINALITY_LIMIT`. This is an application-side safety limit, separate from Prometheus capacity limits.
+
 ### Interpreting native metrics
 Native RED metrics describe 100% of observed requests and dependencies. Because both root requests and child dependency operations are recorded without sampling bias, duration breakdowns and error rates accurately reflect real execution volume regardless of whether trace exports are heavily sampled or disabled. Where dashboards retain historical `apm_*` expressions as a migration fallback, only retained historical series can still match those branches; all live data flows through native `calls_total`.
 
