@@ -37,6 +37,12 @@ Roll out the SDK that emits native dependency metrics before, or together with, 
 
 The SDK cardinality budget defaults to 5,000 combinations per process and can be tuned with `TP_TRACE_METRIC_CARDINALITY_LIMIT`. This is an application-side safety limit, separate from Prometheus capacity limits.
 
+After the detailed-combination budget is exhausted, overflow preserves the resolved per-call project and cluster for owner pairs admitted within that budget. Owner pairs first encountered after exhaustion use `project_name="__other__"` and `cluster_name="__other__"`; they are never attributed to the configured project. Arbitrary owner values cannot be preserved indefinitely without unbounded cardinality. Each admitted owner has at most two overflow combinations, split by `error`, plus two shared combinations for unknown owners. With budget N, RED instruments therefore emit at most N + 2(N + 1) combinations per process. Owner and detailed-series tracking each retain at most N entries.
+
+Counts and durations are preserved; service, operation, route, database, tenant, and span kind become `__other__`, and method, status, and custom tags are omitted. Filters selecting specific values exclude overflow traffic; aggregate queries must include `__other__`. Existing detailed combinations continue unchanged. Overflow reuses the recorder's resolved worker identity.
+
+The Operation Details error breakdown loses its HTTP status-code split for overflow traffic. When the panel's filters include overflow combinations, its missing-status fallback displays these errors together as `Errors`; filters for a specific original service or operation exclude them.
+
 ### Interpreting native metrics
 Native RED metrics describe 100% of observed requests and dependencies. Because both root requests and child dependency operations are recorded without sampling bias, duration breakdowns and error rates accurately reflect real execution volume regardless of whether trace exports are heavily sampled or disabled. Where dashboards retain historical `apm_*` expressions as a migration fallback, only retained historical series can still match those branches; all live data flows through native `calls_total`.
 

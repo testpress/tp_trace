@@ -101,6 +101,7 @@ class RedMetricsRecorder:
         self.metric_cardinality_limit = max(1, int(getattr(config, "metric_cardinality_limit", 5000))) if config else 5000
         self._metric_series_lock = threading.Lock()
         self._metric_series: Set[Tuple[Tuple[str, str], ...]] = set()
+        self._metric_owners: Set[Tuple[str, str]] = set()
 
         # Instrument contracts matching spanmetrics connector:
         # - calls_total: Counter of completed requests
@@ -292,40 +293,36 @@ class RedMetricsRecorder:
     def _bound_metric_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Keep the total number of emitted label combinations bounded."""
         key = tuple(sorted((str(k), str(v)) for k, v in attributes.items()))
+        owner = (str(attributes["project_name"]), str(attributes["cluster_name"]))
         with self._metric_series_lock:
             if key in self._metric_series:
                 return attributes
             if len(self._metric_series) < self.metric_cardinality_limit:
                 self._metric_series.add(key)
+                self._metric_owners.add(owner)
                 return attributes
+            if owner not in self._metric_owners:
+                owner = ("__other__", "__other__")
 
-        stable_keys = {
-            "project_name",
-            "cluster_name",
-            "normalized_service",
-            "span_kind",
-            "error",
-            "metric_source",
-            "http.method",
-            "http.status_code",
-            "status_code",
-            "db.system",
-            "worker_id",
+        # Never retain incoming label values or keys in overflow state. Even
+        # apparently stable dimensions (method, status, service) can vary without
+        # bound. Retain only admitted owners, with two error-split series per
+        # owner and a shared pair for owners arriving after budget exhaustion.
+        return {
+            "project_name": owner[0],
+            "cluster_name": owner[1],
+            "worker_id": attributes["worker_id"],
+            "metric_source": "tp_trace_sdk",
+            "normalized_service": "__other__",
+            "normalized_operation": "__other__",
+            "span_kind": "__other__",
+            "http.route": "__other__",
+            "db.instance": "__other__",
+            "institute": "__other__",
+            "institute.subdomain": "__other__",
+            "institute_subdomain": "__other__",
+            "error": "true" if attributes.get("error") == "true" else "false",
         }
-        bounded = {k: v for k, v in attributes.items() if k in stable_keys}
-        bounded["normalized_operation"] = "__other__"
-        if "db.instance" in attributes:
-            bounded["db.instance"] = "__other__"
-        if "institute" in attributes:
-            bounded["institute"] = "__other__"
-        if "institute.subdomain" in attributes:
-            bounded["institute.subdomain"] = "__other__"
-        if "institute_subdomain" in attributes:
-            bounded["institute_subdomain"] = "__other__"
-        overflow_key = tuple(sorted((str(k), str(v)) for k, v in bounded.items()))
-        with self._metric_series_lock:
-            self._metric_series.add(overflow_key)
-        return bounded
 
     def record_repeated_query_affected_request(
         self,
