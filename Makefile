@@ -3,7 +3,7 @@ PYTHON ?= python3
 VENV ?= .venv
 COMPOSE ?= docker compose
 
-.PHONY: help install lint test pre-commit build check-config up rebuild restart down logs ps smoke traffic
+.PHONY: help install lint test pre-commit build check-config up rebuild restart down nuke logs ps smoke traffic
 
 help: ## Show development commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -43,6 +43,9 @@ restart: ## Restart without building (SERVICE=sample-app to select one)
 
 down: ## Stop the local stack, preserving data volumes
 	$(COMPOSE) down
+
+nuke: ## Stop the stack and delete all data volumes (full reset; data is unrecoverable)
+	$(COMPOSE) down --volumes --remove-orphans
 
 logs: ## Follow stack logs (SERVICE=sample-app to filter)
 	$(COMPOSE) logs -f $(SERVICE)
