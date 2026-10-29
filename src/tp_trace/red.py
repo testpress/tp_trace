@@ -17,12 +17,14 @@ from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.trace import SpanKind, StatusCode
 
 import tp_trace.metrics as metrics
+from tp_trace.route_context import get_current_tags
 from tp_trace.safety import attempt
 
 logger = logging.getLogger("tp_trace.red")
 
 _DEFAULT_OPS_LIMIT_PER_SERVICE = 128
 _DEFAULT_ROUTE_LIMIT = 512
+_DEFAULT_SERVICE_LIMIT = 64
 _OVERFLOW_SENTINEL = "__other__"
 
 
@@ -38,9 +40,11 @@ class RedSpanProcessor(SpanProcessor):
         self,
         cardinality_limit_per_service: int = _DEFAULT_OPS_LIMIT_PER_SERVICE,
         route_limit: int = _DEFAULT_ROUTE_LIMIT,
+        service_limit: int = _DEFAULT_SERVICE_LIMIT,
     ) -> None:
         self.cardinality_limit_per_service = cardinality_limit_per_service
         self.route_limit = route_limit
+        self.service_limit = service_limit
         self._lock = threading.Lock()
         self._seen_operations: Dict[str, Set[str]] = {}
         self._seen_routes: Set[str] = set()
@@ -68,6 +72,8 @@ class RedSpanProcessor(SpanProcessor):
         # Determine normalized service
         service = (
             attrs.get("normalized.service")
+            or attrs.get("service.name")
+            or attrs.get("service")
             or attrs.get("db.system")
             or attrs.get("rpc.system")
             or attrs.get("peer.service")
@@ -79,12 +85,36 @@ class RedSpanProcessor(SpanProcessor):
             elif kind == SpanKind.CLIENT:
                 service = "client"
             elif kind == SpanKind.SERVER:
-                service = "django"
+                if attrs.get("component") == "django" or attrs.get("django.view") or attrs.get("django.route"):
+                    service = "django"
+                else:
+                    service = "server"
             else:
                 return
 
         if service == "postgresql":
             service = "postgres"
+
+        # Error check: 4xx responses are not server errors (error=False)
+        status = getattr(span, "status", None)
+        is_error = bool(
+            attrs.get("error") is True
+            or attrs.get("error") == "true"
+            or (
+                attrs.get("error") is not False
+                and attrs.get("error") != "false"
+                and status
+                and getattr(status, "status_code", None) == StatusCode.ERROR
+            )
+        )
+
+        status_code = attrs.get("http.status_code") or attrs.get("http.response.status_code")
+        if status_code is None and kind == SpanKind.SERVER:
+            if is_error:
+                status_code = 500
+            else:
+                # SERVER span without status code and without error (e.g. unhandled bypass): skip recording
+                return
 
         # Determine route template for low-cardinality routing
         route = (
@@ -94,9 +124,8 @@ class RedSpanProcessor(SpanProcessor):
             or ""
         )
         if not route and kind == SpanKind.SERVER:
-            sc = attrs.get("http.status_code") or attrs.get("http.response.status_code")
-            if sc is not None:
-                route = str(sc)
+            if status_code is not None:
+                route = str(status_code)
 
         # Determine normalized operation safely without unbound dynamic string fallback
         operation = (
@@ -123,6 +152,8 @@ class RedSpanProcessor(SpanProcessor):
 
         # Thread-safe cardinality checks
         with self._lock:
+            if len(self._seen_operations) >= self.service_limit and service not in self._seen_operations:
+                service = _OVERFLOW_SENTINEL
             service_ops = self._seen_operations.setdefault(service, set())
             if len(service_ops) >= self.cardinality_limit_per_service:
                 if operation not in service_ops:
@@ -137,19 +168,6 @@ class RedSpanProcessor(SpanProcessor):
                 else:
                     self._seen_routes.add(route)
 
-        # Error check: 4xx responses are not server errors (error=False)
-        status = getattr(span, "status", None)
-        is_error = bool(
-            attrs.get("error") is True
-            or attrs.get("error") == "true"
-            or (
-                attrs.get("error") is not False
-                and attrs.get("error") != "false"
-                and status
-                and getattr(status, "status_code", None) == StatusCode.ERROR
-            )
-        )
-
         # Duration
         start_time = getattr(span, "start_time", None) or 0
         end_time = getattr(span, "end_time", None) or 0
@@ -160,14 +178,14 @@ class RedSpanProcessor(SpanProcessor):
         # Direct extraction of subdomain without full attribute dict allocation
         subdomain = attrs.get("institute.subdomain") or attrs.get("institute_subdomain") or attrs.get("institute")
 
-        status_code = attrs.get("http.status_code") or attrs.get("http.response.status_code")
         http_method = str(attrs.get("http.method") or attrs.get("http.request.method") or "") or None
 
         if kind == SpanKind.SERVER:
-            extra_attrs = {}
+            extra_attrs = dict(get_current_tags() or {})
             if subdomain:
                 extra_attrs["institute.subdomain"] = str(subdomain)
                 extra_attrs["institute"] = str(subdomain)
+                extra_attrs["institute_subdomain"] = str(subdomain)
             metrics.record_request(
                 method=http_method or "GET",
                 route=route or str(status_code or 200),

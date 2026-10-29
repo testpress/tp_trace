@@ -249,6 +249,7 @@ def test_red_span_processor_skips_internal_spans_and_records_server_spans():
         attributes={
             "normalized.service": "django",
             "django.route": "/api/test/",
+            "http.status_code": 200,
         },
     )
     processor.on_end(server_span)
@@ -259,6 +260,40 @@ def test_red_span_processor_skips_internal_spans_and_records_server_spans():
     assert calls[0].attributes["span_kind"] == "SPAN_KIND_SERVER"
     assert calls[0].attributes["http.route"] == "/api/test/"
     assert calls[0].attributes["error"] == "false"
+
+
+def test_red_span_processor_server_span_missing_status_code():
+    """Verify server span without http.status_code records 500 if error and skips if ok."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+
+    # OK server span without status code -> skipped
+    ok_span = _create_mock_span(
+        name="GET /incomplete",
+        kind=SpanKind.SERVER,
+        attributes={"django.route": "/incomplete"},
+        status_code=StatusCode.OK,
+    )
+    processor.on_end(ok_span)
+    assert len(_get_metric_points(reader, "calls_total")) == 0
+
+    # ERROR server span without status code -> defaults to 500 error
+    error_span = _create_mock_span(
+        name="GET /crash",
+        kind=SpanKind.SERVER,
+        attributes={"django.route": "/crash"},
+        status_code=StatusCode.ERROR,
+    )
+    processor.on_end(error_span)
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 1
+    assert calls[0].attributes["status_code"] == "500"
+    assert calls[0].attributes["error"] == "true"
 
 
 def test_red_span_processor_skips_ignored_requests():
@@ -399,6 +434,31 @@ def test_red_span_processor_cardinality_limits():
     assert "__other__" in routes
     assert len(operations) <= 4
     assert len(routes) <= 4
+
+
+def test_red_span_processor_service_cardinality_limits():
+    """Verify that distinct services exceeding service_limit collapse to __other__."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    # Limit services to 2
+    processor = RedSpanProcessor(service_limit=2)
+
+    for s_id in ["svc_a", "svc_b", "svc_c", "svc_d"]:
+        span = _create_mock_span(
+            name="task",
+            kind=SpanKind.CLIENT,
+            attributes={"normalized.service": s_id, "db.operation": "run"},
+        )
+        processor.on_end(span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    services = {c.attributes["normalized_service"] for c in calls}
+    assert "__other__" in services
+    assert len(services) <= 3
 
 
 def test_sampled_only_span_processor_drops_unsampled():

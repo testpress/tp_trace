@@ -177,6 +177,16 @@ class RedMetricsRecorder:
                 "metric_source": "tp_trace_sdk",
             }
 
+            subdomain = (
+                (extra_attributes.get("institute.subdomain") or extra_attributes.get("institute_subdomain") or extra_attributes.get("institute"))
+                if extra_attributes
+                else None
+            )
+            if subdomain:
+                attributes["institute.subdomain"] = str(subdomain)
+                attributes["institute"] = str(subdomain)
+                attributes["institute_subdomain"] = str(subdomain)
+
             if extra_attributes:
                 for k, v in extra_attributes.items():
                     if v is not None and k not in attributes:
@@ -256,12 +266,14 @@ class RedMetricsRecorder:
             if subdomain:
                 attributes["institute.subdomain"] = str(subdomain)
                 attributes["institute"] = str(subdomain)
+                attributes["institute_subdomain"] = str(subdomain)
             elif extra_attributes:
-                for k in ("institute.subdomain", "institute_subdomain"):
+                for k in ("institute.subdomain", "institute_subdomain", "institute"):
                     val = extra_attributes.get(k)
                     if val is not None:
                         attributes["institute.subdomain"] = str(val)
                         attributes["institute"] = str(val)
+                        attributes["institute_subdomain"] = str(val)
                         break
 
             attributes["worker_id"] = worker_identity

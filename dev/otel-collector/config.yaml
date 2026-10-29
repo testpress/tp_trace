@@ -39,12 +39,106 @@ processors:
       - key: worker_id
         action: delete
 
+  # Remove SDK provenance only before deriving span metrics, retaining it in
+  # Tempo traces and native SDK metrics. Keep collector.instance.id for writers.
+  resource/spanmetrics_drop_sdk:
+    attributes:
+      - key: telemetry.sdk.version
+        action: delete
+      - key: telemetry.sdk.language
+        action: delete
+      - key: telemetry.sdk.name
+        action: delete
+
+  # Exclude internal spans and Django SERVER spans from spanmetrics.
+  # Django HTTP RED metrics are emitted natively by the SDK, while
+  # dependencies (Postgres, Redis, Celery, requests) use spanmetrics.
+  filter/spanmetrics_drop_non_dependencies:
+    error_mode: ignore
+    traces:
+      span:
+        # Invariant 1: INTERNAL spans must NEVER generate RED metrics
+        - kind == SPAN_KIND_INTERNAL
+        # Invariant 2: Django SERVER spans are skipped; metrics are emitted natively by SDK
+        # Primary classification: normalized.service == "django"
+        # Migration fallback: django.route attribute for legacy tp_trace SDK spans
+        - kind == SPAN_KIND_SERVER and (attributes["normalized.service"] == "django" or attributes["django.route"] != nil)
+        # Invariant 3: Spans already counted by SDK RedSpanProcessor carry tp_trace.red
+        - attributes["tp_trace.red"] != nil
+
+  transform/spanmetrics_route:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["http.route"], attributes["http.route_template"]) where attributes["http.route_template"] != nil
+          - set(attributes["http.route"], attributes["django.route"]) where attributes["http.route_template"] == nil and attributes["django.route"] != nil
+          - set(attributes["http.route"], "__unmatched__") where attributes["http.route_template"] == nil and attributes["django.route"] == nil and attributes["http.route"] != nil
+
+  transform/spanmetrics_sanitize:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - delete_key(attributes, "http.route") where attributes["db.system"] != nil
+          - delete_key(attributes, "http.method") where attributes["db.system"] != nil
+          - set(attributes["normalized.operation"], attributes["db.query.summary"]) where attributes["normalized.operation"] == nil and attributes["db.query.summary"] != nil and attributes["db.system"] != nil
+          - set(attributes["normalized.operation"], attributes["db.operation"]) where attributes["normalized.operation"] == nil and attributes["db.operation"] != nil
+
   batch:
     timeout: 1s
     # Limit span count per export: 8192 real application spans exceeded
     # Tempo's 4 MiB OTLP gRPC receive limit after decompression.
     send_batch_size: 512
     send_batch_max_size: 1024
+
+connectors:
+  spanmetrics:
+    namespace: apm
+    metrics_flush_interval: 15s
+    histogram:
+      unit: ms
+      explicit:
+        buckets:
+          - 5ms
+          - 25ms
+          - 100ms
+          - 250ms
+          - 500ms
+          - 1s
+          - 2.5s
+          - 5s
+    dimensions:
+      - name: http.method
+        default: ""
+      - name: http.status_code
+        default: ""
+      - name: http.route
+        default: ""
+      - name: db.system
+        default: ""
+      - name: db.operation
+        default: ""
+      - name: db.instance
+        default: ""
+      - name: error
+        default: ""
+      - name: normalized.service
+        default: ""
+      - name: normalized.operation
+        default: ""
+      - name: institute.subdomain
+        default: ""
+    exclude_dimensions:
+      - span.name
+    # Stop exporting a resource's metrics once it stops sending spans, e.g. the
+    # previous service.version after a deploy. Without this the connector keeps
+    # every series it has ever seen for the lifetime of the process.
+    metrics_expiration: 5m
+    series_expiration: 5m
+    # Bound combinations per resource aggregation; histograms produce multiple
+    # Prometheus series per combination. Overflow loses dimension detail.
+    aggregation_cardinality_limit: 5000
 
 exporters:
   otlp/tempo:
@@ -65,6 +159,9 @@ exporters:
   prometheusremotewrite:
     endpoint: http://prometheus:9090/api/v1/write
     timeout: 30s
+    # Span metrics are cumulative snapshots, so a newer flush supersedes an older
+    # one. Keep the retry window and queue short so an unreachable Prometheus
+    # cannot pin snapshots in memory.
     retry_on_failure:
       enabled: true
       initial_interval: 5s
@@ -76,7 +173,7 @@ exporters:
     resource_to_telemetry_conversion:
       enabled: true
     external_labels:
-      job: "otel-collector"
+      job: "otel-collector-spanmetrics"
       instance: "dev-collector"
       collector_alias: "dev"
 
@@ -103,9 +200,24 @@ service:
       exporters:
         - otlp/tempo
 
+    traces/spanmetrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - resource/spanmetrics_drop_sdk
+        - filter/spanmetrics_drop_non_dependencies
+        - transform/spanmetrics_route
+        - transform/spanmetrics_sanitize
+        - batch
+      exporters:
+        - spanmetrics
+
     metrics:
       receivers:
         - otlp
+        - spanmetrics
       processors:
         - memory_limiter
         - resource/drop_ephemeral
