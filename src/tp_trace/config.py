@@ -246,6 +246,7 @@ class SDKConfig:
     trusted_proxies: List[str] = field(default_factory=list)
     db_role_map: Dict[str, str] = field(default_factory=dict)
     auto_patch: bool = True
+    # Governs incoming HTTP request propagation (e.g. Django). Internal messaging (Celery) always extracts.
     extract_trace_context: Any = True
     metrics_endpoint: Optional[str] = None
     metrics_enabled: bool = True
