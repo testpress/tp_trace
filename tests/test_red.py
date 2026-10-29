@@ -741,6 +741,33 @@ def test_overflow_bounds_varying_labels_and_preserves_measurements():
     assert sum(point.sum for point in durations) == pytest.approx(600.0)
 
 
+def test_overflow_preserves_admitted_owners_and_bounds_new_owners(monkeypatch):
+    from tp_trace.metrics import get_metrics_recorder
+
+    reader = InMemoryMetricReader()
+    tp_trace.init(project_name="configured", metric_readers=[reader], metric_cardinality_limit=1)
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+    recorder.record_dependency_span(service="postgres", operation="SELECT", duration_ms=2,
+                                    project_name="explicit", cluster_name="explicit-cluster")
+
+    def unexpected_identity_lookup(*args, **kwargs):
+        raise AssertionError("overflow must reuse cached identity")
+
+    monkeypatch.setattr("tp_trace.metrics.get_process_worker_identity", unexpected_identity_lookup)
+    for i in range(100):
+        recorder.record_dependency_span(service="postgres", operation=str(i), duration_ms=2,
+                                        project_name="explicit", cluster_name="explicit-cluster")
+        recorder.record_dependency_span(service="postgres", operation=str(i), duration_ms=2,
+                                        project_name="new-{}".format(i), cluster_name=str(i))
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 3
+    assert sum(p.value for p in calls if p.attributes["project_name"] == "explicit") == 101
+    assert sum(p.value for p in calls if p.attributes["project_name"] == "__other__") == 100
+    assert len(recorder._metric_series) == len(recorder._metric_owners) == 1
+    assert sum(p.count for p in _get_metric_points(reader, "duration_milliseconds")) == 201
+
+
 def test_exported_dependency_spans_carry_tp_trace_red_attribute():
     """Verify exported dependency and server spans carry tp_trace.red=1 so Collector drops them."""
     exporter = InMemorySpanExporter()
