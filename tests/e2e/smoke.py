@@ -66,6 +66,13 @@ def main():
     minio_port = int(os.getenv("MINIO_PORT", "9002"))
     with socket.create_connection((host, minio_port), timeout=5):
         print("PASS host MinIO port reachable", flush=True)
+
+    def get_app_calls() -> float:
+        res = request(prometheus + "/api/v1/query?" + urlencode({"query": 'sum(calls_total{normalized_service="django"})'}))
+        results = res.get("data", {}).get("result", [])
+        return float(results[0]["value"][1]) if results else 0.0
+
+    baseline_calls = get_app_calls()
     app_trace_id = uuid.uuid4().hex
     headers = {"traceparent": "00-{}-{}-01".format(app_trace_id, uuid.uuid4().hex[:16])}
     for db in ("default", "slave1", "slave2", "slave3"):
@@ -154,12 +161,8 @@ def main():
         lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({"query": metric}))["data"]["result"]),
     )
     eventually(
-        "RED metrics generated",
-        lambda: bool(
-            request(prometheus + "/api/v1/query?" + urlencode({"query": 'calls_total{normalized_service="django"}'}))[
-                "data"
-            ]["result"]
-        ),
+        "sample app RED metrics increased in Prometheus",
+        lambda: get_app_calls() > baseline_calls,
     )
 
 
