@@ -138,6 +138,17 @@ def test_sampled_dependency_latency_warning_survives_unsampled_request_volume(tm
     evaluate(tmp_path, expression(FILES[1], 12, "A"), series, [{"labels": "{}", "value": 1}])
 
 
+def test_native_dependency_latency_warning_fires_without_apm_metrics(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",db_system="postgresql"'
+    series = [
+        {"series": "duration_milliseconds_bucket{" + labels + ',le="100"}', "values": "0+1x25 25+0x5"},
+        {"series": "duration_milliseconds_bucket{" + labels + ',le="1000"}', "values": "0+1x31"},
+        {"series": "duration_milliseconds_bucket{" + labels + ',le="+Inf"}', "values": "0+1x31"},
+        {"series": "duration_milliseconds_sum{" + labels + "}", "values": "0+100x31"},
+    ]
+    evaluate(tmp_path, expression(FILES[1], 12, "A"), series, [{"labels": "{}", "value": 1}])
+
+
 def test_dependency_chart_reports_sampled_latency_instead_of_request_share():
     item = panel(FILES[0], 10)
     assert item["fieldConfig"]["defaults"]["unit"] == "ms"
