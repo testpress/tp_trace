@@ -156,7 +156,12 @@ class RecordOnlySampler(Sampler):
         # child spans must also be dropped without allocating recording spans.
         if parent_span is not None and not parent_span.is_recording():
             return SamplingResult(Decision.DROP)
-        return SamplingResult(Decision.RECORD_ONLY, attributes=attributes, trace_state=trace_state)
+        parent_state = parent_span.get_span_context().trace_state if parent_span is not None else None
+        return SamplingResult(
+            Decision.RECORD_ONLY,
+            attributes=attributes,
+            trace_state=parent_state if parent_state is not None else trace_state,
+        )
 
     def get_description(self) -> str:
         return "RecordOnlySampler"
@@ -190,9 +195,19 @@ class RemoteParentAwareSampler(Sampler):
         )
         if res.decision == Decision.DROP:
             return res
+        effective_trace_state = res.trace_state if res.trace_state is not None else trace_state
+        effective_attributes = attributes or res.attributes
         if self.default_sampled:
-            return SamplingResult(Decision.RECORD_AND_SAMPLE)
-        return SamplingResult(Decision.RECORD_ONLY, attributes=attributes or res.attributes, trace_state=trace_state)
+            return SamplingResult(
+                Decision.RECORD_AND_SAMPLE,
+                attributes=effective_attributes,
+                trace_state=effective_trace_state,
+            )
+        return SamplingResult(
+            Decision.RECORD_ONLY,
+            attributes=effective_attributes,
+            trace_state=effective_trace_state,
+        )
 
     def get_description(self) -> str:
         mode = "sampled" if self.default_sampled else "unsampled"
