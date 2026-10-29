@@ -1,4 +1,11 @@
-"""Host-to-collector-to-storage smoke test; uses only the Python standard library."""
+"""Host-to-collector-to-storage smoke test; uses only the Python standard library.
+
+SMOKE_HOST defaults to localhost. SMOKE_APP_HOST, SMOKE_GRAFANA_HOST,
+SMOKE_COLLECTOR_HOST, SMOKE_PROMETHEUS_HOST, SMOKE_TEMPO_HOST,
+SMOKE_REDIS_HOST, and SMOKE_MINIO_HOST override it for individual services.
+When targeting containers directly, set APP_PORT=8000, GRAFANA_PORT=3000,
+and MINIO_PORT=9000 instead of their default published host ports.
+"""
 
 import json
 import os
@@ -45,26 +52,31 @@ def main():
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
     host = os.getenv("SMOKE_HOST", "localhost")
-    app = "http://{}:{}".format(host, os.getenv("APP_PORT", "8002"))
-    grafana = "http://{}:{}".format(host, os.getenv("GRAFANA_PORT", "3001"))
-    collector = "http://{}:{}".format(host, os.getenv("OTLP_HTTP_PORT", "4318"))
-    prometheus = "http://{}:9090".format(host)
-    tempo = "http://{}:3200".format(host)
+    # Published ports can belong to another local stack or VM. Allow each
+    # service to be addressed directly without changing the shared host default.
+    collector_host = os.getenv("SMOKE_COLLECTOR_HOST", host)
+    redis_host = os.getenv("SMOKE_REDIS_HOST", host)
+    minio_host = os.getenv("SMOKE_MINIO_HOST", host)
+    app = "http://{}:{}".format(os.getenv("SMOKE_APP_HOST", host), os.getenv("APP_PORT", "8002"))
+    grafana = "http://{}:{}".format(os.getenv("SMOKE_GRAFANA_HOST", host), os.getenv("GRAFANA_PORT", "3001"))
+    collector = "http://{}:{}".format(collector_host, os.getenv("OTLP_HTTP_PORT", "4318"))
+    prometheus = "http://{}:9090".format(os.getenv("SMOKE_PROMETHEUS_HOST", host))
+    tempo = "http://{}:3200".format(os.getenv("SMOKE_TEMPO_HOST", host))
     for label, url in [
-        ("collector health", "http://{}:13133/".format(host)),
+        ("collector health", "http://{}:13133/".format(collector_host)),
         ("Tempo readiness", tempo + "/ready"),
         ("Prometheus readiness", prometheus + "/-/ready"),
         ("Grafana database", grafana + "/api/health"),
     ]:
         eventually(label, lambda url=url: bool(request(url)))
-    with socket.create_connection((host, int(os.getenv("OTLP_GRPC_PORT", "4317"))), timeout=5):
+    with socket.create_connection((collector_host, int(os.getenv("OTLP_GRPC_PORT", "4317"))), timeout=5):
         print("PASS OTLP gRPC port reachable", flush=True)
-    with socket.create_connection((host, int(os.getenv("REDIS_PORT", "6379"))), timeout=5) as conn:
+    with socket.create_connection((redis_host, int(os.getenv("REDIS_PORT", "6379"))), timeout=5) as conn:
         conn.sendall(b"*1\r\n$4\r\nPING\r\n")
         assert conn.recv(128).startswith(b"+PONG"), "Redis PING failed"
     print("PASS host Redis PING", flush=True)
     minio_port = int(os.getenv("MINIO_PORT", "9002"))
-    with socket.create_connection((host, minio_port), timeout=5):
+    with socket.create_connection((minio_host, minio_port), timeout=5):
         print("PASS host MinIO port reachable", flush=True)
 
     def get_app_calls() -> float:

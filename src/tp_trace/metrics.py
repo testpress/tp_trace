@@ -102,6 +102,8 @@ class RedMetricsRecorder:
         self._metric_series_lock = threading.Lock()
         self._metric_series: Set[Tuple[Tuple[str, str], ...]] = set()
         self._metric_owners: Set[Tuple[str, str]] = set()
+        self._repeated_query_series: Set[Tuple[Tuple[str, str], ...]] = set()
+        self._repeated_query_owners: Set[Tuple[str, str]] = set()
 
         # Instrument contracts matching spanmetrics connector:
         # - calls_total: Counter of completed requests
@@ -341,6 +343,9 @@ class RedMetricsRecorder:
         Strict low-cardinality label allowlist: only normalized service, http.route, http.method,
         project_name, cluster_name, metric_source, and optionally institute.subdomain.
         Never emits raw SQL, query text, worker_id, or trace IDs.
+        The configured cardinality limit admits detailed series independently
+        of RED metrics. Excess combinations share one overflow series per
+        admitted project/cluster and one shared series for new owners.
         """
         try:
             cfg = self.config
@@ -364,6 +369,28 @@ class RedMetricsRecorder:
                         attributes["institute.subdomain"] = str(val)
                         break
 
+            key = tuple(sorted((str(k), str(v)) for k, v in attributes.items()))
+            owner = (str(resolved_project), str(resolved_cluster))
+            with self._metric_series_lock:
+                if key not in self._repeated_query_series:
+                    if len(self._repeated_query_series) < self.metric_cardinality_limit:
+                        self._repeated_query_series.add(key)
+                        self._repeated_query_owners.add(owner)
+                    else:
+                        if owner not in self._repeated_query_owners:
+                            owner = ("__other__", "__other__")
+                        # Keep counts while bounding every varying dimension,
+                        # including tenant and owner values. Do not add worker_id
+                        # or other labels outside this metric's allowlist.
+                        attributes = {
+                            "project_name": owner[0],
+                            "cluster_name": owner[1],
+                            "normalized_service": "__other__",
+                            "http.method": "__other__",
+                            "http.route": "__other__",
+                            "metric_source": "tp_trace_sdk",
+                            "institute.subdomain": "__other__",
+                        }
             self.repeated_query_affected_requests_total.add(1, attributes)
         except Exception as exc:
             logger.debug("Failed to record repeated query anomaly metric: %s", exc)

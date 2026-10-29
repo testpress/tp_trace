@@ -196,6 +196,53 @@ def test_tracker_multiple_candidates_and_patterns():
         reset_request_db_tracker(token)
 
 
+def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
+    reader = InMemoryMetricReader()
+    init_metrics(
+        config=SDKConfig(project_name="my-app", cluster_name="prod", metric_cardinality_limit=1),
+        metric_readers=[reader],
+    )
+    for i in range(100):
+        record_repeated_query_affected_request(
+            method="method-{}".format(i),
+            route="/route-{}/".format(i),
+            service="service-{}".format(i),
+            extra_attributes={"institute.subdomain": "tenant-{}".format(i)},
+        )
+        record_repeated_query_affected_request(
+            method="GET",
+            route="/items/",
+            project_name="new-{}".format(i),
+            cluster_name=str(i),
+        )
+    # Already admitted series must remain detailed after the budget is exhausted.
+    record_repeated_query_affected_request(
+        method="method-0",
+        route="/route-0/",
+        service="service-0",
+        extra_attributes={"institute.subdomain": "tenant-0"},
+    )
+    points = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
+    assert len(points) == 3  # One detailed series, one admitted-owner overflow, one new-owner overflow.
+    assert sum(p.value for p in points) == 201
+    assert sum(p.value for p in points if p.attributes["project_name"] == "my-app") == 101
+    assert sum(p.value for p in points if p.attributes["project_name"] == "__other__") == 100
+    detailed = [p for p in points if p.attributes["http.route"] == "/route-0/"]
+    assert len(detailed) == 1
+    assert detailed[0].value == 2
+    for point in points:
+        assert "worker_id" not in point.attributes
+        assert set(point.attributes) <= {
+            "project_name",
+            "cluster_name",
+            "normalized_service",
+            "http.method",
+            "http.route",
+            "metric_source",
+            "institute.subdomain",
+        }
+
+
 def test_repeated_query_metric_allowlist():
     """Verify the affected-request metric enforces the strict label allowlist."""
     metric_reader = InMemoryMetricReader()
