@@ -126,6 +126,7 @@ def main():
     )
     assert not result.get("partialSuccess"), result
     metric = "dev_smoke_" + trace_id
+    smoke_worker = "smoke-" + trace_id
     result = request(
         collector + "/v1/metrics",
         {
@@ -139,7 +140,24 @@ def main():
                                 {
                                     "name": metric,
                                     "gauge": {"dataPoints": [{"timeUnixNano": str(now), "asDouble": 42}]},
-                                }
+                                },
+                                {
+                                    "name": "calls_total",
+                                    "sum": {
+                                        "dataPoints": [
+                                            {
+                                                "timeUnixNano": str(now),
+                                                "asInt": 1,
+                                                "attributes": [
+                                                    {"key": "normalized_service", "value": {"stringValue": "host-smoke"}},
+                                                    {"key": "worker_id", "value": {"stringValue": smoke_worker}},
+                                                ],
+                                            }
+                                        ],
+                                        "aggregationTemporality": 2,
+                                        "isMonotonic": True,
+                                    },
+                                },
                             ],
                         }
                     ],
@@ -159,6 +177,14 @@ def main():
     eventually(
         "host metric stored in Prometheus",
         lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({"query": metric}))["data"]["result"]),
+    )
+    eventually(
+        "host RED metric stored in Prometheus",
+        lambda: bool(
+            request(prometheus + "/api/v1/query?" + urlencode({"query": 'calls_total{worker_id="' + smoke_worker + '"}'}))[
+                "data"
+            ]["result"]
+        ),
     )
     eventually(
         "sample app RED metrics increased in Prometheus",
