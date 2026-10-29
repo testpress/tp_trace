@@ -473,7 +473,16 @@ run_traffic_cycle() {
   # =========================================================================
   # Standard Full Traffic Cycle (Balanced across all services and tiers)
   # =========================================================================
-  if [ "$RUN_ALL" -eq 1 ] || [ "$SERVICE_PRODUCT" -eq 1 ] || [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ] && [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ]; then
+  local no_service_selected=0
+  if [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && \
+     [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ] && \
+     [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ] && [ "$SERVICE_N_PLUS_ONE" -eq 0 ]; then
+    no_service_selected=1
+  fi
+
+  local full_cycle_ran=0
+  if [ "$RUN_ALL" -eq 1 ] || [ "$SERVICE_PRODUCT" -eq 1 ] || [ "$no_service_selected" -eq 1 ]; then
+    full_cycle_ran=1
     # 1. Django Web & Core Framework Tier
     send_req "GET" "/api/products/" "" "Django Web: List Products (Core Handler)"
     send_req "GET" "/api/products/1/" "" "Django Web: Product Detail #1"
@@ -559,7 +568,7 @@ run_traffic_cycle() {
   fi
 
   # Repeated Database Queries (N+1) standalone
-  if [ "$SERVICE_N_PLUS_ONE" -eq 1 ] && [ "$RUN_ALL" -eq 0 ]; then
+  if [ "$SERVICE_N_PLUS_ONE" -eq 1 ] && [ "$full_cycle_ran" -eq 0 ]; then
     send_req "GET" "/api/repeated-queries/?count=20" "" "Repeated Queries: Simulated N+1 ORM Loop (20 DB queries)"
   fi
 }
