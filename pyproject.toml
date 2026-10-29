@@ -19,6 +19,7 @@ dependencies = [
     "opentelemetry-instrumentation-celery>=0.54b1",
     "opentelemetry-instrumentation-django>=0.44b0",
     "wrapt>=1.14.0",
+    "urllib3>=1.26.0,<2; python_version < '3.9'",
 ]
 
 [project.optional-dependencies]
