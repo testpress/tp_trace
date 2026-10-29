@@ -81,3 +81,25 @@ def test_n_plus_one_flag_sends_only_repeated_queries(tmp_path):
     lines = request_log.read_text().splitlines()
     assert len(lines) == 1
     assert "/api/repeated-queries/" in lines[0]
+
+
+@pytest.mark.parametrize("flag", [["--all", "--n-plus-one"], ["--product", "--n-plus-one"]])
+def test_n_plus_one_with_full_cycle_does_not_skip_or_double(tmp_path, flag):
+    curl = tmp_path / "curl"
+    curl.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$REQUEST_LOG"\nprintf "\\n200"\n')
+    curl.chmod(0o755)
+    request_log = tmp_path / "requests"
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--once", "--concurrency", "1", "--sleep", "0", *flag],
+        env=dict(os.environ, PATH=str(tmp_path) + os.pathsep + os.environ["PATH"], REQUEST_LOG=str(request_log)),
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = request_log.read_text().splitlines()
+    # Full cycle sends standard requests including products and repeated queries
+    assert any("/api/products/" in line for line in lines)
+    # Repeated queries is sent exactly once during the cycle
+    repeated = [line for line in lines if "/api/repeated-queries/" in line]
+    assert len(repeated) == 1
