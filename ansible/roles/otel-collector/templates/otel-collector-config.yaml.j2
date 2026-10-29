@@ -1,0 +1,140 @@
+# Managed by Ansible. Do not edit manually.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: {{ otel_collector_otlp_grpc_bind }}:{{ otel_collector_otlp_grpc_port }}
+      http:
+        endpoint: {{ otel_collector_otlp_http_bind }}:{{ otel_collector_otlp_http_port }}
+
+  prometheus/internal:
+    config:
+      scrape_configs:
+        - job_name: otel-collector
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["localhost:8888"]
+              labels:
+                source: "otelcol-telemetry"
+                instance: "{{ otel_collector_instance }}"
+                collector_alias: "{{ otel_collector_alias }}"
+
+processors:
+  memory_limiter:
+    check_interval: 500ms
+    limit_mib: {{ otel_collector_memory_limit_mib }}
+    spike_limit_mib: {{ otel_collector_memory_spike_limit_mib }}
+
+  resource/drop_ephemeral:
+    attributes:
+      - key: service.instance.id
+        action: delete
+      - key: process.pid
+        action: delete
+      - key: worker_id
+        action: delete
+
+  batch:
+    timeout: {{ otel_collector_batch_timeout }}
+    send_batch_size: {{ otel_collector_batch_send_size }}
+    send_batch_max_size: {{ otel_collector_batch_max_size }}
+
+exporters:
+  otlp/tempo:
+    endpoint: {{ otel_collector_tempo_endpoint }}
+    tls:
+      insecure: {{ "true" if otel_collector_tempo_tls_insecure else "false" }}
+    timeout: 10s
+{% if otel_collector_tempo_retry_enabled %}
+    retry_on_failure:
+      enabled: true
+      initial_interval: {{ otel_collector_tempo_retry_initial_interval }}
+      max_interval: {{ otel_collector_tempo_retry_max_interval }}
+      max_elapsed_time: {{ otel_collector_tempo_retry_max_elapsed_time }}
+{% endif %}
+    sending_queue:
+      enabled: true
+      num_consumers: {{ otel_collector_tempo_queue_num_consumers }}
+      queue_size: {{ otel_collector_tempo_queue_size }}
+
+  prometheusremotewrite:
+    endpoint: {{ otel_collector_prometheus_remote_write_endpoint }}
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 60s
+    remote_write_queue:
+      enabled: true
+      queue_size: 2000
+      num_consumers: 1
+    resource_to_telemetry_conversion:
+      enabled: true
+    external_labels:
+      job: "otel-collector"
+      instance: "{{ otel_collector_instance }}"
+      collector_alias: "{{ otel_collector_alias }}"
+
+  prometheusremotewrite/internal:
+    endpoint: {{ otel_collector_prometheus_remote_write_endpoint }}
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 60s
+    remote_write_queue:
+      enabled: true
+      queue_size: 2000
+      num_consumers: 1
+    resource_to_telemetry_conversion:
+      enabled: true
+    external_labels:
+      job: "otel-collector"
+      instance: "{{ otel_collector_instance }}"
+      collector_alias: "{{ otel_collector_alias }}"
+
+service:
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - batch
+      exporters:
+        - otlp/tempo
+
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - batch
+      exporters:
+        - prometheusremotewrite
+
+    metrics/internal:
+      receivers:
+        - prometheus/internal
+      processors:
+        - batch
+      exporters:
+        - prometheusremotewrite/internal
+
+  telemetry:
+    logs:
+      level: {{ otel_collector_log_level }}
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: {{ otel_collector_internal_metrics_bind }}
+                port: {{ otel_collector_internal_metrics_port }}
+                without_type_suffix: false
+                without_units: false
+

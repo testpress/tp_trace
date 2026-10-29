@@ -1,0 +1,49 @@
+---
+otel_collector_version: "0.153.0"
+otel_collector_image: "otel/opentelemetry-collector-contrib:{{ otel_collector_version }}"
+otel_collector_container_name: "tp-otel-collector"
+otel_collector_docker_users:
+  - ubuntu
+
+otel_collector_config_dir: "/etc/otel-collector"
+otel_collector_config_file: "{{ otel_collector_config_dir }}/config.yaml"
+
+otel_collector_network_mode: "host"
+
+otel_collector_otlp_grpc_bind: "127.0.0.1"
+otel_collector_otlp_grpc_port: 4317
+otel_collector_otlp_http_bind: "127.0.0.1"
+otel_collector_otlp_http_port: 4318
+
+otel_collector_container_cpu_limit: 0.5
+otel_collector_container_memory_limit: "512m"
+otel_collector_gomemlimit: "380MiB"
+otel_collector_gogc: "80"
+
+otel_collector_log_max_size: "20m"
+otel_collector_log_max_file: "3"
+
+otel_collector_memory_limit_mib: 400
+otel_collector_memory_spike_limit_mib: 80
+otel_collector_batch_timeout: "500ms"
+otel_collector_batch_send_size: 256
+otel_collector_batch_max_size: 512
+
+otel_collector_tempo_endpoint: "65.21.236.56:4327"
+
+otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"
+otel_collector_tempo_tls_insecure: true
+otel_collector_tempo_retry_enabled: true
+otel_collector_tempo_retry_initial_interval: "1s"
+otel_collector_tempo_retry_max_interval: "30s"
+otel_collector_tempo_retry_max_elapsed_time: "300s"
+otel_collector_tempo_queue_num_consumers: 8
+otel_collector_tempo_queue_size: 5000
+
+
+
+otel_collector_log_level: "info"
+otel_collector_internal_metrics_bind: "0.0.0.0"
+otel_collector_internal_metrics_port: 8888
+otel_collector_instance: "{{ ansible_facts.default_ipv4.address | default(ansible_host | default(inventory_hostname)) }}"
+otel_collector_alias: "{{ inventory_hostname }}"

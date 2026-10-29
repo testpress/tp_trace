@@ -1,0 +1,41 @@
+---
+- name: Ensure OpenTelemetry Collector configuration directory exists
+  ansible.builtin.file:
+    path: "{{ otel_collector_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render OpenTelemetry Collector configuration
+  ansible.builtin.template:
+    src: otel-collector-config.yaml.j2
+    dest: "{{ otel_collector_config_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: otel_collector_config
+
+- name: Ensure OpenTelemetry Collector container is running
+  community.docker.docker_container:
+    name: "{{ otel_collector_container_name }}"
+    image: "{{ otel_collector_image }}"
+    state: started
+    restart: "{{ otel_collector_config is changed }}"
+    restart_policy: unless-stopped
+    network_mode: "{{ otel_collector_network_mode }}"
+    cpus: "{{ otel_collector_container_cpu_limit }}"
+    memory: "{{ otel_collector_container_memory_limit }}"
+    env:
+      GOMEMLIMIT: "{{ otel_collector_gomemlimit }}"
+      GOGC: "{{ otel_collector_gogc }}"
+    log_driver: json-file
+    log_options:
+      max-size: "{{ otel_collector_log_max_size }}"
+      max-file: "{{ otel_collector_log_max_file }}"
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+    volumes:
+      - "{{ otel_collector_config_file }}:/etc/otelcol-contrib/config.yaml:ro"
+  when: not ansible_check_mode
+

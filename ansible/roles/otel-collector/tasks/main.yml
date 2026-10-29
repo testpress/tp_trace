@@ -1,0 +1,12 @@
+---
+- name: Validate OpenTelemetry Collector prerequisites
+  ansible.builtin.import_tasks: validate.yml
+
+- name: Install and prepare Docker
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure OpenTelemetry Collector
+  ansible.builtin.import_tasks: configure.yml
+
+- name: Verify OpenTelemetry Collector
+  ansible.builtin.import_tasks: verify.yml

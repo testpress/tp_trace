@@ -198,6 +198,8 @@ services:
     depends_on:
       tempo:
         condition: service_healthy
+      prometheus:
+        condition: service_healthy
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_GRPC_PORT:-4317}:4317"
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:${OTLP_HTTP_PORT:-4318}:4318"
@@ -223,8 +225,15 @@ services:
       - prometheus_data:/prometheus
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:9090:9090"
-    depends_on:
-      - otel-collector
+    healthcheck:
+      # The collector's internal pipeline pushes to this endpoint. Starting the
+      # collector first makes the first remote-write hang until its 30s timeout
+      # and drop the batch, so wait for the receiver to be ready.
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready | grep -q Ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
       tp-net:
         aliases:
@@ -283,7 +292,7 @@ services:
       EXTERNAL_API_URL: http://external-api:8080/get
       DJANGO_REDIS_URL: redis://redis:6379/1
       DJANGO_DEV_APP_PORT: ${APP_PORT:-8002}
-      TP_TRACE_ENDPOINT: http://otel-collector:4318
+      TP_TRACE_ENDPOINT: ${TP_TRACE_ENDPOINT:-http://otel-collector:4318}
       S3_ENDPOINT_URL: http://minio:9000
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       GUNICORN_WORKERS: "2"
@@ -333,7 +342,7 @@ services:
       SLAVE3_DB_PORT: "5432"
       EXTERNAL_API_URL: http://external-api:8080/get
       DJANGO_REDIS_URL: redis://redis:6379/1
-      TP_TRACE_ENDPOINT: http://otel-collector:4318
+      TP_TRACE_ENDPOINT: ${TP_TRACE_ENDPOINT:-http://otel-collector:4318}
       S3_ENDPOINT_URL: http://minio:9000
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       CELERY_TASK_ALWAYS_EAGER: "false"
