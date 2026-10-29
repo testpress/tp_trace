@@ -13,7 +13,7 @@ receivers:
         - job_name: otel-collector
           scrape_interval: 15s
           static_configs:
-            - targets: ["localhost:8888"]
+            - targets: ["localhost:{{ otel_collector_internal_metrics_port }}"]
               labels:
                 source: "otelcol-telemetry"
                 instance: "{{ otel_collector_instance }}"
