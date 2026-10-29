@@ -41,6 +41,8 @@ After the detailed-combination budget is exhausted, overflow preserves the resol
 
 Counts and durations are preserved; service, operation, route, database, tenant, and span kind become `__other__`, and method, status, and custom tags are omitted. Filters selecting specific values exclude overflow traffic; aggregate queries must include `__other__`. Existing detailed combinations continue unchanged. Overflow reuses the recorder's resolved worker identity.
 
+The Operation Details error breakdown loses its HTTP status-code split for overflow traffic. When the panel's filters include overflow combinations, its missing-status fallback displays these errors together as `Errors`; filters for a specific original service or operation exclude them.
+
 ### Interpreting native metrics
 Native RED metrics describe 100% of observed requests and dependencies. Because both root requests and child dependency operations are recorded without sampling bias, duration breakdowns and error rates accurately reflect real execution volume regardless of whether trace exports are heavily sampled or disabled. Where dashboards retain historical `apm_*` expressions as a migration fallback, only retained historical series can still match those branches; all live data flows through native `calls_total`.
 
