@@ -193,6 +193,43 @@ def test_red_span_processor_records_celery_spans():
     assert kinds == {"SPAN_KIND_PRODUCER", "SPAN_KIND_CONSUMER"}
 
 
+def test_red_span_processor_messaging_service_identification():
+    """Verify messaging spans use messaging.system and do not mislabel Kafka/generic as celery."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="test-red",
+        metric_readers=[reader],
+    )
+
+    processor = RedSpanProcessor()
+
+    # Kafka producer span
+    kafka_span = _create_mock_span(
+        name="orders publish",
+        kind=SpanKind.PRODUCER,
+        attributes={
+            "messaging.system": "kafka",
+            "messaging.destination": "orders-topic",
+        },
+    )
+    processor.on_end(kafka_span)
+
+    # Generic consumer span without celery indicators
+    generic_span = _create_mock_span(
+        name="worker receive",
+        kind=SpanKind.CONSUMER,
+        attributes={},
+    )
+    processor.on_end(generic_span)
+
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 2
+    services = {c.attributes["normalized_service"] for c in calls}
+    assert "kafka" in services
+    assert "messaging" in services
+    assert "celery" not in services
+
+
 def test_red_span_processor_records_error_status():
     """Verify error spans are marked with status='ERROR' and error flag."""
     reader = InMemoryMetricReader()

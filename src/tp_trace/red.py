@@ -74,6 +74,7 @@ class RedSpanProcessor(SpanProcessor):
             attrs.get("normalized.service")
             or attrs.get("service.name")
             or attrs.get("service")
+            or attrs.get("messaging.system")
             or attrs.get("db.system")
             or attrs.get("rpc.system")
             or attrs.get("peer.service")
@@ -81,7 +82,14 @@ class RedSpanProcessor(SpanProcessor):
         )
         if not service:
             if kind in (SpanKind.PRODUCER, SpanKind.CONSUMER):
-                service = "celery"
+                if (
+                    attrs.get("component") == "celery"
+                    or attrs.get("celery.task_name")
+                    or attrs.get("celery.action")
+                ):
+                    service = "celery"
+                else:
+                    service = "messaging"
             elif kind == SpanKind.CLIENT:
                 service = "client"
             elif kind == SpanKind.SERVER:
@@ -143,6 +151,8 @@ class RedSpanProcessor(SpanProcessor):
                 operation = "command"
             elif service == "celery":
                 operation = "task"
+            elif kind in (SpanKind.PRODUCER, SpanKind.CONSUMER):
+                operation = attrs.get("messaging.destination") or attrs.get("messaging.operation") or "task"
             else:
                 raw_name = str(getattr(span, "name", "") or "")
                 if raw_name and "/" not in raw_name and len(raw_name) <= 64:
