@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-10-29
+
+### Added
+- **Native SDK-Level RED Metrics**:
+  - Implemented sampling-independent, in-process RED metrics (`calls_total`, `duration_milliseconds_bucket`) for 100% of Django requests and dependency operations (PostgreSQL, Redis, Requests, Celery, Boto/S3).
+  - Telemetry is recorded directly via `RedSpanProcessor`, eliminating dependency on Collector-derived `spanmetrics` and trace-sampling rates.
+  - Added bounded worker identity and project/cluster tagging with strict cardinality limits.
+- **Repeated Database Query Anomaly Detection (N+1)**:
+  - In-process tracking and anomaly detection for duplicate query loops within Django requests with configurable threshold gating (default: 15 queries).
+  - Emits low-cardinality `apm_repeated_query_affected_requests_total` metric.
+  - Attaches top candidate query patterns and execution stats to root spans for investigation.
+  - Added dedicated Grafana `n_plus_one_detail` dashboard.
+- **OpenTelemetry Collector Ansible Automation**:
+  - Added Ansible playbooks and role templates for deploying and managing the OpenTelemetry Collector across application server hosts.
+- **Offline PromQL Dashboard Testing**:
+  - Added automated offline contract testing (`tests/test_red_dashboard_contract.py`) validating dashboard PromQL queries using `promtool`.
+
+### Changed
+- **Migrated Django Tracing to Official OpenTelemetry Standards**:
+  - Removed deprecated middleware-based initialization in favor of clean handler integration.
+  - Removed `spanmetrics` connector from dev and deployment Collector configurations in favor of native SDK-emitted metrics.
+- **Dashboard Query Fallbacks**:
+  - Updated `service_catalog` and `operational_issues` dashboards to query native RED metrics (`duration_milliseconds_bucket` and `calls_total` with `db_system` filters) while maintaining fallback compatibility for legacy `apm_*` series.
+
+### Fixed
+- **Sampler Span Attributes and Tracestate Propagation**:
+  - Fixed `RemoteParentAwareSampler` and `RecordOnlySampler` to preserve span-start attributes and remote parent W3C `trace_state`.
+- **Telemetry Safety Guards**:
+  - Strengthened wrapper guards in `src/tp_trace/safety.py` across all integrations to prevent telemetry failures from altering application behavior or exceptions.
+- **Ansible Scrape Port Configuration**:
+  - Parameterized internal telemetry scrape target in the Ansible Collector template using `otel_collector_internal_metrics_port`.
+- **Traffic Generator Service Flag Logic**:
+  - Fixed Bash boolean operator precedence in `generate_traffic.sh` to correctly isolate `--n-plus-one` and combined service flags.
+
+---
+
 ## [0.1.6] - 2026-10-22
 
 ### Added
