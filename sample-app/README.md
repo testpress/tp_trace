@@ -4,6 +4,20 @@ This directory is a Django application used to exercise the SDK's integrations. 
 
 The application contains examples for PostgreSQL, replicas, PgBouncer, Redis, RabbitMQ / Celery asynchronous tasks, outbound HTTP, Boto3/MinIO, errors, slow requests, and Django templates.
 
+## Choosing the Collector endpoint
+
+The app reads its OTLP/HTTP endpoint from `TP_TRACE_ENDPOINT`. The
+[development stack](../dev/README.md) defaults to its own Collector; export a
+different endpoint to send the sample app's telemetry to a deployed Collector:
+
+```bash
+TP_TRACE_ENDPOINT=http://<collector-host>:4318 docker compose -f dev/docker-compose.yml up -d
+```
+
+The deployed Collector must be able to reach Prometheus on TCP `9090`; see the
+[development README](../dev/README.md#using-a-deployed-collector) for the
+failure signature and connectivity checks.
+
 ## Running Celery tasks
 
 To trigger background Celery execution:

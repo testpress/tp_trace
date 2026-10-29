@@ -11,9 +11,8 @@
       - otel_collector_network_mode is defined
     fail_msg: OpenTelemetry Collector variables are incomplete. Please ensure all required variables are defined.
 
-- name: Validate Collector support for span-metric series expiration
+- name: Validate supported Collector version
   ansible.builtin.assert:
     that:
       - otel_collector_version is version("0.153.0", ">=")
-      - otel_collector_spanmetrics_aggregation_cardinality_limit | int > 0
-    fail_msg: This role requires Collector 0.153.0 or later and a positive span-metric cardinality limit.
+    fail_msg: This role requires Collector 0.153.0 or later.

@@ -29,12 +29,6 @@ otel_collector_batch_timeout: "500ms"
 otel_collector_batch_send_size: 256
 otel_collector_batch_max_size: 512
 
-otel_collector_spanmetrics_namespace: "apm"
-otel_collector_spanmetrics_flush_interval: "15s"
-otel_collector_spanmetrics_metrics_expiration: "5m"
-otel_collector_spanmetrics_series_expiration: "5m"
-otel_collector_spanmetrics_aggregation_cardinality_limit: 5000
-
 otel_collector_tempo_endpoint: "65.21.236.56:4327"
 
 otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"

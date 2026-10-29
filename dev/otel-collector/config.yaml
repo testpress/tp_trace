@@ -73,6 +73,7 @@ exporters:
     remote_write_queue:
       enabled: true
       queue_size: 2000
+      num_consumers: 1
     resource_to_telemetry_conversion:
       enabled: true
     external_labels:
@@ -83,6 +84,18 @@ exporters:
   prometheusremotewrite/internal:
     endpoint: http://prometheus:9090/api/v1/write
     timeout: 30s
+    # The internal pipeline pushes cumulative snapshots of the collector's own
+    # metrics. Match the native-metric exporter: bound the retry window and queue
+    # so an unreachable Prometheus cannot pin stale snapshots in memory.
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 60s
+    remote_write_queue:
+      enabled: true
+      queue_size: 2000
+      num_consumers: 1
     resource_to_telemetry_conversion:
       enabled: true
     external_labels:
