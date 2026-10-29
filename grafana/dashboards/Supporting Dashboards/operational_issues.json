@@ -55,7 +55,7 @@
       "targetBlank": true,
       "title": "Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%7D%5D"
     }
   ],
   "refresh": "30s",
