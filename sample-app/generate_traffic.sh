@@ -473,7 +473,7 @@ run_traffic_cycle() {
   # =========================================================================
   # Standard Full Traffic Cycle (Balanced across all services and tiers)
   # =========================================================================
-  if [ "$RUN_ALL" -eq 1 ] || [ "$SERVICE_PRODUCT" -eq 1 ] || [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ] && [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ]; then
+  if [ "$RUN_ALL" -eq 1 ] || [ "$SERVICE_PRODUCT" -eq 1 ] || [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ] && [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ] && [ "$SERVICE_N_PLUS_ONE" -eq 0 ]; then
     # 1. Django Web & Core Framework Tier
     send_req "GET" "/api/products/" "" "Django Web: List Products (Core Handler)"
     send_req "GET" "/api/products/1/" "" "Django Web: Product Detail #1"
