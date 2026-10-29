@@ -68,7 +68,14 @@ def main():
         print("PASS host MinIO port reachable", flush=True)
 
     def get_app_calls() -> float:
-        res = request(prometheus + "/api/v1/query?" + urlencode({"query": 'sum(calls_total{normalized_service="django"})'}))
+        # Scoped to the probe's own route so concurrent traffic from the
+        # sample-app traffic generator cannot satisfy this check.
+        # Prometheus sanitizes "http.route" attribute dots to underscores on ingest.
+        res = request(
+            prometheus + "/api/v1/query?" + urlencode(
+                {"query": 'sum(calls_total{normalized_service="django", http_route="/api/multi-db/"})'}
+            )
+        )
         results = res.get("data", {}).get("result", [])
         return float(results[0]["value"][1]) if results else 0.0
 
