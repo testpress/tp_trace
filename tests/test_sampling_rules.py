@@ -49,13 +49,13 @@ def test_endpoint_sample_rules_custom_ratios():
     res1 = sampler.should_sample(None, 12345, "POST /api/checkout/pay", attributes={"http.target": "/api/checkout/pay"})
     assert res1.decision == Decision.RECORD_AND_SAMPLE
 
-    # Health rule (0.0) -> DROP
+    # Health rule (0.0) -> RECORD_ONLY (retained in-SDK for RED metrics, dropped from export)
     res2 = sampler.should_sample(None, 12345, "GET /api/health", attributes={"http.target": "/api/health"})
-    assert res2.decision == Decision.DROP
+    assert res2.decision == Decision.RECORD_ONLY
 
-    # Unmatched path (global 0.0) -> DROP
+    # Unmatched path (global 0.0) -> RECORD_ONLY
     res3 = sampler.should_sample(None, 12345, "GET /api/products/", attributes={"http.target": "/api/products/"})
-    assert res3.decision == Decision.DROP
+    assert res3.decision == Decision.RECORD_ONLY
 
 
 def test_config_resolves_sampling_kwargs_and_env(monkeypatch):
@@ -121,7 +121,7 @@ def test_parameterized_route_template_matching():
     )
     assert res2.decision == Decision.RECORD_AND_SAMPLE
 
-    # Route that does not match rule falls back to global 0.0 -> DROP
+    # Route that does not match rule falls back to global 0.0 -> RECORD_ONLY
     res3 = sampler.should_sample(
         None,
         12345,
@@ -131,7 +131,7 @@ def test_parameterized_route_template_matching():
             "http.route": "/api/orders/{id}/",
         },
     )
-    assert res3.decision == Decision.DROP
+    assert res3.decision == Decision.RECORD_ONLY
 
 
 @pytest.mark.parametrize(

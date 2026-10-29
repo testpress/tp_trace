@@ -121,7 +121,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total, institute_subdomain)",
+        "definition": "label_values({__name__=~\"calls_total|apm_calls_total\"}, institute_subdomain)",
         "hide": 0,
         "includeAll": true,
         "label": "Institute",
@@ -134,7 +134,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total, institute_subdomain)",
+        "query": "label_values({__name__=~\"calls_total|apm_calls_total\"}, institute_subdomain)",
         "refresh": 2,
         "regex": "",
         "sort": 1,
@@ -155,7 +155,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{cluster_name=~\"${cluster:regex}\"}, project_name)",
+        "definition": "label_values({__name__=~\"calls_total|apm_calls_total\", cluster_name=~\"${cluster:regex}\"}, project_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Project",
@@ -168,7 +168,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total{cluster_name=~\"${cluster:regex}\"}, project_name)",
+        "query": "label_values({__name__=~\"calls_total|apm_calls_total\", cluster_name=~\"${cluster:regex}\"}, project_name)",
         "refresh": 2,
         "regex": "",
         "sort": 1,
@@ -189,7 +189,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total, cluster_name)",
+        "definition": "label_values({__name__=~\"calls_total|apm_calls_total\"}, cluster_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Cluster",
@@ -202,7 +202,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total, cluster_name)",
+        "query": "label_values({__name__=~\"calls_total|apm_calls_total\"}, cluster_name)",
         "refresh": 2,
         "regex": "",
         "sort": 1,

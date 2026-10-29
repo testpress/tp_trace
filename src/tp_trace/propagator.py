@@ -52,10 +52,10 @@ class TpTraceFilteringPropagator(CompositePropagator):
 
         should_extract = get_django_extraction_decision()
         if should_extract is None:
-            cfg = attempt(_get_config, default=None, _label="propagator_config")
-            setting = getattr(cfg, "extract_trace_context", True) if cfg else True
-            # Request predicates only apply inside the Django request boundary.
-            should_extract = True if callable(setting) else bool(setting)
+            # Request predicates and HTTP extraction policies only apply inside
+            # the Django request boundary. Non-HTTP propagation (e.g. Celery workers,
+            # internal asynchronous messaging) must always extract trace context.
+            should_extract = True
 
         if not should_extract:
             return context

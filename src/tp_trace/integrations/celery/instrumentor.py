@@ -77,6 +77,26 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
         # creation. Keep our own restoration token for failures before that point.
         restore_token = context_api.attach(context_api.get_current())
         token = set_celery_creation_meta(meta)
+
+        # Defensive propagation support: Celery stores incoming message headers in task.request.headers.
+        # Upstream CeleryGetter does getattr(task.request, key). Ensure W3C propagation attributes
+        # on task.request are populated from task.request.headers if missing.
+        try:
+            req = getattr(task, "request", None)
+            if req is not None:
+                req_headers = getattr(req, "headers", None)
+                if req_headers is None and isinstance(req, dict):
+                    req_headers = req.get("headers")
+                if isinstance(req_headers, dict):
+                    for k in ("traceparent", "tracestate", "baggage"):
+                        if k in req_headers and not hasattr(req, k):
+                            try:
+                                setattr(req, k, req_headers[k])
+                            except Exception:
+                                pass
+        except Exception:
+            pass
+
         try:
             try:
                 super()._trace_prerun(*args, **kwargs)
@@ -182,10 +202,9 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
         except Exception:
             pass
 
-        if trigger_view:
-            headers = kwargs.get("headers")
-            if isinstance(headers, dict):
-                headers["tp_trigger_view"] = trigger_view
+        headers = kwargs.get("headers")
+        if isinstance(headers, dict) and trigger_view:
+            headers["tp_trigger_view"] = trigger_view
 
         token = set_celery_creation_meta(meta)
         try:
@@ -196,6 +215,16 @@ class TpTraceCeleryInstrumentor(CeleryInstrumentor):
         except Exception:
             logger.debug("Upstream _trace_before_publish failed", exc_info=True)
             return
+
+        # Defensive propagation injection: ensure trace context is injected even if headers dict
+        # was initially empty (upstream checks `if headers: inject(headers)`, skipping empty dicts).
+        try:
+            if isinstance(headers, dict) and "traceparent" not in headers:
+                from opentelemetry.propagate import inject
+
+                inject(headers)
+        except Exception:
+            pass
 
         # Only enrich a verified producer from upstream's context store.
         # Unknown-task producers can already have ended; the ambient span then

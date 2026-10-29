@@ -7,7 +7,8 @@ from trace sampling, guaranteeing 100% metric fidelity even when traces are samp
 import logging
 import os
 import socket
-from typing import Any, Dict, List, Optional, Tuple
+import threading
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from opentelemetry.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics import MeterProvider
@@ -97,6 +98,9 @@ class RedMetricsRecorder:
         self._cached_identity: Optional[Tuple[int, str]] = None
         self.readers: List[MetricReader] = readers or []
         self.meter = meter_provider.get_meter("tp_trace")
+        self.metric_cardinality_limit = max(1, int(getattr(config, "metric_cardinality_limit", 5000))) if config else 5000
+        self._metric_series_lock = threading.Lock()
+        self._metric_series: Set[Tuple[Tuple[str, str], ...]] = set()
 
         # Instrument contracts matching spanmetrics connector:
         # - calls_total: Counter of completed requests
@@ -177,6 +181,16 @@ class RedMetricsRecorder:
                 "metric_source": "tp_trace_sdk",
             }
 
+            subdomain = (
+                (extra_attributes.get("institute.subdomain") or extra_attributes.get("institute_subdomain") or extra_attributes.get("institute"))
+                if extra_attributes
+                else None
+            )
+            if subdomain:
+                attributes["institute.subdomain"] = str(subdomain)
+                attributes["institute"] = str(subdomain)
+                attributes["institute_subdomain"] = str(subdomain)
+
             if extra_attributes:
                 for k, v in extra_attributes.items():
                     if v is not None and k not in attributes:
@@ -185,11 +199,133 @@ class RedMetricsRecorder:
             # Authoritatively set process/worker identity so request tags cannot override it.
             # worker_id isolates independent worker metric streams in multi-process runtimes (Gunicorn).
             attributes["worker_id"] = worker_identity
+            attributes = self._bound_metric_attributes(attributes)
 
             self.calls_total.add(1, attributes)
             self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
         except Exception as exc:
             logger.debug("Failed to record independent RED metrics: %s", exc)
+
+    def record_dependency_span(
+        self,
+        *,
+        service: str,
+        operation: str,
+        duration_ms: float,
+        error: bool = False,
+        span_kind: str = "SPAN_KIND_CLIENT",
+        route: Optional[str] = None,
+        db_instance: Optional[str] = None,
+        db_system: Optional[str] = None,
+        http_method: Optional[str] = None,
+        status_code: Optional[Any] = None,
+        project_name: Optional[str] = None,
+        cluster_name: Optional[str] = None,
+        subdomain: Optional[str] = None,
+        extra_attributes: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record RED metrics for a completed dependency span (Postgres, Redis, Requests, Celery).
+
+        Fail-safe: Any error during recording is safely absorbed and never disrupts
+        the host application.
+        """
+        try:
+            cfg = self.config
+            resolved_project = project_name or (cfg.project_name if cfg else None) or "default"
+            resolved_cluster = cluster_name or (cfg.cluster_name if cfg else None) or ""
+            error_str = "true" if error else "false"
+
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
+            attributes: Dict[str, Any] = {
+                "project_name": str(resolved_project),
+                "cluster_name": str(resolved_cluster),
+                "normalized_service": str(service or "unknown"),
+                "normalized_operation": str(operation or "unknown"),
+                "span_kind": str(span_kind),
+                "error": error_str,
+                "metric_source": "tp_trace_sdk",
+            }
+
+            if route:
+                attributes["http.route"] = str(route)
+            if http_method:
+                attributes["http.method"] = str(http_method)
+            if status_code is not None:
+                try:
+                    attributes["http.status_code"] = int(status_code)
+                    attributes["status_code"] = str(status_code)
+                except (ValueError, TypeError):
+                    attributes["status_code"] = str(status_code)
+            if db_system:
+                attributes["db.system"] = str(db_system)
+            if db_instance:
+                attributes["db.instance"] = str(db_instance)
+
+            if subdomain:
+                attributes["institute.subdomain"] = str(subdomain)
+                attributes["institute"] = str(subdomain)
+                attributes["institute_subdomain"] = str(subdomain)
+            elif extra_attributes:
+                for k in ("institute.subdomain", "institute_subdomain", "institute"):
+                    val = extra_attributes.get(k)
+                    if val is not None:
+                        attributes["institute.subdomain"] = str(val)
+                        attributes["institute"] = str(val)
+                        attributes["institute_subdomain"] = str(val)
+                        break
+
+            attributes["worker_id"] = worker_identity
+            attributes = self._bound_metric_attributes(attributes)
+
+            self.calls_total.add(1, attributes)
+            self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
+        except Exception as exc:
+            logger.debug("Failed to record dependency RED metrics: %s", exc)
+
+    def _bound_metric_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep the total number of emitted label combinations bounded."""
+        key = tuple(sorted((str(k), str(v)) for k, v in attributes.items()))
+        with self._metric_series_lock:
+            if key in self._metric_series:
+                return attributes
+            if len(self._metric_series) < self.metric_cardinality_limit:
+                self._metric_series.add(key)
+                return attributes
+
+        stable_keys = {
+            "project_name",
+            "cluster_name",
+            "normalized_service",
+            "span_kind",
+            "error",
+            "metric_source",
+            "http.method",
+            "http.status_code",
+            "status_code",
+            "db.system",
+            "worker_id",
+        }
+        bounded = {k: v for k, v in attributes.items() if k in stable_keys}
+        bounded["normalized_operation"] = "__other__"
+        if "db.instance" in attributes:
+            bounded["db.instance"] = "__other__"
+        if "institute" in attributes:
+            bounded["institute"] = "__other__"
+        if "institute.subdomain" in attributes:
+            bounded["institute.subdomain"] = "__other__"
+        if "institute_subdomain" in attributes:
+            bounded["institute_subdomain"] = "__other__"
+        overflow_key = tuple(sorted((str(k), str(v)) for k, v in bounded.items()))
+        with self._metric_series_lock:
+            self._metric_series.add(overflow_key)
+        return bounded
 
     def record_repeated_query_affected_request(
         self,
@@ -363,6 +499,52 @@ def record_request(
         operation=operation,
         project_name=project_name,
         cluster_name=cluster_name,
+        extra_attributes=extra_attributes,
+    )
+
+
+def record_dependency_span(
+    *,
+    service: str,
+    operation: str,
+    duration_ms: float,
+    error: bool = False,
+    span_kind: str = "SPAN_KIND_CLIENT",
+    route: Optional[str] = None,
+    db_instance: Optional[str] = None,
+    db_system: Optional[str] = None,
+    http_method: Optional[str] = None,
+    status_code: Optional[Any] = None,
+    project_name: Optional[str] = None,
+    cluster_name: Optional[str] = None,
+    subdomain: Optional[str] = None,
+    extra_attributes: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Record RED metrics for a completed dependency span.
+
+    Idempotent and safe: if no recorder is active or disabled, this is a no-op.
+    """
+    recorder = _ACTIVE_RECORDER
+    if recorder is None:
+        return
+
+    if recorder.config and recorder.config.disabled:
+        return
+
+    recorder.record_dependency_span(
+        service=service,
+        operation=operation,
+        duration_ms=duration_ms,
+        error=error,
+        span_kind=span_kind,
+        route=route,
+        db_instance=db_instance,
+        db_system=db_system,
+        http_method=http_method,
+        status_code=status_code,
+        project_name=project_name,
+        cluster_name=cluster_name,
+        subdomain=subdomain,
         extra_attributes=extra_attributes,
     )
 

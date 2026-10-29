@@ -66,6 +66,20 @@ def main():
     minio_port = int(os.getenv("MINIO_PORT", "9002"))
     with socket.create_connection((host, minio_port), timeout=5):
         print("PASS host MinIO port reachable", flush=True)
+
+    def get_app_calls() -> float:
+        # Scoped to the probe's own route so concurrent traffic from the
+        # sample-app traffic generator cannot satisfy this check.
+        # Prometheus sanitizes "http.route" attribute dots to underscores on ingest.
+        res = request(
+            prometheus + "/api/v1/query?" + urlencode(
+                {"query": 'sum(calls_total{normalized_service="django", http_route="/api/multi-db/"})'}
+            )
+        )
+        results = res.get("data", {}).get("result", [])
+        return float(results[0]["value"][1]) if results else 0.0
+
+    baseline_calls = get_app_calls()
     app_trace_id = uuid.uuid4().hex
     headers = {"traceparent": "00-{}-{}-01".format(app_trace_id, uuid.uuid4().hex[:16])}
     for db in ("default", "slave1", "slave2", "slave3"):
@@ -119,6 +133,7 @@ def main():
     )
     assert not result.get("partialSuccess"), result
     metric = "dev_smoke_" + trace_id
+    smoke_worker = "smoke-" + trace_id
     result = request(
         collector + "/v1/metrics",
         {
@@ -132,7 +147,24 @@ def main():
                                 {
                                     "name": metric,
                                     "gauge": {"dataPoints": [{"timeUnixNano": str(now), "asDouble": 42}]},
-                                }
+                                },
+                                {
+                                    "name": "calls_total",
+                                    "sum": {
+                                        "dataPoints": [
+                                            {
+                                                "timeUnixNano": str(now),
+                                                "asInt": 1,
+                                                "attributes": [
+                                                    {"key": "normalized_service", "value": {"stringValue": "host-smoke"}},
+                                                    {"key": "worker_id", "value": {"stringValue": smoke_worker}},
+                                                ],
+                                            }
+                                        ],
+                                        "aggregationTemporality": 2,
+                                        "isMonotonic": True,
+                                    },
+                                },
                             ],
                         }
                     ],
@@ -154,12 +186,16 @@ def main():
         lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({"query": metric}))["data"]["result"]),
     )
     eventually(
-        "span metrics generated",
+        "host RED metric stored in Prometheus",
         lambda: bool(
-            request(prometheus + "/api/v1/query?" + urlencode({"query": 'apm_calls_total{service_name="host-smoke"}'}))[
+            request(prometheus + "/api/v1/query?" + urlencode({"query": 'calls_total{worker_id="' + smoke_worker + '"}'}))[
                 "data"
             ]["result"]
         ),
+    )
+    eventually(
+        "sample app RED metrics increased in Prometheus",
+        lambda: get_app_calls() > baseline_calls,
     )
 
 

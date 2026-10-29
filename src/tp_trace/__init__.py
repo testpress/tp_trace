@@ -22,6 +22,7 @@ from opentelemetry.propagate import set_global_textmap
 
 from tp_trace.config import SDKConfig
 from tp_trace.exporter import SafeSpanExporter
+from tp_trace.red import RedSpanProcessor, SampledOnlySpanProcessor
 from tp_trace.route_context import RouteEnrichingSpanProcessor
 from tp_trace.integrations import BaseIntegration, get_integration_manager
 from tp_trace.sanitize import sanitize_query_string, sanitize_sql, sanitize_url
@@ -41,6 +42,8 @@ __all__ = [
     "BaseIntegration",
     "get_integration_manager",
     "RouteEnrichingSpanProcessor",
+    "RedSpanProcessor",
+    "SampledOnlySpanProcessor",
     "SafeSpanExporter",
 ]
 
@@ -197,6 +200,12 @@ def init(
         except Exception as exc:
             logger.debug("tp_trace: Failed to register RouteEnrichingSpanProcessor: %s", exc)
 
+        # Register RED metrics aggregator: computes 100% RED metrics for all dependencies
+        try:
+            provider.add_span_processor(RedSpanProcessor())
+        except Exception as exc:
+            logger.debug("tp_trace: Failed to register RedSpanProcessor: %s", exc)
+
         # Configure Exporter and Processor if not disabled
         if not config.disabled:
             if exporter is None:
@@ -233,7 +242,8 @@ def init(
                     else:
                         span_processor = SimpleSpanProcessor(safe_exporter)
 
-                provider.add_span_processor(span_processor)
+                # Gate exports: only spans with trace_flags.sampled=True are serialized/transmitted
+                provider.add_span_processor(SampledOnlySpanProcessor(span_processor))
 
         # Set as global tracer provider
         trace.set_tracer_provider(provider)

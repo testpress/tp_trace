@@ -776,24 +776,15 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
 
             attempt(_set_headers, _label="trace_headers")
 
-        try:
-            from tp_trace.metrics import record_request
-
-            record_request(
-                method=method,
-                route=final_route,
-                status_code=status_code,
-                error=error,
-                duration_ms=duration_ms,
-                service="django",
-                operation=final_span_name,
-                extra_attributes=get_current_tags(),
-            )
-        except Exception as metric_exc:
-            logger.debug("Failed to record request metrics: %s", metric_exc)
-
         _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
     finally:
+        if span is not None:
+            try:
+                for key, value in get_current_tags().items():
+                    if value is not None:
+                        safe_set_attribute(span, "tp_trace.metric." + str(key), str(value))
+            except Exception:
+                pass
         if tracker_token is not None:
             reset_request_db_tracker(tracker_token)
         if view_token is not None:

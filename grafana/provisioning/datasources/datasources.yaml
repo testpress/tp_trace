@@ -30,9 +30,9 @@ datasources:
         tags: [{ key: 'service.name', value: 'project_name' }, { key: 'job' }]
         queries:
           - name: 'Throughput'
-            query: 'sum(rate(apm_calls_total{$$__tags}[$$__rate_interval]))'
+            query: 'sum(rate(calls_total{$$__tags}[$$__rate_interval]))'
           - name: 'Latency (p95)'
-            query: 'histogram_quantile(0.95, sum(rate(apm_duration_milliseconds_bucket{$$__tags}[$$__rate_interval])) by (le))'
+            query: 'histogram_quantile(0.95, sum(rate(duration_milliseconds_bucket{$$__tags}[$$__rate_interval])) by (le))'
       serviceMap:
         datasourceUid: _IY366MMk
       search:

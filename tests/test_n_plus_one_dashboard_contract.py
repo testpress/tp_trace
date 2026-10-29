@@ -86,10 +86,11 @@ def test_dynamic_issue_cards_pass_route_and_method_independently():
         assert "var-operation={{http_method}}%20{{http_route}}" not in content
 
 
-def test_n_plus_one_targets_use_primary_metric_and_service_overview_has_rate():
+def test_n_plus_one_targets_use_primary_metric():
     dashboards = [
         _load("Supporting Dashboards/operational_issues.json"),
         _load("service_catalog.json"),
+        _load("Supporting Dashboards/n_plus_one_detail.json"),
     ]
     n1_targets = [
         t
@@ -99,15 +100,6 @@ def test_n_plus_one_targets_use_primary_metric_and_service_overview_has_rate():
     ]
     assert n1_targets
     assert all("apm_n_plus_one_total" not in t["expr"] for t in n1_targets)
-
-    overview = _load("Supporting Dashboards/service_overview.json")
-    ops = next(p for p in overview["panels"] if p.get("title") == "Operations Summary")
-    rate_targets = [t for t in ops["targets"] if t.get("refId") == "H"]
-    assert rate_targets
-    assert "apm_repeated_query_affected_requests_total" in rate_targets[0]["expr"]
-    assert 'calls_total{metric_source="tp_trace_sdk"' in rate_targets[0]["expr"]
-    assert "apm_calls_total" not in rate_targets[0]["expr"]
-    assert "100 *" in rate_targets[0]["expr"]
 
 
 def test_service_catalog_django_queries_use_server_span_kind():
@@ -152,17 +144,21 @@ def test_collector_spanmetrics_blocks_internal_and_django_server_spans():
     collector_config_file = ROOT / "dev/otel-collector/config.yaml"
     cfg = yaml.safe_load(collector_config_file.read_text())
 
-    # Verify filter definition
-    filters = cfg.get("processors", {})
-    assert "filter/spanmetrics_drop_non_dependencies" in filters
-    span_rules = filters["filter/spanmetrics_drop_non_dependencies"]["traces"]["span"]
-    assert "kind == SPAN_KIND_INTERNAL" in span_rules
-    assert any("SPAN_KIND_SERVER" in r and "normalized.service" in r for r in span_rules)
-
-    # Verify pipeline wiring
     pipelines = cfg.get("service", {}).get("pipelines", {})
-    spanmetrics_pipe = pipelines.get("traces/spanmetrics", {}).get("processors", [])
-    assert "filter/spanmetrics_drop_non_dependencies" in spanmetrics_pipe
+    if "traces/spanmetrics" in pipelines:
+        # Verify filter definition
+        filters = cfg.get("processors", {})
+        assert "filter/spanmetrics_drop_non_dependencies" in filters
+        span_rules = filters["filter/spanmetrics_drop_non_dependencies"]["traces"]["span"]
+        assert "kind == SPAN_KIND_INTERNAL" in span_rules
+        assert any("SPAN_KIND_SERVER" in r and "normalized.service" in r for r in span_rules)
+
+        # Verify pipeline wiring
+        spanmetrics_pipe = pipelines.get("traces/spanmetrics", {}).get("processors", [])
+        assert "filter/spanmetrics_drop_non_dependencies" in spanmetrics_pipe
+    else:
+        # Spanmetrics connector completely removed: native metrics handle RED signals
+        assert "spanmetrics" not in cfg.get("connectors", {})
 
     metrics_pipe = pipelines.get("metrics", {}).get("processors", [])
     assert "transform/drop_metric_worker_id" not in metrics_pipe

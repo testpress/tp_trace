@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "tp_trace APM — Deep-dive endpoint performance, error breakdown, latency percentiles, downstream dependencies, and distributed flamegraph.",
+  "description": "tp_trace APM \u2014 Deep-dive endpoint performance, error breakdown, latency percentiles, downstream dependencies, and distributed flamegraph.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -13,7 +13,7 @@
       "includeVars": false,
       "keepTime": true,
       "targetBlank": false,
-      "title": "← Service Overview",
+      "title": "\u2190 Service Overview",
       "type": "link",
       "url": "/d/generic-service-overview?var-service=${service}&var-operation=$__all&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
     },
@@ -91,7 +91,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total, institute_subdomain)",
+        "definition": "label_values({__name__=~\"calls_total|apm_calls_total\"}, institute_subdomain)",
         "hide": 0,
         "includeAll": true,
         "label": "Institute",
@@ -104,7 +104,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total, institute_subdomain)",
+        "query": "label_values({__name__=~\"calls_total|apm_calls_total\"}, institute_subdomain)",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -125,7 +125,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total{institute_subdomain=~\"${institute:regex}\"}, project_name)",
+        "definition": "label_values({__name__=~\"calls_total|apm_calls_total\", institute_subdomain=~\"${institute:regex}\"}, project_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Project",
@@ -138,7 +138,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total{institute_subdomain=~\"${institute:regex}\"}, project_name)",
+        "query": "label_values({__name__=~\"calls_total|apm_calls_total\", institute_subdomain=~\"${institute:regex}\"}, project_name)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -158,7 +158,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_calls_total, cluster_name)",
+        "definition": "label_values({__name__=~\"calls_total|apm_calls_total\"}, cluster_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Cluster",
@@ -171,7 +171,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values(apm_calls_total, cluster_name)",
+        "query": "label_values({__name__=~\"calls_total|apm_calls_total\"}, cluster_name)",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -260,7 +260,7 @@
     "auto": true
   },
   "timezone": "browser",
-  "title": "Request & Database Operation Traces — Flamegraphs",
+  "title": "Request & Database Operation Traces \u2014 Flamegraphs",
   "uid": "generic-operation-details",
   "version": 1021,
   "panels": [

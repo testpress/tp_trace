@@ -95,6 +95,18 @@ def test_metrics_export_interval_default_and_overrides(monkeypatch):
     assert SDKConfig.from_env_and_kwargs(metrics_export_interval_millis=30000).metrics_export_interval_millis == 30000
 
 
+def test_metric_cardinality_limit_env_and_override(monkeypatch):
+    monkeypatch.delenv("TP_TRACE_METRIC_CARDINALITY_LIMIT", raising=False)
+    assert SDKConfig.from_env_and_kwargs().metric_cardinality_limit == 5000
+
+    monkeypatch.setenv("TP_TRACE_METRIC_CARDINALITY_LIMIT", "7500")
+    assert SDKConfig.from_env_and_kwargs().metric_cardinality_limit == 7500
+    assert SDKConfig.from_env_and_kwargs(metric_cardinality_limit=9000).metric_cardinality_limit == 9000
+
+    monkeypatch.setenv("TP_TRACE_METRIC_CARDINALITY_LIMIT", "0")
+    assert SDKConfig.from_env_and_kwargs().metric_cardinality_limit == 1
+
+
 def test_legacy_tp_dog_env_vars_are_ignored(monkeypatch):
     """Verify retired TP_DOG_* environment variables no longer influence configuration."""
     canonical_names = (

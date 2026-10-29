@@ -49,7 +49,7 @@ def setup_telemetry():
                 "team": "core-backend",
                 "test": "HEHE",
             },
-            sample_rate=1.0,
+            sample_rate=0.01,
             endpoint_sample_rules={
                 "/api/s3-storage/": 1.0,
                 "/api/multi-db/": 1.0,

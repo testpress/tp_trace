@@ -187,21 +187,21 @@ def main():
     project = json.dumps(os.getenv("CELERY_PROBE_PROJECT", "otel-sample"))
     cluster = json.dumps(os.getenv("CELERY_PROBE_CLUSTER", "Dummy"))
     common = (
-        f'project_name={project},cluster_name={cluster},instance!="",'
+        f'project_name={project},cluster_name={cluster},'
         'institute_subdomain=~".*",normalized_service="celery"'
     )
     consumer = common + ',span_kind="SPAN_KIND_CONSUMER",normalized_operation="celery.run.sample_app.tasks.demo_task"'
     queries = {
-        "producer": "apm_calls_total{"
+        "producer": "calls_total{"
         + common
         + ',span_kind="SPAN_KIND_PRODUCER",normalized_operation="celery.apply_async.sample_app.tasks.demo_task"}',
-        "success": "apm_calls_total{" + consumer + ',error="false"}',
-        "error": "apm_calls_total{" + consumer + ',error="true"}',
-        "count": "apm_duration_milliseconds_count{" + consumer + "}",
-        "sum": "apm_duration_milliseconds_sum{" + consumer + "}",
-        "inf": "apm_duration_milliseconds_bucket{" + consumer + ',le="+Inf"}',
-        "finite": "apm_duration_milliseconds_bucket{" + consumer + ',le="5000"}',
-        "tiny": "apm_duration_milliseconds_bucket{" + consumer + ',le="5"}',
+        "success": "calls_total{" + consumer + ',error="false"}',
+        "error": "calls_total{" + consumer + ',error="true"}',
+        "count": "duration_milliseconds_count{" + consumer + "}",
+        "sum": "duration_milliseconds_sum{" + consumer + "}",
+        "inf": "duration_milliseconds_bucket{" + consumer + ',le="+Inf"}',
+        "finite": "duration_milliseconds_bucket{" + consumer + ',le="5000"}',
+        "tiny": "duration_milliseconds_bucket{" + consumer + ',le="5"}',
     }
     baseline = counter_snapshot(prometheus, queries)
     started = datetime.now(timezone.utc).isoformat()
@@ -339,7 +339,7 @@ def main():
     print("\n5. Verifying isolation: Celery spans do not contaminate Django SERVICE series...", flush=True)
     res_django_celery = query_prometheus(
         prometheus,
-        'apm_calls_total{normalized_service="django",normalized_operation=~"^celery.*"}',
+        'calls_total{normalized_service="django",normalized_operation=~"^celery.*"}',
     )
     assert len(res_django_celery) == 0, f"Found Celery operations under django service: {res_django_celery}"
     print("PASS No Celery operations recorded under normalized_service='django'")

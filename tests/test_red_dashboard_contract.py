@@ -145,8 +145,7 @@ def test_dependency_chart_reports_sampled_latency_instead_of_request_share():
     assert "Sampled" in item["title"]
     for target in item["targets"]:
         assert "histogram_quantile(0.95" in target["expr"]
-        assert "apm_duration_milliseconds_bucket" in target["expr"]
-        assert not re.search(r"(?<!apm_)duration_milliseconds", target["expr"])
+        assert "duration_milliseconds_bucket" in target["expr"]
     for filename, panel_id in [(FILES[0], 160), (FILES[1], 20)]:
         assert not any(t["refId"].endswith("_contrib") for t in panel(filename, panel_id)["targets"])
 

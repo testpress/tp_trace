@@ -879,3 +879,104 @@ def test_second_integration_cannot_adopt_active_instrumentor():
         assert get_bounded_task_label("owned.task") == "owned.task"
     finally:
         owner.uninstrument()
+
+
+def test_celery_context_propagation_with_extract_trace_context_false():
+    """Verify Celery tasks inherit distributed trace context even when extract_trace_context=False."""
+    from tp_trace.integrations.celery.instrumentor import TpTraceCeleryInstrumentor
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="test-celery-extract",
+        exporter=exporter,
+        export_batch=False,
+        extract_trace_context=False,
+        integrations={"celery": True},
+    )
+
+    inst = TpTraceCeleryInstrumentor._instance
+    assert inst is not None
+
+    class MockTask:
+        name = "sample.tasks.nested_task"
+
+        def __init__(self):
+            self.request = MagicMock()
+
+    task = MockTask()
+    task_id = "test-propagation-task-id"
+    publish_headers = {"id": task_id}
+
+    # 1. Producer publishes task
+    inst._trace_before_publish(
+        sender=task,
+        task=task,
+        headers=publish_headers,
+        body={"task": task.name, "id": task_id},
+    )
+    inst._trace_after_publish(sender=task, headers=publish_headers, body={})
+
+    assert "traceparent" in publish_headers
+    spans = exporter.get_finished_spans()
+    producer = next(s for s in spans if s.kind == SpanKind.PRODUCER)
+
+    # 2. Worker receives task with headers in task.request.headers
+    task.request.headers = dict(publish_headers)
+    # Ensure carrier does not have top-level traceparent attribute to test header fallback
+    if hasattr(task.request, "traceparent"):
+        delattr(task.request, "traceparent")
+
+    inst._trace_prerun(sender=task, task=task, task_id=task_id, args=(), kwargs={})
+    inst._trace_postrun(sender=task, task_id=task_id, task=task, args=(), kwargs={}, retval=None, state="SUCCESS")
+
+    spans = exporter.get_finished_spans()
+    consumer = next(s for s in spans if s.kind == SpanKind.CONSUMER)
+
+    # Consumer MUST share the producer's trace_id and have parent_span_id pointing to producer
+    assert consumer.context.trace_id == producer.context.trace_id
+    assert consumer.parent is not None
+    assert consumer.parent.span_id == producer.context.span_id
+
+
+def test_celery_context_propagation_nested_request_headers_fallback():
+    """Verify context extraction succeeds when W3C headers exist only in task.request.headers."""
+    from tp_trace.integrations.celery.instrumentor import TpTraceCeleryInstrumentor
+
+    exporter = InMemorySpanExporter()
+    tp_trace.init(
+        project_name="test-celery-headers",
+        exporter=exporter,
+        export_batch=False,
+        integrations={"celery": True},
+    )
+
+    inst = TpTraceCeleryInstrumentor._instance
+    assert inst is not None
+
+    class StrictRequest:
+        def __init__(self, headers):
+            self.headers = headers
+
+    class TaskWithStrictRequest:
+        name = "sample.tasks.strict_headers"
+
+        def __init__(self, headers):
+            self.request = StrictRequest(headers)
+
+    trace_id_hex = "4bf92f3577b34da6a3ce929d0e0e4736"
+    parent_span_id_hex = "00f067aa0ba902b7"
+    incoming_traceparent = f"00-{trace_id_hex}-{parent_span_id_hex}-01"
+
+    task = TaskWithStrictRequest(headers={"traceparent": incoming_traceparent})
+    task_id = "strict-headers-task-id"
+
+    inst._trace_prerun(sender=task, task=task, task_id=task_id, args=(), kwargs={})
+    inst._trace_postrun(sender=task, task_id=task_id, task=task, args=(), kwargs={}, retval=None, state="SUCCESS")
+
+    spans = exporter.get_finished_spans()
+    consumer = next(s for s in spans if s.kind == SpanKind.CONSUMER)
+
+    assert format(consumer.context.trace_id, "032x") == trace_id_hex
+    assert consumer.parent is not None
+    assert format(consumer.parent.span_id, "016x") == parent_span_id_hex
+

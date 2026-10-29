@@ -7,7 +7,7 @@ The stack uses a hybrid telemetry architecture that keeps user-facing request me
 | Signal | Source | Pipeline & Storage | Sampling Behavior |
 |---|---|---|---|
 | **API request throughput, errors, latency** | Django native metrics (`tp_trace.metrics`) | OTLP metrics -> Collector -> Prometheus | Decoupled from trace sampling (independent of head sampling) |
-| **PostgreSQL, Redis, outbound HTTP, AWS, Celery metrics** | OpenTelemetry Collector `spanmetrics` connector | OTLP spans -> Collector `spanmetrics` -> Prometheus | Derived from exported spans (low Python overhead) |
+| **PostgreSQL, Redis, outbound HTTP, AWS, Celery metrics** | SDK in-process processor (`RedSpanProcessor`) | OTLP metrics -> Collector -> Prometheus | Decoupled from trace sampling (100% of finished spans recorded) |
 | **Request, dependency, and internal waterfall traces** | `tp_trace` distributed tracing | OTLP traces -> Collector -> Tempo | Subject to SDK trace sampling (`sample_rate`) |
 
 ```text
@@ -15,7 +15,7 @@ Django web app / Celery worker
   ├─ tp_trace metrics (OTLP) ────────┐
   │  (calls_total, duration)         ▼
   │                           OpenTelemetry Collector
-  │                             ├─ Prometheus metrics (Native + spanmetrics)
+  │                             ├─ Prometheus metrics (Native RED metrics)
   │                             └─ Tempo traces (sampled waterfall)
   └─ tp_trace spans (OTLP) ──────────┘
      (Django, Postgres, Redis, Celery)
@@ -28,21 +28,25 @@ Configuration is resolved once during `SDKConfig` setup (`service_instance_id` o
 
 The PID namespace bounds the possible identities for a fixed host prefix, but does not eliminate series churn. Recycled workers normally receive new PIDs, and changing container hostnames also creates new series. For 25 routes, one method, two status combinations, one tenant, and 12 workers, the two native RED instruments produce approximately 7,200 active series: 600 counters and 600 histograms with nine buckets (eight explicit boundaries plus `+Inf`), `_sum`, and `_count`. Retained series from replaced workers add to storage cost until retention expires. This estimate excludes other instruments and additional attribute combinations.
 
-Django HTTP `SPAN_KIND_SERVER` spans are excluded from the Collector's `spanmetrics` connector pipeline (`filter/spanmetrics_drop_non_dependencies`), ensuring that request metrics are emitted exclusively through the native SDK metrics pipeline without duplicate connector metrics. In addition, `SPAN_KIND_INTERNAL` spans are blocked from `spanmetrics` to ensure framework implementation details never generate RED metrics.
+### Sampling-independent RED metrics
+Both Django HTTP requests and dependency operations (PostgreSQL, Redis, Celery, outbound HTTP, AWS) are recorded natively by the SDK's `RedSpanProcessor`. Unsampled spans use `Decision.RECORD_ONLY` at span creation so that attributes, timings, and status are fully captured in memory before span completion. Upon `span.end()`, `RedSpanProcessor` records 100% of finished calls into Prometheus native counters (`calls_total`) and histograms (`duration_milliseconds`). Downstream network export is gated by `SampledOnlySpanProcessor`, ensuring that only sampled traces are transmitted to the Collector and Tempo.
 
-### Interpreting native and sampled metrics
+Because dependency RED metrics are computed directly by the SDK on 100% of finished operations, they do not depend on trace sampling rates or downstream span derivation in the Collector. Historical `apm_*` series derived by the Collector's spanmetrics connector are deprecated in favor of unified `calls_total` and `duration_milliseconds` streams.
 
-Native Django RED metrics describe all observed requests. Dependency spanmetrics describe only exported spans, so their traffic and accumulated duration depend on trace sampling and per-route sampling rules. Dividing sampled dependency duration by unsampled request duration understates dependency shares; subtracting it from request duration overstates application compute time. The catalog therefore shows sampled dependency P95 latency instead of a request-time breakdown. Latency warnings compare each source's P95 against its own recent median and an absolute latency threshold, without assigning a root cause from duration shares.
+Roll out the SDK that emits native dependency metrics before, or together with, the Collector configuration that removes spanmetrics. Older SDKs do not emit dependency `calls_total` streams.
 
-Where dashboards retain historical Django spanmetrics as a fallback, they aggregate each source to matching output labels before choosing native data. Native request volume also supplies a zero error numerator when no native error series exists, so historical errors cannot replace an error-free native observation.
+The SDK cardinality budget defaults to 5,000 combinations per process and can be tuned with `TP_TRACE_METRIC_CARDINALITY_LIMIT`. This is an application-side safety limit, separate from Prometheus capacity limits.
 
-Windowed total request counts in dashboards combine reset-aware `increase()` with `last_over_time()` guarded by `offset $__range` and zero-reset assertions. This ensures fresh workers or routes that produce a single sample or remain flat after early requests are accurately represented without returning empty or zero values. Because the native metrics exporter pipeline (`prometheusremotewrite`) preserves active streams without premature exporter-level expiry, and individual worker lifetimes are bound to distinct PIDs, new series start at zero upon process creation. For ephemeral spanmetrics (`apm_calls_total`), series expiration in the connector causes newly arriving spans after an idle gap to initialize fresh counters at zero. An existing series that had samples prior to the window and emits only a single sample inside the window will not register an increase; this boundary condition is confined to short querying ranges relative to scrape intervals.
+### Interpreting native metrics
+Native RED metrics describe 100% of observed requests and dependencies. Because both root requests and child dependency operations are recorded without sampling bias, duration breakdowns and error rates accurately reflect real execution volume regardless of whether trace exports are heavily sampled or disabled. Where dashboards retain historical `apm_*` expressions as a migration fallback, only retained historical series can still match those branches; all live data flows through native `calls_total`.
+
+Windowed total request counts in dashboards combine reset-aware `increase()` with `last_over_time()` guarded by `offset $__range` and zero-reset assertions. This ensures fresh workers or routes that produce a single sample or remain flat after early requests are accurately represented without returning empty or zero values. Because the native metrics exporter pipeline (`prometheusremotewrite`) preserves active streams without premature exporter-level expiry, and individual worker lifetimes are bound to distinct PIDs, new series start at zero upon process creation.
 
 The Locust comparison tool is an approximate reconciliation aid. It uses reset-aware per-stream increases at a fixed evaluation timestamp and waits for ingestion according to the supplied export interval. Export boundaries, new series, worker exits before export, other traffic, and differences between client and server observations still prevent an exact-count assertion. Its ordinary observation mode keeps Locust run totals distinct from Prometheus window estimates. Exact native recording under disabled trace sampling is covered separately with in-memory metric readers.
 
 ### Process boundary and single metrics pipeline
 Asynchronous task executions across Celery workers cross process and machine boundaries. tp_trace injects W3C tracecontext headers into the task payload upon publication (`celery.apply_async`) and extracts them in the consumer worker (`celery.run`), connecting producer and consumer spans within a unified distributed trace.
 
-All RED metrics (rate, error, duration) for Celery tasks use the downstream OpenTelemetry Collector pipeline as PostgreSQL and Redis spans. Workers do not establish independent metric instruments or parallel counter registries, avoiding thread and fork hazards in ephemeral worker processes.
+All RED metrics (rate, error, duration) for Celery tasks are recorded natively by `RedSpanProcessor` across both task publication (`SPAN_KIND_PRODUCER`) and task execution (`SPAN_KIND_CONSUMER`) spans. Workers push metrics directly through the SDK's native metrics pipeline, avoiding thread and fork hazards.
 
 This separation keeps application instrumentation small while centralising telemetry routing, storage, and access control.
