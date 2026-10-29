@@ -1,0 +1,102 @@
+---
+- name: Manage the OpenTelemetry Collector firewall rules
+  when: otel_collector_firewall_enabled | default(true) | bool
+  block:
+    - name: Validate the OpenTelemetry Collector firewall configuration
+      ansible.builtin.assert:
+        that:
+          - otel_collector_otlp_ingress_ports | length > 0
+          - (otel_collector_observability_host | length == 0) or (otel_collector_observability_host in (groups['app_servers'] | default([])))
+          - (groups['app_servers'] | default([]) | map('extract', hostvars, 'ansible_host') | select('string') | list | length) == (groups['app_servers'] | default([]) | length)
+        fail_msg: >-
+          The collector firewall needs every app_servers host to define
+          ansible_host and the observability host
+          ({{ otel_collector_observability_host | default('unset') }}) to be part
+          of the app_servers group if set.
+
+    - name: Preseed iptables-persistent autosave prompts
+      ansible.builtin.debconf:
+        name: iptables-persistent
+        question: "{{ item.question }}"
+        value: "{{ item.value }}"
+        vtype: boolean
+      loop:
+        - question: iptables-persistent/autosave_v4
+          value: "true"
+        - question: iptables-persistent/autosave_v6
+          value: "true"
+
+    - name: Install iptables-persistent
+      ansible.builtin.apt:
+        name:
+          - iptables-persistent
+        state: present
+        update_cache: true
+
+    - name: Build the collector fleet source list
+      ansible.builtin.set_fact:
+        otel_collector_fleet_sources: >-
+          {{ groups['app_servers'] | default([])
+             | map('extract', hostvars, 'ansible_host')
+             | map('regex_replace', '(^[^/]+)$', '\\1/32')
+             | list }}
+
+    - name: Build the OTLP ingress source list
+      ansible.builtin.set_fact:
+        otel_collector_otlp_sources: >-
+          {{ (((otel_collector_otlp_ingress_sources | default([]))
+               if (otel_collector_otlp_ingress_sources | default([]) | length > 0)
+               else otel_collector_fleet_sources)
+              + ['127.0.0.1/32']) | unique }}
+
+    - name: Ensure the collector OTLP ingress rules are present
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: tcp
+        source: "{{ item.0 }}"
+        destination_port: "{{ item.1 | string }}"
+        jump: ACCEPT
+        action: insert
+        state: present
+      loop: "{{ otel_collector_otlp_sources | product(otel_collector_otlp_ingress_ports) | list }}"
+      notify: Save iptables rules
+
+    - name: Ensure the Docker user chain exists
+      ansible.builtin.iptables:
+        chain: DOCKER-USER
+        chain_management: true
+        state: present
+      when:
+        - otel_collector_observability_host | length > 0
+        - inventory_hostname == otel_collector_observability_host
+      notify: Save iptables rules
+
+    - name: Ensure the Observability Host push rules are present in the Docker user chain
+      ansible.builtin.iptables:
+        chain: DOCKER-USER
+        protocol: tcp
+        source: "{{ item.0 }}"
+        destination_port: "{{ item.1 | string }}"
+        jump: ACCEPT
+        action: insert
+        state: present
+      loop: "{{ otel_collector_fleet_sources | product(otel_collector_observability_ingress_ports) | list }}"
+      when:
+        - otel_collector_observability_host | length > 0
+        - inventory_hostname == otel_collector_observability_host
+      notify: Save iptables rules
+
+    - name: Ensure the Observability Host push rules are present in the input chain
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: tcp
+        source: "{{ item.0 }}"
+        destination_port: "{{ item.1 | string }}"
+        jump: ACCEPT
+        action: insert
+        state: present
+      loop: "{{ otel_collector_fleet_sources | product(otel_collector_observability_ingress_ports) | list }}"
+      when:
+        - otel_collector_observability_host | length > 0
+        - inventory_hostname == otel_collector_observability_host
+      notify: Save iptables rules
