@@ -2,7 +2,8 @@
 
 Provides two specialized SpanProcessors:
 1. RedSpanProcessor: Computes sampling-independent RED metrics for 100% of finished
-   dependency spans (CLIENT, PRODUCER, CONSUMER) before they are discarded or exported.
+   spans (HTTP Server requests and CLIENT/PRODUCER/CONSUMER dependencies) before they
+   are discarded or exported.
 2. SampledOnlySpanProcessor: Wraps the export pipeline, ensuring only sampled traces
    (trace_flags.sampled=True) are serialized and transmitted over the network.
 """
@@ -15,7 +16,7 @@ from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.trace import SpanKind, StatusCode
 
-from tp_trace.metrics import record_dependency_span
+import tp_trace.metrics as metrics
 from tp_trace.safety import attempt
 
 logger = logging.getLogger("tp_trace.red")
@@ -28,9 +29,9 @@ _OVERFLOW_SENTINEL = "__other__"
 class RedSpanProcessor(SpanProcessor):
     """Computes RED metrics on span completion.
 
-    Evaluates 100% of finished dependency spans (PostgreSQL, Redis, Requests, Celery)
-    and records rate, error, and duration metrics into Prometheus natively,
-    bypassing trace sampling decisions.
+    Evaluates 100% of finished spans (Django HTTP requests and dependencies like
+    PostgreSQL, Redis, Requests, Celery) and records rate, error, and duration metrics
+    into Prometheus natively, bypassing trace sampling decisions.
     """
 
     def __init__(
@@ -47,7 +48,7 @@ class RedSpanProcessor(SpanProcessor):
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
         if span.is_recording():
             kind = getattr(span, "kind", None)
-            if kind in (SpanKind.CLIENT, SpanKind.PRODUCER, SpanKind.CONSUMER):
+            if kind in (SpanKind.CLIENT, SpanKind.PRODUCER, SpanKind.CONSUMER, SpanKind.SERVER):
                 try:
                     span.set_attribute("tp_trace.red", 1)
                 except Exception:
@@ -64,12 +65,6 @@ class RedSpanProcessor(SpanProcessor):
 
         attrs = getattr(span, "attributes", {}) or {}
 
-        # Skip Django SERVER spans: request.py already records rich HTTP RED metrics for them
-        if kind == SpanKind.SERVER and (
-            attrs.get("normalized.service") == "django" or attrs.get("django.route") is not None
-        ):
-            return
-
         # Determine normalized service
         service = (
             attrs.get("normalized.service")
@@ -83,11 +78,25 @@ class RedSpanProcessor(SpanProcessor):
                 service = "celery"
             elif kind == SpanKind.CLIENT:
                 service = "client"
+            elif kind == SpanKind.SERVER:
+                service = "django"
             else:
                 return
 
         if service == "postgresql":
             service = "postgres"
+
+        # Determine route template for low-cardinality routing
+        route = (
+            attrs.get("http.route_template")
+            or attrs.get("django.route")
+            or (attrs.get("http.route") if kind != SpanKind.SERVER else None)
+            or ""
+        )
+        if not route and kind == SpanKind.SERVER:
+            sc = attrs.get("http.status_code") or attrs.get("http.response.status_code")
+            if sc is not None:
+                route = str(sc)
 
         # Determine normalized operation safely without unbound dynamic string fallback
         operation = (
@@ -96,7 +105,10 @@ class RedSpanProcessor(SpanProcessor):
             or (attrs.get("http.method") if kind == SpanKind.CLIENT else None)
         )
         if not operation:
-            if service in ("postgres", "pgbouncer"):
+            if kind == SpanKind.SERVER:
+                method = attrs.get("http.method") or attrs.get("http.request.method") or "GET"
+                operation = f"{method} {route}" if route else str(method)
+            elif service in ("postgres", "pgbouncer"):
                 operation = "query"
             elif service == "redis":
                 operation = "command"
@@ -108,8 +120,6 @@ class RedSpanProcessor(SpanProcessor):
                     operation = raw_name
                 else:
                     operation = "unknown"
-
-        route = attrs.get("http.route") or attrs.get("http.route_template") or attrs.get("django.route") or ""
 
         # Thread-safe cardinality checks
         with self._lock:
@@ -127,12 +137,17 @@ class RedSpanProcessor(SpanProcessor):
                 else:
                     self._seen_routes.add(route)
 
-        # Error check
+        # Error check: 4xx responses are not server errors (error=False)
         status = getattr(span, "status", None)
         is_error = bool(
-            (status and getattr(status, "status_code", None) == StatusCode.ERROR)
-            or attrs.get("error") is True
+            attrs.get("error") is True
             or attrs.get("error") == "true"
+            or (
+                attrs.get("error") is not False
+                and attrs.get("error") != "false"
+                and status
+                and getattr(status, "status_code", None) == StatusCode.ERROR
+            )
         )
 
         # Duration
@@ -143,21 +158,40 @@ class RedSpanProcessor(SpanProcessor):
         span_kind_str = f"SPAN_KIND_{kind.name}" if kind is not None and hasattr(kind, "name") else "SPAN_KIND_CLIENT"
 
         # Direct extraction of subdomain without full attribute dict allocation
-        subdomain = attrs.get("institute.subdomain") or attrs.get("institute_subdomain")
+        subdomain = attrs.get("institute.subdomain") or attrs.get("institute_subdomain") or attrs.get("institute")
 
-        record_dependency_span(
-            service=str(service),
-            operation=str(operation),
-            duration_ms=duration_ms,
-            error=is_error,
-            span_kind=span_kind_str,
-            route=route or None,
-            db_instance=str(attrs.get("db.instance") or attrs.get("db.connection_alias") or "") or None,
-            db_system=str(attrs.get("db.system") or "") or None,
-            http_method=str(attrs.get("http.method") or "") or None,
-            status_code=attrs.get("http.status_code"),
-            subdomain=str(subdomain) if subdomain else None,
-        )
+        status_code = attrs.get("http.status_code") or attrs.get("http.response.status_code")
+        http_method = str(attrs.get("http.method") or attrs.get("http.request.method") or "") or None
+
+        if kind == SpanKind.SERVER:
+            extra_attrs = {}
+            if subdomain:
+                extra_attrs["institute.subdomain"] = str(subdomain)
+                extra_attrs["institute"] = str(subdomain)
+            metrics.record_request(
+                method=http_method or "GET",
+                route=route or str(status_code or 200),
+                status_code=int(status_code or 200),
+                error=is_error,
+                duration_ms=duration_ms,
+                service=str(service or "django"),
+                operation=str(operation),
+                extra_attributes=extra_attrs or None,
+            )
+        else:
+            metrics.record_dependency_span(
+                service=str(service),
+                operation=str(operation),
+                duration_ms=duration_ms,
+                error=is_error,
+                span_kind=span_kind_str,
+                route=route or None,
+                db_instance=str(attrs.get("db.instance") or attrs.get("db.connection_alias") or "") or None,
+                db_system=str(attrs.get("db.system") or "") or None,
+                http_method=http_method,
+                status_code=status_code,
+                subdomain=str(subdomain) if subdomain else None,
+            )
 
     def shutdown(self) -> None:
         pass

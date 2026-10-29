@@ -3,7 +3,7 @@
 Validates that:
 1. RedSpanProcessor captures 100% of finished dependency spans (Postgres, Redis, Requests, Celery)
    and updates Prometheus RED metrics (calls_total, duration_milliseconds) regardless of sample rate.
-2. Server spans for Django are skipped by RedSpanProcessor to prevent double-counting.
+2. Server spans for Django are captured alongside dependencies by RedSpanProcessor.
 3. Internal framework spans are ignored.
 4. Ignored requests (e.g. health checks) suppress dependency metric recording.
 5. High-cardinality operations and routes collapse to '__other__' once configured thresholds are reached.
@@ -221,8 +221,8 @@ def test_red_span_processor_records_error_status():
     assert calls[0].attributes["error"] == "true"
 
 
-def test_red_span_processor_skips_internal_and_django_server_spans():
-    """Verify internal spans and Django SERVER spans are skipped by RedSpanProcessor."""
+def test_red_span_processor_skips_internal_spans_and_records_server_spans():
+    """Verify internal spans are skipped while Django SERVER spans are recorded."""
     reader = InMemoryMetricReader()
     tp_trace.init(
         project_name="test-red",
@@ -231,7 +231,7 @@ def test_red_span_processor_skips_internal_and_django_server_spans():
 
     processor = RedSpanProcessor()
 
-    # Internal span
+    # Internal span is ignored
     internal_span = _create_mock_span(
         name="internal_helper",
         kind=SpanKind.INTERNAL,
@@ -239,7 +239,10 @@ def test_red_span_processor_skips_internal_and_django_server_spans():
     )
     processor.on_end(internal_span)
 
-    # Django SERVER span (already handled by request.py)
+    calls = _get_metric_points(reader, "calls_total")
+    assert len(calls) == 0
+
+    # Django SERVER span is recorded
     server_span = _create_mock_span(
         name="GET /api/test/",
         kind=SpanKind.SERVER,
@@ -251,7 +254,11 @@ def test_red_span_processor_skips_internal_and_django_server_spans():
     processor.on_end(server_span)
 
     calls = _get_metric_points(reader, "calls_total")
-    assert len(calls) == 0
+    assert len(calls) == 1
+    assert calls[0].attributes["normalized_service"] == "django"
+    assert calls[0].attributes["span_kind"] == "SPAN_KIND_SERVER"
+    assert calls[0].attributes["http.route"] == "/api/test/"
+    assert calls[0].attributes["error"] == "false"
 
 
 def test_red_span_processor_skips_ignored_requests():
@@ -553,7 +560,7 @@ def test_red_span_processor_overhead_benchmark():
 
 
 def test_exported_dependency_spans_carry_tp_trace_red_attribute():
-    """Verify exported dependency spans carry tp_trace.red=1 so Collector spanmetrics drops them."""
+    """Verify exported dependency and server spans carry tp_trace.red=1 so Collector drops them."""
     exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="tag-assert-test",
@@ -563,6 +570,13 @@ def test_exported_dependency_spans_carry_tp_trace_red_attribute():
     )
 
     tracer = tp_trace.get_tracer("test")
+
+    with tracer.start_as_current_span(
+        "GET /api/users",
+        kind=SpanKind.SERVER,
+        attributes={"http.method": "GET", "django.route": "/api/users"},
+    ):
+        pass
 
     with tracer.start_as_current_span(
         "SELECT users",
@@ -578,8 +592,12 @@ def test_exported_dependency_spans_carry_tp_trace_red_attribute():
         pass
 
     spans = exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
     client_spans = [s for s in spans if s.kind == SpanKind.CLIENT]
     internal_spans = [s for s in spans if s.kind == SpanKind.INTERNAL]
+
+    assert len(server_spans) == 1
+    assert server_spans[0].attributes.get("tp_trace.red") == 1
 
     assert len(client_spans) == 1
     assert client_spans[0].attributes.get("tp_trace.red") == 1

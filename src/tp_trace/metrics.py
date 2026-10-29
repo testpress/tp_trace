@@ -255,11 +255,13 @@ class RedMetricsRecorder:
 
             if subdomain:
                 attributes["institute.subdomain"] = str(subdomain)
+                attributes["institute"] = str(subdomain)
             elif extra_attributes:
                 for k in ("institute.subdomain", "institute_subdomain"):
                     val = extra_attributes.get(k)
                     if val is not None:
                         attributes["institute.subdomain"] = str(val)
+                        attributes["institute"] = str(val)
                         break
 
             attributes["worker_id"] = worker_identity
