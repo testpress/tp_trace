@@ -154,9 +154,9 @@ def main():
         lambda: bool(request(prometheus + "/api/v1/query?" + urlencode({"query": metric}))["data"]["result"]),
     )
     eventually(
-        "span metrics generated",
+        "RED metrics generated",
         lambda: bool(
-            request(prometheus + "/api/v1/query?" + urlencode({"query": 'apm_calls_total{service_name="host-smoke"}'}))[
+            request(prometheus + "/api/v1/query?" + urlencode({"query": 'calls_total{normalized_service="django"}'}))[
                 "data"
             ]["result"]
         ),
