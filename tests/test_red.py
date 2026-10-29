@@ -711,6 +711,36 @@ def test_metric_cardinality_budget_collapses_database_and_tenant_identities():
     assert any(point.attributes.get("institute.subdomain") == "__other__" for point in durations)
 
 
+def test_overflow_bounds_varying_labels_and_preserves_measurements():
+    from tp_trace.metrics import get_metrics_recorder
+
+    reader = InMemoryMetricReader()
+    tp_trace.init(metric_readers=[reader], sample_rate=0.0, metric_cardinality_limit=2)
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+    for i in range(200):
+        recorder.record_dependency_span(
+            service="service-{}".format(i),
+            operation="operation-{}".format(i),
+            duration_ms=3.0,
+            error=bool(i % 2),
+            span_kind="kind-{}".format(i),
+            http_method="method-{}".format(i),
+            status_code=200 + i,
+            db_system="system-{}".format(i),
+            subdomain="tenant-{}".format(i),
+        )
+    calls = _get_metric_points(reader, "calls_total")
+    durations = _get_metric_points(reader, "duration_milliseconds")
+    assert len(recorder._metric_series) == 2
+    assert len(calls) == 4  # Two detailed combinations plus two error buckets.
+    assert len(durations) == 4
+    assert sum(point.value for point in calls) == 200
+    assert sum(point.value for point in calls if point.attributes["error"] == "true") == 100
+    assert sum(point.count for point in durations) == 200
+    assert sum(point.sum for point in durations) == pytest.approx(600.0)
+
+
 def test_exported_dependency_spans_carry_tp_trace_red_attribute():
     """Verify exported dependency and server spans carry tp_trace.red=1 so Collector drops them."""
     exporter = InMemorySpanExporter()

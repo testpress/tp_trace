@@ -299,33 +299,26 @@ class RedMetricsRecorder:
                 self._metric_series.add(key)
                 return attributes
 
-        stable_keys = {
-            "project_name",
-            "cluster_name",
-            "normalized_service",
-            "span_kind",
-            "error",
-            "metric_source",
-            "http.method",
-            "http.status_code",
-            "status_code",
-            "db.system",
-            "worker_id",
+        # Never retain incoming label values or keys in overflow state. Even
+        # apparently stable dimensions (method, status, service) can vary without
+        # bound. Two fixed series retain the aggregate error split without growing
+        # the tracking set beyond the configured detailed-combination budget.
+        cfg = self.config
+        return {
+            "project_name": str(cfg.project_name if cfg else "default"),
+            "cluster_name": str(cfg.cluster_name if cfg else ""),
+            "worker_id": get_process_worker_identity(prefix=self.worker_id_prefix),
+            "metric_source": "tp_trace_sdk",
+            "normalized_service": "__other__",
+            "normalized_operation": "__other__",
+            "span_kind": "__other__",
+            "http.route": "__other__",
+            "db.instance": "__other__",
+            "institute": "__other__",
+            "institute.subdomain": "__other__",
+            "institute_subdomain": "__other__",
+            "error": "true" if attributes.get("error") == "true" else "false",
         }
-        bounded = {k: v for k, v in attributes.items() if k in stable_keys}
-        bounded["normalized_operation"] = "__other__"
-        if "db.instance" in attributes:
-            bounded["db.instance"] = "__other__"
-        if "institute" in attributes:
-            bounded["institute"] = "__other__"
-        if "institute.subdomain" in attributes:
-            bounded["institute.subdomain"] = "__other__"
-        if "institute_subdomain" in attributes:
-            bounded["institute_subdomain"] = "__other__"
-        overflow_key = tuple(sorted((str(k), str(v)) for k, v in bounded.items()))
-        with self._metric_series_lock:
-            self._metric_series.add(overflow_key)
-        return bounded
 
     def record_repeated_query_affected_request(
         self,

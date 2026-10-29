@@ -37,6 +37,8 @@ Roll out the SDK that emits native dependency metrics before, or together with, 
 
 The SDK cardinality budget defaults to 5,000 combinations per process and can be tuned with `TP_TRACE_METRIC_CARDINALITY_LIMIT`. This is an application-side safety limit, separate from Prometheus capacity limits.
 
+After that detailed-combination budget is exhausted, new combinations use at most two additional overflow combinations, split by `error`. Counts and durations are preserved; service, operation, route, database, tenant, and span kind become `__other__`, and method, status, and custom tags are omitted. Filters selecting specific values exclude overflow traffic; aggregate queries must include `__other__`. Existing detailed combinations continue unchanged. Overflow combinations are not added to the tracking set, so neither that set nor RED instrument combinations grow without a bound.
+
 ### Interpreting native metrics
 Native RED metrics describe 100% of observed requests and dependencies. Because both root requests and child dependency operations are recorded without sampling bias, duration breakdowns and error rates accurately reflect real execution volume regardless of whether trace exports are heavily sampled or disabled. Where dashboards retain historical `apm_*` expressions as a migration fallback, only retained historical series can still match those branches; all live data flows through native `calls_total`.
 
