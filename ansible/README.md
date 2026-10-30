@@ -110,10 +110,12 @@ Collector defaults live in `roles/otel-collector/defaults/main.yml`, with enviro
 
 Run commands from the `ansible/` directory.
 
+Pass `-k` (`--ask-pass`) for SSH password prompt and `-K` (`--ask-become-pass`) for sudo password prompt when running against hosts that require password authentication.
+
 ### Full Deployment (Install + Configure + Firewall)
 
 ```bash
-ansible-playbook playbooks/otel-collector/site.yml
+ansible-playbook playbooks/otel-collector/site.yml -k -K
 ```
 
 ### Configuration & Firewall Update Only
@@ -121,13 +123,13 @@ ansible-playbook playbooks/otel-collector/site.yml
 Re-renders collector configuration, restarts container if config changed, updates iptables allow rules, and validates endpoints:
 
 ```bash
-ansible-playbook playbooks/otel-collector/configure.yml
+ansible-playbook playbooks/otel-collector/configure.yml -k -K
 ```
 
 ### Target a Single Server (with Dry-Run)
 
 ```bash
-ansible-playbook playbooks/otel-collector/configure.yml --limit staging1 --check --diff
+ansible-playbook playbooks/otel-collector/configure.yml --limit staging1 -k -K --check --diff
 ```
 
 ### Add a New Application Server
@@ -135,5 +137,5 @@ ansible-playbook playbooks/otel-collector/configure.yml --limit staging1 --check
 1. Add the server entry under `app_servers` in `inventories/production/hosts.yml` with its `ansible_host`.
 2. Run `configure.yml` to deploy the collector and allow-list the new server across both OTLP and Observability push ports:
    ```bash
-   ansible-playbook playbooks/otel-collector/configure.yml
+   ansible-playbook playbooks/otel-collector/configure.yml -k -K
    ```
