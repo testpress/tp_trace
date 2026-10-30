@@ -1,27 +1,7 @@
 ---
 - name: Build effective OpenTelemetry Collector variables
   ansible.builtin.set_fact:
-    otel_collector_effective_fleet_hosts: >-
-      {%- set ips = [] -%}
-      {%- for h in (groups['app_servers'] | default([])) -%}
-        {%- set ip = hostvars[h].get('ansible_host') -%}
-        {%- if ip -%}
-          {%- if '/' in ip -%}
-            {%- set _ = ips.append(ip) -%}
-          {%- else -%}
-            {%- set _ = ips.append(ip ~ '/32') -%}
-          {%- endif -%}
-        {%- endif -%}
-      {%- endfor -%}
-      {{ (ips + (otel_collector_allowed_hosts_extra | default([]))) | unique }}
-
-- name: Build effective OpenTelemetry Collector allowed hosts
-  ansible.builtin.set_fact:
-    otel_collector_effective_allowed_hosts: >-
-      {{ (((otel_collector_allowed_hosts_override | default([]))
-           if (otel_collector_allowed_hosts_override | default([]) | length > 0)
-           else otel_collector_effective_fleet_hosts)
-          + ['127.0.0.1/32']) | unique }}
+    otel_collector_effective_allowed_hosts: "{{ otel_collector_allowed_hosts_common + otel_collector_allowed_hosts_extra }}"
 
 - name: Ensure OpenTelemetry Collector configuration directory exists
   ansible.builtin.file:
@@ -96,7 +76,7 @@
     jump: ACCEPT
     action: append
     state: present
-  loop: "{{ otel_collector_effective_fleet_hosts | product(otel_collector_observability_ingress_ports) | list }}"
+  loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_observability_ingress_ports) | list }}"
   when:
     - otel_collector_firewall_enabled | default(true) | bool
     - otel_collector_observability_host | default('') | length > 0
@@ -112,7 +92,7 @@
     jump: ACCEPT
     action: append
     state: present
-  loop: "{{ otel_collector_effective_fleet_hosts | product(otel_collector_observability_ingress_ports) | list }}"
+  loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_observability_ingress_ports) | list }}"
   when:
     - otel_collector_firewall_enabled | default(true) | bool
     - otel_collector_observability_host | default('') | length > 0

@@ -5,3 +5,16 @@ otel_collector_tempo_endpoint: "65.21.236.56:4327"
 otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"
 otel_collector_observability_host: "staging1"
 
+otel_collector_allowed_hosts_common:
+  - 127.0.0.1/32
+  - 65.21.236.56/32
+  - 142.132.157.110/32
+  - 37.27.120.204/32
+  - 135.181.218.208/32
+  - 157.180.105.111/32
+  - 65.108.131.200/32
+  - 168.119.199.13/32
+  - 49.12.67.231/32
+
+otel_collector_allowed_hosts_extra: []
+

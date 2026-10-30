@@ -70,11 +70,11 @@ Collector defaults live in `roles/otel-collector/defaults/main.yml`, with enviro
 `otel_collector_otlp_ingress_ports`
 : OTLP ingress ports allowed on application servers (default: `[4317, 4318]`).
 
-`otel_collector_allowed_hosts_override`
-: Explicit list of source IPs/CIDRs allowed to send OTLP data. If non-empty, overrides the auto-computed fleet list (default: `[]`).
+`otel_collector_allowed_hosts_common`
+: Shared source IP or CIDR list allowed to connect to OTLP ports and push to the Observability Host.
 
 `otel_collector_allowed_hosts_extra`
-: Additional IPs or CIDRs appended to the fleet list for OTLP and Observability Host push ingress (default: `[]`).
+: Group- or host-specific source IP or CIDR list appended to the common list (default: `[]`).
 
 `otel_collector_observability_ingress_ports`
 : Ingress ports allow-listed on the Observability Host for the collector fleet (default: `[4327, 9090]`).
