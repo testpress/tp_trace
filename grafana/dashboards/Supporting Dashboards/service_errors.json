@@ -39,7 +39,7 @@
       "targetBlank": true,
       "title": "Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%7D%5D"
     }
   ],
   "liveNow": false,
@@ -505,7 +505,7 @@
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "${DS_TEMPO}"
       },
       "description": "Live error traces with execution time, route, and duration. Click any Trace ID to open the complete Flamegraph waterfall.",
       "fieldConfig": {
@@ -544,7 +544,7 @@
                 "value": [
                   {
                     "title": "Open trace in Explore",
-                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
+                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
                     "targetBlank": true
                   }
                 ]
@@ -767,7 +767,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "${DS_TEMPO}"
           },
           "limit": 50,
           "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (status = error || span.error = true) }",
@@ -817,6 +817,24 @@
   ],
   "templating": {
     "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "Tempo",
+          "value": "tempo"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "Tracing Datasource",
+        "multi": false,
+        "name": "DS_TEMPO",
+        "options": [],
+        "query": "tempo",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
       {
         "allValue": ".*",
         "current": {
