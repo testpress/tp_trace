@@ -216,10 +216,10 @@ class RedSpanProcessor(SpanProcessor):
                 duration_ms=duration_ms,
                 error=is_error,
                 span_kind=span_kind_str,
-                route=route or None,
+                route=None,
                 db_instance=str(attrs.get("db.instance") or attrs.get("db.connection_alias") or "") or None,
                 db_system=str(attrs.get("db.system") or "") or None,
-                http_method=http_method,
+                http_method=None,
                 status_code=status_code,
                 subdomain=str(subdomain) if subdomain else None,
             )

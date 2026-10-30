@@ -256,9 +256,9 @@ class RedMetricsRecorder:
                 "metric_source": "tp_trace_sdk",
             }
 
-            if route:
+            if route and not db_system:
                 attributes["http.route"] = str(route)
-            if http_method:
+            if http_method and not db_system:
                 attributes["http.method"] = str(http_method)
             if status_code is not None:
                 try:
