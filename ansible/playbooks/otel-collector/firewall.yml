@@ -1,9 +1,0 @@
----
-- name: Manage OpenTelemetry Collector firewall rules
-  hosts: app_servers
-  become: true
-  tasks:
-    - name: Run OpenTelemetry Collector firewall tasks
-      ansible.builtin.import_role:
-        name: otel-collector
-        tasks_from: firewall.yml

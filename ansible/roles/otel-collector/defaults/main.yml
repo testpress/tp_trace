@@ -44,7 +44,8 @@ otel_collector_firewall_enabled: true
 otel_collector_otlp_ingress_ports:
   - 4317
   - 4318
-otel_collector_otlp_ingress_sources: []
+otel_collector_allowed_hosts_override: []
+otel_collector_allowed_hosts_extra: []
 otel_collector_observability_host: ""
 otel_collector_observability_ingress_ports:
   - 4327

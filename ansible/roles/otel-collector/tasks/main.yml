@@ -8,8 +8,5 @@
 - name: Configure OpenTelemetry Collector
   ansible.builtin.import_tasks: configure.yml
 
-- name: Manage OpenTelemetry Collector firewall rules
-  ansible.builtin.import_tasks: firewall.yml
-
 - name: Verify OpenTelemetry Collector
   ansible.builtin.import_tasks: verify.yml

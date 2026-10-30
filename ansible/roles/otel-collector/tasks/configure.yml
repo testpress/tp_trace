@@ -1,4 +1,28 @@
 ---
+- name: Build effective OpenTelemetry Collector variables
+  ansible.builtin.set_fact:
+    otel_collector_effective_fleet_hosts: >-
+      {%- set ips = [] -%}
+      {%- for h in (groups['app_servers'] | default([])) -%}
+        {%- set ip = hostvars[h].get('ansible_host') -%}
+        {%- if ip -%}
+          {%- if '/' in ip -%}
+            {%- set _ = ips.append(ip) -%}
+          {%- else -%}
+            {%- set _ = ips.append(ip ~ '/32') -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ (ips + (otel_collector_allowed_hosts_extra | default([]))) | unique }}
+
+- name: Build effective OpenTelemetry Collector allowed hosts
+  ansible.builtin.set_fact:
+    otel_collector_effective_allowed_hosts: >-
+      {{ (((otel_collector_allowed_hosts_override | default([]))
+           if (otel_collector_allowed_hosts_override | default([]) | length > 0)
+           else otel_collector_effective_fleet_hosts)
+          + ['127.0.0.1/32']) | unique }}
+
 - name: Ensure OpenTelemetry Collector configuration directory exists
   ansible.builtin.file:
     path: "{{ otel_collector_config_dir }}"
@@ -38,4 +62,60 @@
     volumes:
       - "{{ otel_collector_config_file }}:/etc/otelcol-contrib/config.yaml:ro"
   when: not ansible_check_mode
+
+- name: Ensure OpenTelemetry Collector OTLP firewall rules are present
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ item.1 | string }}"
+    source: "{{ item.0 }}"
+    jump: ACCEPT
+    action: append
+    state: present
+  loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_otlp_ingress_ports) | list }}"
+  when: otel_collector_firewall_enabled | default(true) | bool
+  notify: Save iptables rules
+
+- name: Ensure Docker user chain exists
+  ansible.builtin.iptables:
+    chain: DOCKER-USER
+    chain_management: true
+    state: present
+  when:
+    - otel_collector_firewall_enabled | default(true) | bool
+    - otel_collector_observability_host | default('') | length > 0
+    - inventory_hostname == otel_collector_observability_host
+  notify: Save iptables rules
+
+- name: Ensure Observability Host push firewall rules are present in Docker user chain
+  ansible.builtin.iptables:
+    chain: DOCKER-USER
+    protocol: tcp
+    destination_port: "{{ item.1 | string }}"
+    source: "{{ item.0 }}"
+    jump: ACCEPT
+    action: append
+    state: present
+  loop: "{{ otel_collector_effective_fleet_hosts | product(otel_collector_observability_ingress_ports) | list }}"
+  when:
+    - otel_collector_firewall_enabled | default(true) | bool
+    - otel_collector_observability_host | default('') | length > 0
+    - inventory_hostname == otel_collector_observability_host
+  notify: Save iptables rules
+
+- name: Ensure Observability Host push firewall rules are present in INPUT chain
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ item.1 | string }}"
+    source: "{{ item.0 }}"
+    jump: ACCEPT
+    action: append
+    state: present
+  loop: "{{ otel_collector_effective_fleet_hosts | product(otel_collector_observability_ingress_ports) | list }}"
+  when:
+    - otel_collector_firewall_enabled | default(true) | bool
+    - otel_collector_observability_host | default('') | length > 0
+    - inventory_hostname == otel_collector_observability_host
+  notify: Save iptables rules
 

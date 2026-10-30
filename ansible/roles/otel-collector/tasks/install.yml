@@ -1,13 +1,28 @@
+---
+- name: Preseed iptables-persistent autosave prompts
+  ansible.builtin.debconf:
+    name: iptables-persistent
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: boolean
+  loop:
+    - question: iptables-persistent/autosave_v4
+      value: "true"
+    - question: iptables-persistent/autosave_v6
+      value: "true"
+  when: otel_collector_firewall_enabled | default(true) | bool
+
 - name: Check if Docker is already installed
   ansible.builtin.command: which docker
   register: docker_check
   changed_when: false
   failed_when: false
 
-- name: Install Docker Python bindings
+- name: Install required packages
   ansible.builtin.apt:
     name:
       - python3-docker
+      - iptables-persistent
     state: present
     update_cache: true
 

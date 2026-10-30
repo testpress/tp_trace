@@ -16,3 +16,10 @@
     that:
       - otel_collector_version is version("0.153.0", ">=")
     fail_msg: This role requires Collector 0.153.0 or later.
+
+- name: Validate OpenTelemetry Collector firewall variables
+  ansible.builtin.assert:
+    that:
+      - otel_collector_otlp_ingress_ports | length > 0
+    fail_msg: otel_collector_otlp_ingress_ports must specify at least one port when firewall is enabled.
+  when: otel_collector_firewall_enabled | default(true) | bool
