@@ -436,11 +436,34 @@ def create_red_metrics_recorder(
     else:
         readers = metric_readers
 
+    raw_cardinality = getattr(config, "metric_cardinality_limit", 5000) if config else 5000
+    try:
+        resolved_cardinality = max(1, int(raw_cardinality))
+    except (ValueError, TypeError):
+        resolved_cardinality = 5000
+
+    view_kwargs: Dict[str, Any] = {}
+    try:
+        import inspect
+
+        if "aggregation_cardinality_limit" in inspect.signature(View.__init__).parameters:
+            # Provide sufficient headroom above tp_trace software limit so the overflow
+            # series (__other__) can be recorded without being collapsed by OTel SDK's built-in
+            # overflow sentinel ({"otel.metric.overflow": True}, default 2000).
+            view_kwargs["aggregation_cardinality_limit"] = max(10000, resolved_cardinality * 2)
+    except Exception:
+        pass
+
     # Configure latency histogram view with explicit APM buckets
     latency_view = View(
         instrument_name="duration_milliseconds",
         aggregation=ExplicitBucketHistogramAggregation(boundaries=LATENCY_BUCKETS_MS),
+        **view_kwargs,
     )
+    views: List[View] = [latency_view]
+    if view_kwargs:
+        views.append(View(instrument_name="calls_total", **view_kwargs))
+        views.append(View(instrument_name="repeated_query_affected_requests_total", **view_kwargs))
 
     if resource is None:
         res_attrs: Dict[str, Any] = {}
@@ -457,7 +480,7 @@ def create_red_metrics_recorder(
     provider = MeterProvider(
         resource=resource,
         metric_readers=readers,
-        views=[latency_view],
+        views=views,
     )
     return RedMetricsRecorder(meter_provider=provider, config=config, readers=readers)
 
