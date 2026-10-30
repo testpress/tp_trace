@@ -162,6 +162,7 @@ def test_collector_spanmetrics_blocks_internal_and_django_server_spans():
 
     metrics_pipe = pipelines.get("metrics", {}).get("processors", [])
     assert "transform/drop_metric_worker_id" not in metrics_pipe
+    assert "deltatocumulative" in metrics_pipe
 
 
 def test_dashboard_links_use_queryparam_not_raw_for_project():
@@ -171,3 +172,30 @@ def test_dashboard_links_use_queryparam_not_raw_for_project():
         assert "var-project=${project:raw}" not in content, (
             f"{p.name} contains 'var-project=${{project:raw}}' which breaks 'All' selection."
         )
+
+
+def test_delta_pipeline_preserves_worker_streams_in_both_collectors():
+    import yaml
+    import pytest
+
+    jinja2 = pytest.importorskip("jinja2", reason="Ansible template rendering requires Jinja2")
+
+    defaults = yaml.safe_load((ROOT / "ansible/roles/otel-collector/defaults/main.yml").read_text())
+    defaults.update(otel_collector_instance="test", otel_collector_alias="test")
+    template = (ROOT / "ansible/roles/otel-collector/templates/otel-collector-config.yaml.j2").read_text()
+    deployed = jinja2.Environment(undefined=jinja2.StrictUndefined).from_string(template).render(**defaults)
+    for text in [(ROOT / "dev/otel-collector/config.yaml").read_text(), deployed]:
+        cfg = yaml.safe_load(text)
+        processors = cfg["service"]["pipelines"]["metrics"]["processors"]
+        assert processors.index("memory_limiter") < processors.index("deltatocumulative") < processors.index("batch")
+        assert cfg["processors"]["deltatocumulative"] == {"max_stale": "5m", "max_streams": 50000}
+        # Only resource attributes may be stripped; worker_id on datapoints isolates writers.
+        assert not any(name.startswith("transform/") for name in processors)
+        # Verify SDK version/language/name attributes are stripped from metric resources
+        dropped_keys = [attr["key"] for attr in cfg["processors"]["resource/drop_ephemeral"]["attributes"]]
+        for sdk_key in ("telemetry.sdk.version", "telemetry.sdk.language", "telemetry.sdk.name"):
+            assert sdk_key in dropped_keys
+        for name in ("prometheusremotewrite", "prometheusremotewrite/internal"):
+            assert cfg["exporters"][name]["remote_write_queue"] == {
+                "enabled": True, "queue_size": 1000, "num_consumers": 1,
+            }

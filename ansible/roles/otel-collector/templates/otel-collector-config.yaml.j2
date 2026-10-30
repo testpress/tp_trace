@@ -25,6 +25,12 @@ processors:
     limit_mib: {{ otel_collector_memory_limit_mib }}
     spike_limit_mib: {{ otel_collector_memory_spike_limit_mib }}
 
+  # Deploy before enabling delta SDK exports. Preserve datapoint worker_id.
+  # max_streams bounds state; new streams over the limit are dropped.
+  deltatocumulative:
+    max_stale: {{ otel_collector_deltatocumulative_max_stale }}
+    max_streams: {{ otel_collector_deltatocumulative_max_streams }}
+
   resource/drop_ephemeral:
     attributes:
       - key: service.instance.id
@@ -32,6 +38,12 @@ processors:
       - key: process.pid
         action: delete
       - key: worker_id
+        action: delete
+      - key: telemetry.sdk.version
+        action: delete
+      - key: telemetry.sdk.language
+        action: delete
+      - key: telemetry.sdk.name
         action: delete
 
   batch:
@@ -67,8 +79,8 @@ exporters:
       max_elapsed_time: 60s
     remote_write_queue:
       enabled: true
-      queue_size: 2000
-      num_consumers: 1
+      queue_size: {{ otel_collector_prometheus_remote_write_queue_size }}
+      num_consumers: {{ otel_collector_prometheus_remote_write_num_consumers }}
     resource_to_telemetry_conversion:
       enabled: true
     external_labels:
@@ -86,8 +98,8 @@ exporters:
       max_elapsed_time: 60s
     remote_write_queue:
       enabled: true
-      queue_size: 2000
-      num_consumers: 1
+      queue_size: {{ otel_collector_prometheus_remote_write_queue_size }}
+      num_consumers: {{ otel_collector_prometheus_remote_write_num_consumers }}
     resource_to_telemetry_conversion:
       enabled: true
     external_labels:
@@ -113,6 +125,7 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
+        - deltatocumulative
         - batch
       exporters:
         - prometheusremotewrite

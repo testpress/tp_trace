@@ -30,6 +30,11 @@ processors:
     limit_mib: 256
     spike_limit_mib: 64
 
+  # Keep datapoint worker_id to isolate cumulative writers after conversion.
+  deltatocumulative:
+    max_stale: 5m
+    max_streams: 50000
+
   resource/drop_ephemeral:
     attributes:
       - key: service.instance.id
@@ -37,6 +42,12 @@ processors:
       - key: process.pid
         action: delete
       - key: worker_id
+        action: delete
+      - key: telemetry.sdk.version
+        action: delete
+      - key: telemetry.sdk.language
+        action: delete
+      - key: telemetry.sdk.name
         action: delete
 
   batch:
@@ -72,7 +83,7 @@ exporters:
       max_elapsed_time: 60s
     remote_write_queue:
       enabled: true
-      queue_size: 2000
+      queue_size: 1000
       num_consumers: 1
     resource_to_telemetry_conversion:
       enabled: true
@@ -94,7 +105,7 @@ exporters:
       max_elapsed_time: 60s
     remote_write_queue:
       enabled: true
-      queue_size: 2000
+      queue_size: 1000
       num_consumers: 1
     resource_to_telemetry_conversion:
       enabled: true
@@ -122,6 +133,7 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
+        - deltatocumulative
         - batch
       exporters:
         - prometheusremotewrite
