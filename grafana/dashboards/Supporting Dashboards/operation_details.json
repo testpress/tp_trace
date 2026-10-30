@@ -25,7 +25,7 @@
       "targetBlank": true,
       "title": "Explore Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20(resource.service.name%20%3D%20${service:doublequote}%20%7C%7C%20span.normalized.service%20%3D%20${service:doublequote})%20%26%26%20(name%20%3D%20${operation:doublequote}%20%7C%7C%20span.normalized.operation%20%3D%20${operation:doublequote})%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20(resource.service.name%20%3D%20%5C%22${service:raw}%5C%22%20%7C%7C%20span.normalized.service%20%3D%20%5C%22${service:raw}%5C%22)%20%26%26%20(name%20%3D%20%5C%22${operation:raw}%5C%22%20%7C%7C%20span.normalized.operation%20%3D%20%5C%22${operation:raw}%5C%22)%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
     }
   ],
   "refresh": "30s",
@@ -1131,7 +1131,7 @@
           "keepTime": true,
           "targetBlank": true,
           "title": "Open in Explore (Full Search)",
-          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20(resource.service.name%20%3D%20${service:doublequote}%20%7C%7C%20span.normalized.service%20%3D%20${service:doublequote})%20%26%26%20(name%20%3D%20${operation:doublequote}%20%7C%7C%20span.normalized.operation%20%3D%20${operation:doublequote})%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20(resource.service.name%20%3D%20%5C%22${service:raw}%5C%22%20%7C%7C%20span.normalized.service%20%3D%20%5C%22${service:raw}%5C%22)%20%26%26%20(name%20%3D%20%5C%22${operation:raw}%5C%22%20%7C%7C%20span.normalized.operation%20%3D%20%5C%22${operation:raw}%5C%22)%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
         }
       ]
     }

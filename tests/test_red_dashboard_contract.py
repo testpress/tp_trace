@@ -343,3 +343,33 @@ def test_variable_queries_parse_and_resolve_single_samples(tmp_path):
     )
     res = subprocess.run([promtool(), "test", "rules", str(eval_fixture)], capture_output=True, text=True, timeout=30)
     assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_all_explore_urls_expand_to_valid_json():
+    import urllib.parse
+
+    for p in DASHBOARDS.rglob("*.json"):
+        content = p.read_text()
+        d = json.loads(content)
+
+        def check_urls(obj):
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if k == "url" and isinstance(v, str) and "/explore?left=" in v:
+                        test_v = v.replace("${__from}", "now-1h").replace("${__to}", "now").replace("${DS_TEMPO}", "tempo")
+                        test_v = test_v.replace("${service:raw}", "django").replace("${operation:raw}", "GET /test/")
+                        test_v = test_v.replace("${project:regex}", ".*").replace("${cluster:regex}", ".*")
+                        test_v = test_v.replace("${method:regex}", "GET").replace("${route:raw}", "/test/")
+                        test_v = test_v.replace("${__value.raw}", "1234567890abcdef")
+                        qs = urllib.parse.parse_qs(test_v.split("?")[1])
+                        left_json = qs["left"][0]
+                        parsed = json.loads(left_json)
+                        assert isinstance(parsed, list), f"Expected list in {p.name}, got {type(parsed)}"
+                    else:
+                        check_urls(v)
+            elif isinstance(obj, list):
+                for item in obj:
+                    check_urls(item)
+
+        check_urls(d)
+
