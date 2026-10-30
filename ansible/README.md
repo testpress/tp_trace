@@ -126,16 +126,29 @@ Re-renders collector configuration, restarts container if config changed, update
 ansible-playbook playbooks/otel-collector/configure.yml -k -K
 ```
 
-### Target a Single Server (with Dry-Run)
+### Target a Single Application Server
+
+When targeting a specific application server, always include `staging1` in the `--limit` pattern so that `staging1`'s firewall opens ingress for Tempo (`4327`) and Prometheus (`9090`) to accept the application server's incoming telemetry:
 
 ```bash
-ansible-playbook playbooks/otel-collector/configure.yml --limit staging1 -k -K --check --diff
+ansible-playbook playbooks/otel-collector/configure.yml --limit "staging1,bpala_classes_app1" -k -K
+```
+
+For dry-run previews:
+
+```bash
+ansible-playbook playbooks/otel-collector/configure.yml --limit "staging1,bpala_classes_app1" -k -K --check --diff
 ```
 
 ### Add a New Application Server
 
 1. Add the server entry under `app_servers` in `inventories/production/hosts.yml` with its `ansible_host`.
-2. Run `configure.yml` to deploy the collector and allow-list the new server across both OTLP and Observability push ports:
+2. Add the server's `IP/32` to `otel_collector_allowed_hosts_common` (or `otel_collector_allowed_hosts_extra`) in `inventories/production/group_vars/app_servers.yml`.
+3. Run `configure.yml` targeting both `staging1` and the new server to deploy the collector and allow-list the new server across both OTLP and Observability push ports:
+   ```bash
+   ansible-playbook playbooks/otel-collector/configure.yml --limit "staging1,<new_server>" -k -K
+   ```
+   Or roll out across the entire fleet:
    ```bash
    ansible-playbook playbooks/otel-collector/configure.yml -k -K
    ```
