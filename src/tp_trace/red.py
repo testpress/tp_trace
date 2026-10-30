@@ -124,15 +124,15 @@ class RedSpanProcessor(SpanProcessor):
                 # SERVER span without status code and without error (e.g. unhandled bypass): skip recording
                 return
 
-        # Determine route template for low-cardinality routing
-        route = (
-            attrs.get("http.route_template")
-            or attrs.get("django.route")
-            or (attrs.get("http.route") if kind != SpanKind.SERVER else None)
-            or ""
-        )
-        if not route and kind == SpanKind.SERVER:
-            if status_code is not None:
+        # Determine route template for low-cardinality routing (SERVER spans only)
+        route = ""
+        if kind == SpanKind.SERVER:
+            route = (
+                attrs.get("http.route_template")
+                or attrs.get("django.route")
+                or ""
+            )
+            if not route and status_code is not None:
                 route = str(status_code)
 
         # Determine normalized operation safely without unbound dynamic string fallback
@@ -171,7 +171,7 @@ class RedSpanProcessor(SpanProcessor):
             else:
                 service_ops.add(operation)
 
-            if route:
+            if route and kind == SpanKind.SERVER:
                 if len(self._seen_routes) >= self.route_limit:
                     if route not in self._seen_routes:
                         route = _OVERFLOW_SENTINEL
