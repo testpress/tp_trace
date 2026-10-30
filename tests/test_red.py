@@ -116,7 +116,8 @@ def test_red_span_processor_records_postgres_span():
     assert pt.attributes["normalized_operation"] == "SELECT"
     assert pt.attributes["error"] == "false"
     assert pt.attributes["span_kind"] == "SPAN_KIND_CLIENT"
-    assert pt.attributes["http.route"] == "/api/users/"
+    assert "http.route" not in pt.attributes
+    assert "http.method" not in pt.attributes
 
     durations = _get_metric_points(reader, "duration_milliseconds")
     assert len(durations) == 1
@@ -475,7 +476,6 @@ def test_red_span_processor_cardinality_limits():
             attributes={
                 "db.system": "redis",
                 "db.operation": f"CMD_{i}",
-                "http.route": f"/route/{i}",
             },
         )
         processor.on_end(span)
@@ -484,13 +484,26 @@ def test_red_span_processor_cardinality_limits():
     assert len(calls) > 0
 
     operations = {c.attributes["normalized_operation"] for c in calls}
-    routes = {c.attributes.get("http.route") for c in calls}
-
-    # At most 3 distinct + "__other__"
     assert "__other__" in operations
-    assert "__other__" in routes
     assert len(operations) <= 4
-    assert len(routes) <= 4
+
+    # Verify server route cardinality limits collapse to __other__
+    for i in range(6):
+        server_span = _create_mock_span(
+            name=f"GET /route/{i}",
+            kind=SpanKind.SERVER,
+            attributes={
+                "http.method": "GET",
+                "django.route": f"/route/{i}",
+                "http.status_code": 200,
+            },
+        )
+        processor.on_end(server_span)
+
+    all_calls = _get_metric_points(reader, "calls_total")
+    server_routes = {c.attributes.get("http.route") for c in all_calls if c.attributes.get("normalized_service") == "django"}
+    assert "__other__" in server_routes
+    assert len(server_routes) <= 4
 
 
 def test_red_span_processor_service_cardinality_limits():
@@ -813,5 +826,55 @@ def test_exported_dependency_spans_carry_tp_trace_red_attribute():
 
     assert len(internal_spans) == 1
     assert "tp_trace.red" not in internal_spans[0].attributes
+
+
+def test_database_metrics_aggregated_across_routes_without_route_dimension():
+    """Verify database metrics aggregate across routes without route labels, avoiding stream loss."""
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="route-loss-test",
+        metric_readers=[reader],
+    )
+    processor = RedSpanProcessor()
+
+    # Batch 1: Route A (3 queries) + Route B (7 queries) = 10
+    for _ in range(3):
+        processor.on_end(_create_mock_span(
+            name="SELECT users",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT", "http.route": "/route-a"},
+        ))
+    for _ in range(7):
+        processor.on_end(_create_mock_span(
+            name="SELECT users",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT", "http.route": "/route-b"},
+        ))
+
+    calls = _get_metric_points(reader, "calls_total")
+    pg_calls = [c for c in calls if c.attributes.get("normalized_service") == "postgres"]
+    assert len(pg_calls) == 1, "Expected single aggregated series without http.route"
+    assert "http.route" not in pg_calls[0].attributes
+    assert pg_calls[0].value == 10
+
+    # Batch 2: Route A (2 queries) + Route B (4 queries) = +6 (cumulative 16)
+    for _ in range(2):
+        processor.on_end(_create_mock_span(
+            name="SELECT users",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT", "http.route": "/route-a"},
+        ))
+    for _ in range(4):
+        processor.on_end(_create_mock_span(
+            name="SELECT users",
+            kind=SpanKind.CLIENT,
+            attributes={"db.system": "postgresql", "db.operation": "SELECT", "http.route": "/route-b"},
+        ))
+
+    calls2 = _get_metric_points(reader, "calls_total")
+    pg_calls2 = [c for c in calls2 if c.attributes.get("normalized_service") == "postgres"]
+    assert len(pg_calls2) == 1
+    assert pg_calls2[0].value == 16, f"Expected exactly 16 cumulative calls, got {pg_calls2[0].value}"
+
 
 

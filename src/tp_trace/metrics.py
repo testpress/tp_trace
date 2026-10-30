@@ -414,11 +414,22 @@ def create_red_metrics_recorder(
             try:
                 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
                 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+                from opentelemetry.sdk.metrics import Counter as SDKCounter, Histogram as SDKHistogram
+                from opentelemetry.sdk.metrics.export import AggregationTemporality
                 from tp_trace.exporter import SafeMetricExporter
 
+                # Default owned RED instruments to delta without changing the host
+                # environment. Explicit OTel preferences remain authoritative.
+                preferred_temporality: Optional[Dict[type, AggregationTemporality]] = None
+                if "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE" not in os.environ:
+                    preferred_temporality = {
+                        SDKCounter: AggregationTemporality.DELTA,
+                        SDKHistogram: AggregationTemporality.DELTA,
+                    }
                 raw_exporter = OTLPMetricExporter(
                     endpoint=otlp_metrics_ep,
                     headers=config.headers or None,
+                    preferred_temporality=preferred_temporality,
                 )
                 safe_exporter = SafeMetricExporter(raw_exporter, endpoint=otlp_metrics_ep)
                 interval_ms = getattr(config, "metrics_export_interval_millis", 60000)
