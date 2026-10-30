@@ -20,7 +20,7 @@
 - name: Validate OpenTelemetry Collector firewall variables
   ansible.builtin.assert:
     that:
-      - otel_collector_effective_allowed_hosts | length > 0
+      - (otel_collector_allowed_hosts_common | default([]) + otel_collector_allowed_hosts_extra | default([])) | length > 0
       - otel_collector_otlp_ingress_ports | length > 0
     fail_msg: OpenTelemetry Collector firewall variables are incomplete. Check group_vars.
   when: otel_collector_firewall_enabled | default(true) | bool

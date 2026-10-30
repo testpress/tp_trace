@@ -44,7 +44,8 @@ roles/otel-collector/
    Following the exact pattern used in the `pgbouncer` role:
    - **Package setup:** `iptables-persistent` is preseeded with debconf and installed in `tasks/install.yml`.
    - **Application Servers (`INPUT` chain):** Allows incoming OTLP traffic on ports `4317` and `4318` from localhost and allow-listed fleet servers (`otel_collector_effective_allowed_hosts`).
-   - **Observability Host (`DOCKER-USER` & `INPUT` chains):** On the designated observability host (`otel_collector_observability_host`), container-forwarded push traffic for Tempo (`4327`) and Prometheus (`9090`) is allow-listed from the fleet (`otel_collector_effective_fleet_hosts`).
+   - **Observability Host (`DOCKER-USER` & `INPUT` chains):** On the designated observability host (`otel_collector_observability_host`), container-forwarded push traffic for Tempo (`4327`) and Prometheus (`9090`) is allowed from the fleet (`otel_collector_effective_allowed_hosts`).
+   - **Baseline Policy Compatibility:** Like `pgbouncer`, this role manages allow-list `ACCEPT` rules without imposing terminal `DROP` rules, staying compatible with the host's existing baseline firewall policy.
    - **Persistence:** Any iptables changes trigger the `Save iptables rules` handler (`netfilter-persistent save`).
 
 ## Variable Model & Parameters

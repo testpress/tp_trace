@@ -74,7 +74,7 @@
     destination_port: "{{ item.1 | string }}"
     source: "{{ item.0 }}"
     jump: ACCEPT
-    action: append
+    action: insert
     state: present
   loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_observability_ingress_ports) | list }}"
   when:

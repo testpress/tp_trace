@@ -5,6 +5,8 @@ otel_collector_tempo_endpoint: "65.21.236.56:4327"
 otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"
 otel_collector_observability_host: "staging1"
 
+# Allowed source IPs/CIDRs for OTLP ingress (4317/4318) and observability push
+# ports (4327/9090). Keep this list in sync with hosts in hosts.yml.
 otel_collector_allowed_hosts_common:
   - 127.0.0.1/32
   - 65.21.236.56/32
