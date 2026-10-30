@@ -226,7 +226,7 @@
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "${DS_TEMPO}"
       },
       "description": "Maximum number of times the duplicate query ran in a single request.",
       "fieldConfig": {
@@ -282,7 +282,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "${DS_TEMPO}"
           },
           "limit": 20,
           "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count)",
@@ -297,7 +297,7 @@
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "${DS_TEMPO}"
       },
       "description": "The exact SQL query being executed repeatedly on this endpoint.",
       "gridPos": {
@@ -308,7 +308,7 @@
       },
       "id": 20,
       "options": {
-        "content": "{{#each data}}\n{{#if @first}}\n<div class=\"dd-problem-card\">\n  <div class=\"dd-header-title\">Problem</div>\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Summary</div>\n    <div class=\"dd-summary-line\">\n      <span class=\"dd-pill\">service:{{#if (lookup this \"service\")}}{{lookup this \"service\"}}{{else if (lookup this \"normalized.service\")}}{{lookup this \"normalized.service\"}}{{else}}django{{/if}}</span>\n      <span>is</span>\n      <span class=\"dd-dotted-highlight\">making an N+1 query</span>,\n      <span>making</span>\n      <span class=\"dd-pill\">resource:{{#if (lookup this \"parent_span\")}}{{lookup this \"parent_span\"}}{{else if (lookup this \"django.view\")}}{{lookup this \"django.view\"}}{{else if (lookup this \"route\")}}{{lookup this \"route\"}}{{else}}{{lookup this \"http.route_template\"}}{{/if}}</span>\n      <span>much slower than it needs to be.</span>\n    </div>\n    <div class=\"dd-impact-line\">\n      {{#if (lookup this \"repeat_count\")}}\n        <span class=\"dd-impact-num\">{{lookup this \"repeat_count\"}} queries</span> repeated in single request\n      {{else if (lookup this \"n_plus_one.dominant_count\")}}\n        <span class=\"dd-impact-num\">{{lookup this \"n_plus_one.dominant_count\"}} queries</span> repeated in single request\n      {{else}}\n        Queries repeated in single request\n      {{/if}}\n    </div>\n    <div style=\"margin-top: 10px;\">\n      <a href=\"/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:200,%22query%22:%22%7B%20resource.project_name%20%3D~%20%5C%22${project:regex}%5C%22%20%26%26%20resource.cluster_name%20%3D~%20%5C%22${cluster:regex}%5C%22%20%26%26%20span.repeated_query.detected%20%3D%20true%20%26%26%20span.http.method%20%3D~%20%5C%22${method:regex}%5C%22%20%26%26%20span.http.route_template%20%3D%20%5C%22${route:raw}%5C%22%20%7D%22,%22queryType%22:%22traceql%22%7D%5D\" target=\"_blank\" class=\"dd-pill\" style=\"text-decoration: none; padding: 4px 10px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;\">\n        \ud83d\udd0d Open all traces in Explore (up to 200) \u2197\n      </a>\n    </div>\n  </div>\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Root Span</div>\n    <div class=\"dd-span-box\">\n      {{#if (lookup this \"method\")}}{{lookup this \"method\"}}{{else}}{{lookup this \"http.method\"}}{{/if}} {{#if (lookup this \"route\")}}{{lookup this \"route\"}}{{else}}{{lookup this \"http.route_template\"}}{{/if}}\n    </div>\n  </div>\n\n  {{#if (lookup this \"django.view\")}}\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Parent Span</div>\n    <div class=\"dd-span-box\">\n      {{lookup this \"django.view\"}}\n    </div>\n  </div>\n  {{else if (lookup this \"parent_span\")}}\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Parent Span</div>\n    <div class=\"dd-span-box\">\n      {{lookup this \"parent_span\"}}\n    </div>\n  </div>\n  {{/if}}\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Repeated Queries</div>\n    {{#each (splitQueryPatterns (lookup this \"query\") (lookup this \"n_plus_one.dominant_query\") (lookup this \"repeat_count\") (lookup this \"n_plus_one.dominant_count\"))}}\n    <div class=\"dd-pattern-card\">\n      <div class=\"dd-pattern-header\">\n        <span class=\"dd-pattern-title\">{{this.title}}</span>\n        {{#if this.stats}}\n        <span class=\"dd-pill dd-pattern-stats\">{{this.stats}}</span>\n        {{/if}}\n      </div>\n      <div class=\"dd-code-container\">\n        <pre class=\"dd-code-content\"><code>{{this.sql}}</code></pre>\n      </div>\n    </div>\n    {{/each}}\n  </div>\n</div>\n{{/if}}\n{{/each}}",
+        "content": "{{#each data}}\n{{#if @first}}\n<div class=\"dd-problem-card\">\n  <div class=\"dd-header-title\">Problem</div>\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Summary</div>\n    <div class=\"dd-summary-line\">\n      <span class=\"dd-pill\">service:{{#if (lookup this \"service\")}}{{lookup this \"service\"}}{{else if (lookup this \"normalized.service\")}}{{lookup this \"normalized.service\"}}{{else}}django{{/if}}</span>\n      <span>is</span>\n      <span class=\"dd-dotted-highlight\">making an N+1 query</span>,\n      <span>making</span>\n      <span class=\"dd-pill\">resource:{{#if (lookup this \"parent_span\")}}{{lookup this \"parent_span\"}}{{else if (lookup this \"django.view\")}}{{lookup this \"django.view\"}}{{else if (lookup this \"route\")}}{{lookup this \"route\"}}{{else}}{{lookup this \"http.route_template\"}}{{/if}}</span>\n      <span>much slower than it needs to be.</span>\n    </div>\n    <div class=\"dd-impact-line\">\n      {{#if (lookup this \"repeat_count\")}}\n        <span class=\"dd-impact-num\">{{lookup this \"repeat_count\"}} queries</span> repeated in single request\n      {{else if (lookup this \"n_plus_one.dominant_count\")}}\n        <span class=\"dd-impact-num\">{{lookup this \"n_plus_one.dominant_count\"}} queries</span> repeated in single request\n      {{else}}\n        Queries repeated in single request\n      {{/if}}\n    </div>\n    <div style=\"margin-top: 10px;\">\n      <a href=\"/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20resource.project_name%20%3D~%20%5C%22${project:regex}%5C%22%20%26%26%20resource.cluster_name%20%3D~%20%5C%22${cluster:regex}%5C%22%20%26%26%20span.repeated_query.detected%20%3D%20true%20%26%26%20span.http.method%20%3D~%20%5C%22${method:regex}%5C%22%20%26%26%20span.http.route_template%20%3D%20%5C%22${route:raw}%5C%22%20%7D%22,%22queryType%22:%22traceql%22%7D%5D\" target=\"_blank\" class=\"dd-pill\" style=\"text-decoration: none; padding: 4px 10px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;\">\n        \ud83d\udd0d Open all traces in Explore (up to 200) \u2197\n      </a>\n    </div>\n  </div>\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Root Span</div>\n    <div class=\"dd-span-box\">\n      {{#if (lookup this \"method\")}}{{lookup this \"method\"}}{{else}}{{lookup this \"http.method\"}}{{/if}} {{#if (lookup this \"route\")}}{{lookup this \"route\"}}{{else}}{{lookup this \"http.route_template\"}}{{/if}}\n    </div>\n  </div>\n\n  {{#if (lookup this \"django.view\")}}\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Parent Span</div>\n    <div class=\"dd-span-box\">\n      {{lookup this \"django.view\"}}\n    </div>\n  </div>\n  {{else if (lookup this \"parent_span\")}}\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Parent Span</div>\n    <div class=\"dd-span-box\">\n      {{lookup this \"parent_span\"}}\n    </div>\n  </div>\n  {{/if}}\n\n  <div class=\"dd-section\">\n    <div class=\"dd-section-title\">Repeated Queries</div>\n    {{#each (splitQueryPatterns (lookup this \"query\") (lookup this \"n_plus_one.dominant_query\") (lookup this \"repeat_count\") (lookup this \"n_plus_one.dominant_count\"))}}\n    <div class=\"dd-pattern-card\">\n      <div class=\"dd-pattern-header\">\n        <span class=\"dd-pattern-title\">{{this.title}}</span>\n        {{#if this.stats}}\n        <span class=\"dd-pill dd-pattern-stats\">{{this.stats}}</span>\n        {{/if}}\n      </div>\n      <div class=\"dd-code-container\">\n        <pre class=\"dd-code-content\"><code>{{this.sql}}</code></pre>\n      </div>\n    </div>\n    {{/each}}\n  </div>\n</div>\n{{/if}}\n{{/each}}",
         "defaultContent": "<div class=\"dd-problem-card\">\n  <div class=\"dd-header-title\">Problem</div>\n  <div class=\"dd-empty-notice\">\n    No repeated query (N+1) detected for this endpoint in the selected time range.\n  </div>\n</div>",
         "editor": {
           "format": "auto",
@@ -330,7 +330,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "${DS_TEMPO}"
           },
           "limit": 1,
           "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
@@ -378,7 +378,7 @@
     {
       "datasource": {
         "type": "tempo",
-        "uid": "tempo"
+        "uid": "${DS_TEMPO}"
       },
       "description": "Recent traces exhibiting repeated queries for this endpoint (fixed to 10 latest). Click any Trace ID to inspect flamegraph waterfall, or click \"Open in Explore\" to load up to 1000 traces.",
       "fieldConfig": {
@@ -425,7 +425,7 @@
                 "value": [
                   {
                     "title": "Open trace in Explore",
-                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
+                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
                     "targetBlank": true
                   }
                 ]
@@ -553,7 +553,7 @@
           "keepTime": true,
           "targetBlank": true,
           "title": "Open in Explore (All Traces - 200 max)",
-          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%22limit%22:200,%22query%22:%22%7B%20resource.project_name%20%3D~%20%5C%22${project:regex}%5C%22%20%26%26%20resource.cluster_name%20%3D~%20%5C%22${cluster:regex}%5C%22%20%26%26%20span.repeated_query.detected%20%3D%20true%20%26%26%20span.http.method%20%3D~%20%5C%22${method:regex}%5C%22%20%26%26%20span.http.route_template%20%3D%20%5C%22${route:raw}%5C%22%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+          "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20resource.project_name%20%3D~%20%5C%22${project:regex}%5C%22%20%26%26%20resource.cluster_name%20%3D~%20%5C%22${cluster:regex}%5C%22%20%26%26%20span.repeated_query.detected%20%3D%20true%20%26%26%20span.http.method%20%3D~%20%5C%22${method:regex}%5C%22%20%26%26%20span.http.route_template%20%3D%20%5C%22${route:raw}%5C%22%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
         }
       ],
       "options": {
@@ -579,7 +579,7 @@
         {
           "datasource": {
             "type": "tempo",
-            "uid": "tempo"
+            "uid": "${DS_TEMPO}"
           },
           "limit": 10,
           "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code)",

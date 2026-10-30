@@ -25,7 +25,7 @@
       "targetBlank": true,
       "title": "Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22tempo%22,%7B%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%7D%5D"
     }
   ],
   "refresh": "30s",
@@ -52,6 +52,24 @@
         "name": "DS_PROMETHEUS",
         "options": [],
         "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Tempo",
+          "value": "tempo"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "Tracing Datasource",
+        "multi": false,
+        "name": "DS_TEMPO",
+        "options": [],
+        "query": "tempo",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -1036,8 +1054,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (normalized_operation) ((last_over_time(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range]) and (resets(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range]) == 0) unless (calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`} offset $__range)) or increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range])) or sum by (normalized_operation) ((last_over_time(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER\", normalized_operation=~`${operation:regex}`}[$__range]) and (resets(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER\", normalized_operation=~`${operation:regex}`}[$__range]) == 0) unless (apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER\", normalized_operation=~`${operation:regex}`} offset $__range)) or increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER\", normalized_operation=~`${operation:regex}`}[$__range]))) > 0",
-          "format": "table",
+          "expr": "((sum by (normalized_operation) (((last_over_time(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range]) and (resets(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range]) == 0) unless (calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`} offset $__range)) or ((last_over_time(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range]) - (calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`} offset $__range)) and (resets(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range]) == 0))))) or sum by (normalized_operation) (((last_over_time(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__range]) and (resets(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__range]) == 0) unless (apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`} offset $__range)) or ((last_over_time(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__range]) - (apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`} offset $__range)) and (resets(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__range]) == 0)))) or sum by (normalized_operation) (increase(calls_total{institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", normalized_operation=~`${operation:regex}`}[$__range])) or sum by (normalized_operation) (increase(apm_calls_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_instance=~\"${db_instance:regex}|^$\", span_kind!=\"SPAN_KIND_INTERNAL\", normalized_operation=~`${operation:regex}`}[$__range]))) > 0",          "format": "table",
           "instant": true,
           "legendFormat": "Total Calls",
           "range": false,
