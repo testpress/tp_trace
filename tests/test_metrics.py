@@ -964,3 +964,51 @@ def test_safe_metric_exporter_absorbs_errors():
     # 3. Flush & Shutdown don't raise
     assert safe.force_flush() is True
     safe.shutdown()
+
+
+@pytest.mark.parametrize("preference", [None, "DELTA", "CUMULATIVE", "LOWMEMORY"])
+def test_owned_metric_export_temporality(monkeypatch, preference):
+    """Exercise actual collections through the owned reader and safe exporter."""
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+    from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExportResult
+    from tp_trace.config import SDKConfig
+    from tp_trace.metrics import create_red_metrics_recorder
+
+    key = "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE"
+    if preference is None:
+        monkeypatch.delenv(key, raising=False)
+    else:
+        monkeypatch.setenv(key, preference)
+    exports = []
+
+    def capture(self, metrics_data, **kwargs):
+        exports.append(metrics_data)
+        return MetricExportResult.SUCCESS
+
+    monkeypatch.setattr(OTLPMetricExporter, "export", capture)
+    recorder = create_red_metrics_recorder(config=SDKConfig(metrics_export_interval_millis=3600000))
+    try:
+        meter = recorder.meter_provider.get_meter("temporality-test")
+        counter = meter.create_counter("calls_total")
+        histogram = meter.create_histogram("duration_milliseconds")
+        for value in (3, 2):
+            counter.add(value)
+            histogram.record(value)
+            assert recorder.meter_provider.force_flush()
+
+        expected = AggregationTemporality.CUMULATIVE if preference == "CUMULATIVE" else AggregationTemporality.DELTA
+        collections = [
+            {metric.name: metric.data for rm in batch.resource_metrics for sm in rm.scope_metrics for metric in sm.metrics}
+            for batch in exports
+        ]
+        assert len(collections) == 2
+        for batch in collections:
+            assert batch["calls_total"].aggregation_temporality == expected
+            assert batch["duration_milliseconds"].aggregation_temporality == expected
+        assert collections[0]["calls_total"].data_points[0].value == 3
+        assert collections[1]["calls_total"].data_points[0].value == (5 if preference == "CUMULATIVE" else 2)
+        assert collections[1]["duration_milliseconds"].data_points[0].count == (2 if preference == "CUMULATIVE" else 1)
+        assert collections[1]["duration_milliseconds"].data_points[0].sum == (5 if preference == "CUMULATIVE" else 2)
+        assert os.environ.get(key) == preference
+    finally:
+        recorder.shutdown()
