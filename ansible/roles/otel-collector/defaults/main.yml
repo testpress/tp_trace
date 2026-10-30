@@ -25,6 +25,8 @@ otel_collector_log_max_file: "3"
 
 otel_collector_memory_limit_mib: 400
 otel_collector_memory_spike_limit_mib: 80
+otel_collector_deltatocumulative_max_stale: "5m"
+otel_collector_deltatocumulative_max_streams: 50000
 otel_collector_batch_timeout: "500ms"
 otel_collector_batch_send_size: 256
 otel_collector_batch_max_size: 512
@@ -32,6 +34,8 @@ otel_collector_batch_max_size: 512
 otel_collector_tempo_endpoint: "65.21.236.56:4327"
 
 otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"
+otel_collector_prometheus_remote_write_num_consumers: 1
+otel_collector_prometheus_remote_write_queue_size: 1000
 otel_collector_tempo_tls_insecure: true
 otel_collector_tempo_retry_enabled: true
 otel_collector_tempo_retry_initial_interval: "1s"
