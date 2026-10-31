@@ -48,3 +48,10 @@ def test_health_listener_is_disabled_for_deployment_and_enabled_locally():
     tasks = _yaml("ansible/roles/otel-collector/tasks/configure.yml")
     deployed_env = next(task["community.docker.docker_container"]["env"] for task in tasks if "community.docker.docker_container" in task)
     assert "OTEL_COLLECTOR_EXTENSIONS" not in deployed_env
+
+
+def test_local_tempo_publishes_deployment_grpc_port_for_vm_collectors():
+    local = _yaml("dev/docker-compose.yml")["services"]["tempo"]
+    deployed = _yaml("setup/docker-compose.yml")["services"]["tempo"]
+    assert "${DEV_BIND_ADDRESS:-0.0.0.0}:4327:4317" in local["ports"]
+    assert "4327:4317" in deployed["ports"]

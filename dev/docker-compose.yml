@@ -173,6 +173,7 @@ services:
       - tempo_data:/var/lib/tempo
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:3200:3200"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:4327:4317"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3200/ready || exit 1"]
       interval: 3s

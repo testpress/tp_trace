@@ -44,6 +44,7 @@ reloaded with `make restart SERVICE=otel-collector`.
 | Sample Django App | `8002` | [http://localhost:8002/](http://localhost:8002/) (API & Admin) |
 | Grafana | `3001` | [http://localhost:3001/](http://localhost:3001/) (Anonymous Admin login) |
 | Prometheus | `9090` | [http://localhost:9090/](http://localhost:9090/) (Metrics & TSDB) |
+| Tempo OTLP/gRPC | `4327` | Trace ingestion from VM/deployed Collectors |
 | Tempo | `3200` | [http://localhost:3200/ready](http://localhost:3200/ready) (Readiness endpoint) |
 | OTel Collector | `4317` / `4318` | OTLP gRPC (`4317`) and HTTP (`4318`) trace receiver |
 | MinIO (S3 API) | `9002` | [http://localhost:9002/](http://localhost:9002/) (S3-compatible object storage) |
