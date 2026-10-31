@@ -13,8 +13,4 @@ The repository-root Compose file provisions Grafana. Its data sources are Promet
 
 Prometheus exemplars link selected metric observations to Tempo traces.
 
-Service Catalog and Collector Monitoring display **Cardinality Diagnostics & Capacity**:
-- **Service Catalog**: Tracks SDK-side grouping into `__other__` (showing affected scope, cause, limit usage, and proportion of grouped calls). Missing diagnostics are surfaced as `Missing Diagnostics` / `No data` rather than masquerading as healthy.
-- **Collector Monitoring**: Distinguishes application SDK grouping (where aggregate count and duration histograms are fully preserved in `__other__`) from collector stream-cap drops (where exceeding `max_streams: 50000` causes permanent telemetry loss).
-
 Operational Issues and Service Catalog show **Repeated Queries** as a potential N+1 advisory. The affected-request metric is independent of trace sampling, so a positive count can appear without an example trace in the selected range. Query details are trace-only; no SQL is stored in the metric labels. See [the feature plan](../n-plus-one-apm-plan.md) for the detection and privacy contract.
