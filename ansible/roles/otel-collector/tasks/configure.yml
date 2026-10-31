@@ -11,9 +11,9 @@
     group: root
     mode: "0755"
 
-- name: Render OpenTelemetry Collector configuration
-  ansible.builtin.template:
-    src: otel-collector-config.yaml.j2
+- name: Copy shared OpenTelemetry Collector configuration
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../config/otel-collector.yaml"
     dest: "{{ otel_collector_config_file }}"
     owner: root
     group: root
@@ -33,6 +33,33 @@
     env:
       GOMEMLIMIT: "{{ otel_collector_gomemlimit }}"
       GOGC: "{{ otel_collector_gogc }}"
+      OTEL_COLLECTOR_ALIAS: "{{ otel_collector_alias | string }}"
+      OTEL_COLLECTOR_BATCH_MAX_SIZE: "{{ (otel_collector_batch_max_size | string) if otel_collector_batch_max_size is defined else omit }}"
+      OTEL_COLLECTOR_BATCH_SEND_SIZE: "{{ (otel_collector_batch_send_size | string) if otel_collector_batch_send_size is defined else omit }}"
+      OTEL_COLLECTOR_BATCH_TIMEOUT: "{{ (otel_collector_batch_timeout | string) if otel_collector_batch_timeout is defined else omit }}"
+      OTEL_COLLECTOR_DELTATOCUMULATIVE_MAX_STALE: "{{ (otel_collector_deltatocumulative_max_stale | string) if otel_collector_deltatocumulative_max_stale is defined else omit }}"
+      OTEL_COLLECTOR_DELTATOCUMULATIVE_MAX_STREAMS: "{{ (otel_collector_deltatocumulative_max_streams | string) if otel_collector_deltatocumulative_max_streams is defined else omit }}"
+      OTEL_COLLECTOR_INSTANCE: "{{ otel_collector_instance | string }}"
+      OTEL_COLLECTOR_INTERNAL_METRICS_BIND: "{{ otel_collector_internal_metrics_bind | string }}"
+      OTEL_COLLECTOR_INTERNAL_METRICS_PORT: "{{ otel_collector_internal_metrics_port | string }}"
+      OTEL_COLLECTOR_LOG_LEVEL: "{{ (otel_collector_log_level | string) if otel_collector_log_level is defined else omit }}"
+      OTEL_COLLECTOR_MEMORY_LIMIT_MIB: "{{ (otel_collector_memory_limit_mib | string) if otel_collector_memory_limit_mib is defined else omit }}"
+      OTEL_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB: "{{ (otel_collector_memory_spike_limit_mib | string) if otel_collector_memory_spike_limit_mib is defined else omit }}"
+      OTEL_COLLECTOR_OTLP_GRPC_BIND: "{{ otel_collector_otlp_grpc_bind | string }}"
+      OTEL_COLLECTOR_OTLP_GRPC_PORT: "{{ otel_collector_otlp_grpc_port | string }}"
+      OTEL_COLLECTOR_OTLP_HTTP_BIND: "{{ otel_collector_otlp_http_bind | string }}"
+      OTEL_COLLECTOR_OTLP_HTTP_PORT: "{{ otel_collector_otlp_http_port | string }}"
+      OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT: "{{ otel_collector_prometheus_remote_write_endpoint | string }}"
+      OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_NUM_CONSUMERS: "{{ (otel_collector_prometheus_remote_write_num_consumers | string) if otel_collector_prometheus_remote_write_num_consumers is defined else omit }}"
+      OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_QUEUE_SIZE: "{{ (otel_collector_prometheus_remote_write_queue_size | string) if otel_collector_prometheus_remote_write_queue_size is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_ENDPOINT: "{{ otel_collector_tempo_endpoint | string }}"
+      OTEL_COLLECTOR_TEMPO_QUEUE_NUM_CONSUMERS: "{{ (otel_collector_tempo_queue_num_consumers | string) if otel_collector_tempo_queue_num_consumers is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_QUEUE_SIZE: "{{ (otel_collector_tempo_queue_size | string) if otel_collector_tempo_queue_size is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_RETRY_ENABLED: "{{ (otel_collector_tempo_retry_enabled | string | lower) if otel_collector_tempo_retry_enabled is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_RETRY_INITIAL_INTERVAL: "{{ (otel_collector_tempo_retry_initial_interval | string) if otel_collector_tempo_retry_initial_interval is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_RETRY_MAX_ELAPSED_TIME: "{{ (otel_collector_tempo_retry_max_elapsed_time | string) if otel_collector_tempo_retry_max_elapsed_time is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_RETRY_MAX_INTERVAL: "{{ (otel_collector_tempo_retry_max_interval | string) if otel_collector_tempo_retry_max_interval is defined else omit }}"
+      OTEL_COLLECTOR_TEMPO_TLS_INSECURE: "{{ (otel_collector_tempo_tls_insecure | string | lower) if otel_collector_tempo_tls_insecure is defined else omit }}"
     log_driver: json-file
     log_options:
       max-size: "{{ otel_collector_log_max_size }}"

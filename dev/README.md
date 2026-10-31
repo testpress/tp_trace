@@ -25,6 +25,18 @@ Root Makefile commands explicitly select `dev/docker-compose.yml` and load a roo
 if using that file. Project, network, and volume names are unchanged. The sample
 application and traffic generator are now in `dev/sample-app/`.
 
+## Shared Configuration
+
+Collector, Tempo, and Prometheus settings now live in the repository-root
+[`config/`](../config/README.md). Local Compose and deployment consumers use
+these canonical files. Only addresses, bindings, and identity labels differ
+in local Collector environment values; tuning defaults match production.
+
+Run `make check-collector-config` from the root to validate the shared Collector
+YAML using the pinned image without starting dependencies. For the initial
+mount/environment migration, run `make up`; later Collector file edits can be
+reloaded with `make restart SERVICE=otel-collector`.
+
 ## Available Services
 
 | Service | Host Port | Description |

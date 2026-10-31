@@ -1,0 +1,155 @@
+# Shared by local Compose and Ansible. Change pipeline behavior here.
+extensions:
+  health_check:
+    endpoint: ${env:OTEL_COLLECTOR_HEALTH_BIND:-127.0.0.1}:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ${env:OTEL_COLLECTOR_OTLP_GRPC_BIND:-127.0.0.1}:${env:OTEL_COLLECTOR_OTLP_GRPC_PORT:-4317}
+      http:
+        endpoint: ${env:OTEL_COLLECTOR_OTLP_HTTP_BIND:-127.0.0.1}:${env:OTEL_COLLECTOR_OTLP_HTTP_PORT:-4318}
+
+  prometheus/internal:
+    config:
+      scrape_configs:
+        - job_name: otel-collector
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["localhost:${env:OTEL_COLLECTOR_INTERNAL_METRICS_PORT:-8888}"]
+              labels:
+                source: "otelcol-telemetry"
+                instance: "${env:OTEL_COLLECTOR_INSTANCE}"
+                collector_alias: "${env:OTEL_COLLECTOR_ALIAS}"
+
+processors:
+  memory_limiter:
+    check_interval: 500ms
+    limit_mib: ${env:OTEL_COLLECTOR_MEMORY_LIMIT_MIB:-400}
+    spike_limit_mib: ${env:OTEL_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB:-80}
+
+  # Deploy before enabling delta SDK exports. Preserve datapoint worker_id.
+  # max_streams bounds state; new streams over the limit are dropped.
+  deltatocumulative:
+    max_stale: ${env:OTEL_COLLECTOR_DELTATOCUMULATIVE_MAX_STALE:-5m}
+    max_streams: ${env:OTEL_COLLECTOR_DELTATOCUMULATIVE_MAX_STREAMS:-50000}
+
+  resource/drop_ephemeral:
+    attributes:
+      - key: service.instance.id
+        action: delete
+      - key: process.pid
+        action: delete
+      - key: worker_id
+        action: delete
+      - key: telemetry.sdk.version
+        action: delete
+      - key: telemetry.sdk.language
+        action: delete
+      - key: telemetry.sdk.name
+        action: delete
+
+  batch:
+    timeout: ${env:OTEL_COLLECTOR_BATCH_TIMEOUT:-500ms}
+    send_batch_size: ${env:OTEL_COLLECTOR_BATCH_SEND_SIZE:-256}
+    send_batch_max_size: ${env:OTEL_COLLECTOR_BATCH_MAX_SIZE:-512}
+
+exporters:
+  otlp/tempo:
+    endpoint: ${env:OTEL_COLLECTOR_TEMPO_ENDPOINT}
+    tls:
+      insecure: ${env:OTEL_COLLECTOR_TEMPO_TLS_INSECURE:-true}
+    timeout: 10s
+    retry_on_failure:
+      enabled: ${env:OTEL_COLLECTOR_TEMPO_RETRY_ENABLED:-true}
+      initial_interval: ${env:OTEL_COLLECTOR_TEMPO_RETRY_INITIAL_INTERVAL:-1s}
+      max_interval: ${env:OTEL_COLLECTOR_TEMPO_RETRY_MAX_INTERVAL:-30s}
+      max_elapsed_time: ${env:OTEL_COLLECTOR_TEMPO_RETRY_MAX_ELAPSED_TIME:-300s}
+    sending_queue:
+      enabled: true
+      num_consumers: ${env:OTEL_COLLECTOR_TEMPO_QUEUE_NUM_CONSUMERS:-8}
+      queue_size: ${env:OTEL_COLLECTOR_TEMPO_QUEUE_SIZE:-5000}
+
+  prometheusremotewrite:
+    endpoint: ${env:OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT}
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 60s
+    remote_write_queue:
+      enabled: true
+      queue_size: ${env:OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_QUEUE_SIZE:-1000}
+      num_consumers: ${env:OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_NUM_CONSUMERS:-1}
+    resource_to_telemetry_conversion:
+      enabled: true
+    external_labels:
+      job: "otel-collector"
+      instance: "${env:OTEL_COLLECTOR_INSTANCE}"
+      collector_alias: "${env:OTEL_COLLECTOR_ALIAS}"
+
+  prometheusremotewrite/internal:
+    endpoint: ${env:OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT}
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 60s
+    remote_write_queue:
+      enabled: true
+      queue_size: ${env:OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_QUEUE_SIZE:-1000}
+      num_consumers: ${env:OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_NUM_CONSUMERS:-1}
+    resource_to_telemetry_conversion:
+      enabled: true
+    external_labels:
+      job: "otel-collector"
+      instance: "${env:OTEL_COLLECTOR_INSTANCE}"
+      collector_alias: "${env:OTEL_COLLECTOR_ALIAS}"
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - batch
+      exporters:
+        - otlp/tempo
+
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - deltatocumulative
+        - batch
+      exporters:
+        - prometheusremotewrite
+
+    metrics/internal:
+      receivers:
+        - prometheus/internal
+      processors:
+        - batch
+      exporters:
+        - prometheusremotewrite/internal
+
+  telemetry:
+    logs:
+      level: ${env:OTEL_COLLECTOR_LOG_LEVEL:-info}
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: ${env:OTEL_COLLECTOR_INTERNAL_METRICS_BIND:-0.0.0.0}
+                port: ${env:OTEL_COLLECTOR_INTERNAL_METRICS_PORT:-8888}
+                without_type_suffix: false
+                without_units: false

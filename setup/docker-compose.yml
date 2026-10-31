@@ -18,7 +18,7 @@ services:
     stop_grace_period: 30s
 
     volumes:
-      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - ../config/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo_data:/var/lib/tempo
 
     ports:

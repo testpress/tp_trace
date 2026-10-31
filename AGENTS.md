@@ -43,6 +43,7 @@ Collector configuration:
 - `tests/e2e/`: explicit live-stack probes, outside ordinary pytest discovery.
 - `dev/sample-app/`: instrumented Django application and traffic generator.
 - `dev/`: local observability stack; root Makefile selects its Compose file explicitly.
+- `config/`: shared Collector, Tempo, and Prometheus configuration.
 - `grafana/`: canonical dashboards and datasource provisioning.
 - `setup/`: separate deployment configuration. Preserve its purpose; assess shared
   changes without copying intentional local exposure into deployment settings.
