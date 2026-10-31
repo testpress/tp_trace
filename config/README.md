@@ -14,9 +14,11 @@ Ansible role from the full repository checkout so it can find this directory.
 
 Required Collector values are `OTEL_COLLECTOR_TEMPO_ENDPOINT`,
 `OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT`, `OTEL_COLLECTOR_INSTANCE`, and
-`OTEL_COLLECTOR_ALIAS`. Other substitutions have defaults in the YAML. Deployed
-health checks default to loopback port 13133; local Compose changes the binding
-so it is reachable through the published development port.
+`OTEL_COLLECTOR_ALIAS`. Other substitutions have defaults in the YAML. The health-check extension is
+disabled by default (`OTEL_COLLECTOR_EXTENSIONS=[]`), so Ansible deployments do
+not open port 13133. Local Compose explicitly enables it with
+`OTEL_COLLECTOR_EXTENSIONS=[health_check]` and binds to `0.0.0.0:13133` for the
+existing development health probe. Merely defining the extension does not start it.
 
 Local now uses the previous production tuning: 400/80 MiB memory/spike limits,
 500 ms batching with 256/512-item trigger/maximum sizes, and a Tempo queue of

@@ -33,8 +33,18 @@ def test_ansible_copies_same_collector_file_and_local_only_changes_addresses():
     assert not any("ansible.builtin.template" in task for task in tasks)
 
     env = _yaml("dev/docker-compose.yml")["services"]["otel-collector"]["environment"]
-    allowed = {"GOMEMLIMIT", "GOGC", "OTEL_COLLECTOR_INSTANCE", "OTEL_COLLECTOR_ALIAS"}
+    allowed = {"GOMEMLIMIT", "GOGC", "OTEL_COLLECTOR_INSTANCE", "OTEL_COLLECTOR_ALIAS", "OTEL_COLLECTOR_EXTENSIONS"}
     assert all(key in allowed or key.endswith(("_BIND", "_ENDPOINT")) for key in env)
     assert not (ROOT / "dev/otel-collector").exists()
     assert not (ROOT / "dev/tempo").exists()
     assert not (ROOT / "dev/prometheus").exists()
+
+
+def test_health_listener_is_disabled_for_deployment_and_enabled_locally():
+    config = _yaml("config/otel-collector.yaml")
+    assert config["service"]["extensions"] == "${env:OTEL_COLLECTOR_EXTENSIONS:-[]}"
+    local = _yaml("dev/docker-compose.yml")["services"]["otel-collector"]["environment"]
+    assert yaml.safe_load(local["OTEL_COLLECTOR_EXTENSIONS"]) == ["health_check"]
+    tasks = _yaml("ansible/roles/otel-collector/tasks/configure.yml")
+    deployed_env = next(task["community.docker.docker_container"]["env"] for task in tasks if "community.docker.docker_container" in task)
+    assert "OTEL_COLLECTOR_EXTENSIONS" not in deployed_env

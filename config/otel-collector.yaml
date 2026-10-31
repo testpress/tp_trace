@@ -110,7 +110,8 @@ exporters:
       collector_alias: "${env:OTEL_COLLECTOR_ALIAS}"
 
 service:
-  extensions: [health_check]
+  # Local Compose opts in; deployed hosts do not open a new listener.
+  extensions: ${env:OTEL_COLLECTOR_EXTENSIONS:-[]}
   pipelines:
     traces:
       receivers:
