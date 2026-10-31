@@ -169,10 +169,11 @@ services:
     restart: on-failure:5
     command: ["-config.file=/etc/tempo/tempo.yaml"]
     volumes:
-      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - ../config/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo_data:/var/lib/tempo
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:3200:3200"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:4327:4317"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3200/ready || exit 1"]
       interval: 3s
@@ -192,9 +193,18 @@ services:
     environment:
       GOMEMLIMIT: "380MiB"
       GOGC: "80"
+      OTEL_COLLECTOR_OTLP_GRPC_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_OTLP_HTTP_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_INTERNAL_METRICS_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_HEALTH_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_EXTENSIONS: "[health_check]"
+      OTEL_COLLECTOR_TEMPO_ENDPOINT: tempo:4317
+      OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT: http://prometheus:9090/api/v1/write
+      OTEL_COLLECTOR_INSTANCE: dev-collector
+      OTEL_COLLECTOR_ALIAS: dev
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
-      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ../config/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
     depends_on:
       tempo:
         condition: service_healthy
@@ -221,7 +231,7 @@ services:
       - "--web.enable-remote-write-receiver"
       - "--web.enable-lifecycle"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:9090:9090"

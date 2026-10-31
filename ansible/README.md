@@ -23,8 +23,6 @@ roles/otel-collector/
     configure.yml
     validate.yml
     verify.yml
-  templates/
-    otel-collector-config.yaml.j2
 ```
 
 ## How It Works
@@ -50,7 +48,13 @@ roles/otel-collector/
 
 ## Variable Model & Parameters
 
-Collector defaults live in `roles/otel-collector/defaults/main.yml`, with environment overrides in `inventories/production/group_vars/app_servers.yml`.
+The role copies the repository-root `config/otel-collector.yaml` unchanged and passes
+host-specific environment values to the container. Pipeline tuning defaults live
+only in that shared YAML. Deployment defaults live in `roles/otel-collector/defaults/main.yml`,
+with inventory overrides in `inventories/production/group_vars/app_servers.yml`.
+Existing tuning variables remain optional environment overrides. Deploy from the
+full repository checkout: the role resolves the shared file relative to `role_path`.
+See [shared configuration](../config/README.md).
 
 ### Collector Endpoints & Observability Host
 
@@ -120,7 +124,7 @@ ansible-playbook playbooks/otel-collector/site.yml -k -K
 
 ### Configuration & Firewall Update Only
 
-Re-renders collector configuration, restarts container if config changed, updates iptables allow rules, and validates endpoints:
+Copies the shared Collector configuration, restarts container if config changed, updates iptables allow rules, and validates endpoints:
 
 ```bash
 ansible-playbook playbooks/otel-collector/configure.yml -k -K

@@ -3,7 +3,7 @@ PYTHON ?= python3
 VENV ?= .venv
 COMPOSE ?= docker compose $(if $(wildcard .env),--env-file .env) -f dev/docker-compose.yml
 
-.PHONY: help install lint test pre-commit build check-config up rebuild restart down nuke logs ps smoke traffic
+.PHONY: help install lint test pre-commit build check-config check-collector-config up rebuild restart down nuke logs ps smoke traffic
 
 help: ## Show development commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,6 +31,9 @@ build: ## Build wheel and source distribution
 
 check-config: ## Validate the resolved local Compose configuration
 	$(COMPOSE) config --quiet
+
+check-collector-config: ## Validate shared Collector YAML with the pinned local image
+	$(COMPOSE) run --rm --no-deps otel-collector validate --config=/etc/otelcol-contrib/config.yaml
 
 up: ## Start the local stack using existing images (no build)
 	$(COMPOSE) up --no-build -d --wait --wait-timeout 180

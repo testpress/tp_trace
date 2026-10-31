@@ -62,3 +62,4 @@ jobs:
       - run: python -m pytest
       - run: python -m build
       - run: make check-config
+      - run: make check-collector-config

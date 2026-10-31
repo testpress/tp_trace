@@ -25,6 +25,18 @@ Root Makefile commands explicitly select `dev/docker-compose.yml` and load a roo
 if using that file. Project, network, and volume names are unchanged. The sample
 application and traffic generator are now in `dev/sample-app/`.
 
+## Shared Configuration
+
+Collector, Tempo, and Prometheus settings now live in the repository-root
+[`config/`](../config/README.md). Local Compose and deployment consumers use
+these canonical files. Only addresses, bindings, and identity labels differ
+in local Collector environment values; tuning defaults match production.
+
+Run `make check-collector-config` from the root to validate the shared Collector
+YAML using the pinned image without starting dependencies. For the initial
+mount/environment migration, run `make up`; later Collector file edits can be
+reloaded with `make restart SERVICE=otel-collector`.
+
 ## Available Services
 
 | Service | Host Port | Description |
@@ -32,6 +44,7 @@ application and traffic generator are now in `dev/sample-app/`.
 | Sample Django App | `8002` | [http://localhost:8002/](http://localhost:8002/) (API & Admin) |
 | Grafana | `3001` | [http://localhost:3001/](http://localhost:3001/) (Anonymous Admin login) |
 | Prometheus | `9090` | [http://localhost:9090/](http://localhost:9090/) (Metrics & TSDB) |
+| Tempo OTLP/gRPC | `4327` | Trace ingestion from VM/deployed Collectors |
 | Tempo | `3200` | [http://localhost:3200/ready](http://localhost:3200/ready) (Readiness endpoint) |
 | OTel Collector | `4317` / `4318` | OTLP gRPC (`4317`) and HTTP (`4318`) trace receiver |
 | MinIO (S3 API) | `9002` | [http://localhost:9002/](http://localhost:9002/) (S3-compatible object storage) |

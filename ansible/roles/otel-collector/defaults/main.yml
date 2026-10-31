@@ -23,26 +23,11 @@ otel_collector_gogc: "80"
 otel_collector_log_max_size: "20m"
 otel_collector_log_max_file: "3"
 
-otel_collector_memory_limit_mib: 400
-otel_collector_memory_spike_limit_mib: 80
-otel_collector_deltatocumulative_max_stale: "5m"
-otel_collector_deltatocumulative_max_streams: 50000
-otel_collector_batch_timeout: "500ms"
-otel_collector_batch_send_size: 256
-otel_collector_batch_max_size: 512
-
+# Pipeline tuning defaults live in config/otel-collector.yaml at the repository root.
+# Explicit otel_collector_* inventory overrides are passed as environment values.
 otel_collector_tempo_endpoint: "65.21.236.56:4327"
 
 otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"
-otel_collector_prometheus_remote_write_num_consumers: 1
-otel_collector_prometheus_remote_write_queue_size: 1000
-otel_collector_tempo_tls_insecure: true
-otel_collector_tempo_retry_enabled: true
-otel_collector_tempo_retry_initial_interval: "1s"
-otel_collector_tempo_retry_max_interval: "30s"
-otel_collector_tempo_retry_max_elapsed_time: "300s"
-otel_collector_tempo_queue_num_consumers: 8
-otel_collector_tempo_queue_size: 5000
 
 otel_collector_firewall_enabled: true
 otel_collector_otlp_ingress_ports:
@@ -56,7 +41,6 @@ otel_collector_observability_ingress_ports:
   - 4327
   - 9090
 
-otel_collector_log_level: "info"
 otel_collector_internal_metrics_bind: "0.0.0.0"
 otel_collector_internal_metrics_port: 8888
 otel_collector_instance: "{{ ansible_facts.default_ipv4.address | default(ansible_host | default(inventory_hostname)) }}"
