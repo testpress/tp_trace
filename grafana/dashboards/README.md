@@ -41,36 +41,18 @@ Use this dashboard to:
 - Review overall request throughput and latency trends.
 - Check the current health status of monitored services.
 
-#### Interpret Service Health and Cardinality
+#### Interpret Service Health
 
-Service health is evaluated over a rolling five-minute window based on the error percentage and telemetry cardinality grouping.
+Service health is evaluated over a rolling five-minute window based on the error percentage.
 
-| Status | Error percentage (5m) | Cardinality Grouping |
-|---|---:|---|
-| Healthy (Green) | Below 1% | 0.0% grouped, diagnostics active |
-| Warning (Orange) | 1% to below 5% | Grouping active (>0% grouped into `__other__`) |
-| Critical (Red) | 5% and above | N/A |
-| No Data / Degraded (Gray) | No data available | Missing diagnostics or telemetry |
+| Status | Error percentage (5m) |
+|---|---:|
+| Healthy (Green) | Below 1% |
+| Warning (Orange) | 1% to below 5% |
+| Critical (Red) | 5% and above |
+| No Data (Gray) | No data available |
 
-> [!IMPORTANT]
-> A *No Data* or missing diagnostics status indicates absent telemetry or diagnostics, never a healthy service. Missing diagnostics must not appear healthy.
-
-The **Cardinality (% Grouped)** column shows the proportion of request or operation observations that exceeded cardinality limits and were collapsed into `__other__`:
-- **0.0% (Green)**: All observed endpoints and operations are within configured limits.
-- **>0% (Amber / Red)**: High-cardinality values (e.g. IDs in URLs, unparameterized SQL queries, dynamic tenant subdomains) crossed configured thresholds. Individual labels are grouped into `__other__`, but total counts (`calls_total`) and duration histograms (`duration_milliseconds`) remain 100% accurate in aggregate.
-- **Missing Diagnostics (Gray)**: Telemetry source does not provide cardinality diagnostic instruments.
-
-#### Cardinality Causes, Limits, and Troubleshooting
-
-High cardinality in metrics is caused by dynamic parameters leaking into metric label sets:
-1. **Route Limit (512 templates)**: Occurs when URL paths with dynamic entity IDs (e.g., `/api/v1/users/12345/`) bypass Django URL pattern matching and emit unique route strings.
-   *Fix*: Ensure Django views resolve route templates or use `@trace_route` annotations.
-2. **Operation Limit (128 per service)**: Occurs when raw SQL strings with dynamic literals or unregistered task names are used as operations.
-   *Fix*: Parameterize database queries and ensure Celery tasks are registered at startup.
-3. **Metric Series Limit (5,000 per process)**: Occurs when combinations of subdomains, routes, operations, and status codes cross the process combination budget.
-   *Fix*: Identify the varying dimension using the Cardinality Overflow anomaly card on Service Catalog, or tune `TP_TRACE_METRIC_CARDINALITY_LIMIT`.
-4. **Collector Stream-Cap Drops**: When the total unique streams across all application workers exceed the Collector's `deltatocumulative` table limit (`50,000`), the collector drops incoming datapoints (`otelcol_deltatocumulative_dropped_datapoints`).
-   *Fix*: Check the **Collector Monitoring** dashboard to distinguish SDK grouping from collector drops. Increase `max_streams` in Collector YAML or eliminate application cardinality leaks.
+Use these thresholds to identify services that require further investigation. A *No Data* status indicates missing telemetry, not necessarily a healthy service.
 
 ### 2. Investigate Service Performance
 
