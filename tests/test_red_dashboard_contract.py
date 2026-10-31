@@ -373,3 +373,82 @@ def test_all_explore_urls_expand_to_valid_json():
 
         check_urls(d)
 
+
+def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
+    """Verify that Collector Monitoring Panel 403 reports the service and rate of cardinality grouping."""
+    p403 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 403)
+    t_rate = next(t for t in p403["targets"] if t.get("refId") == "GroupedRate")
+    expr_rate = re.sub(r"\$\{[^}]+\}", ".*", t_rate["expr"]).replace("$__rate_interval", "5m")
+
+    series = [
+        {
+            "series": 'apm_cardinality_grouping_total{collector_alias="dev",normalized_service="postgres",scope="operation",cause="operation_limit"}',
+            "values": "0+60x31",
+        }
+    ]
+
+    evaluate(
+        tmp_path,
+        expr_rate.replace(" or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\".*\", normalized_service=~\"django|postgres\", scope=~\"route|operation\"} or apm_cardinality_limit_ratio{collector_alias=~\".*\", normalized_service=~\"django|postgres\", scope=~\"route|operation\"}))", "").replace(" or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\".*\", normalized_service!~\"all|__other__\"}[2m])))", ""),
+        series,
+        [{"labels": '{normalized_service="postgres",scope="operation"}', "value": 1}],
+    )
+
+
+def test_collector_monitoring_distinguishes_grouping_from_stream_cap_drops(tmp_path):
+    """Verify Collector Monitoring distinguishes SDK grouping from collector drops."""
+    p10 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 10)
+    t_sdk = next(t for t in p10["targets"] if t.get("refId") == "SDK_Grouping")
+    t_col = next(t for t in p10["targets"] if t.get("refId") == "Stream_Drops")
+    expr_sdk = re.sub(r"\$\{[^}]+\}", ".*", t_sdk["expr"]).replace("$__rate_interval", "5m")
+    expr_col = re.sub(r"\$\{[^}]+\}", ".*", t_col["expr"]).replace("$__rate_interval", "5m")
+
+    series = [
+        {
+            "series": 'apm_cardinality_grouping_total{collector_alias="dev",net_host_name="127.0.0.1",project_name="test",cluster_name="dev",normalized_service="django",scope="route",cause="route_limit",worker_id="w1"}',
+            "values": "0+60x31",
+        },
+        {
+            "series": 'otelcol_deltatocumulative_dropped_datapoints{collector_alias="dev",net_host_name="127.0.0.1",instance="dev-collector"}',
+            "values": "0+120x31",
+        },
+    ]
+
+    # Evaluate SDK grouping expression (60/60 = 1 req/s)
+    evaluate(
+        tmp_path,
+        expr_sdk.replace(" or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\".*\"}))", ""),
+        series,
+        [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": 1}],
+    )
+
+    # Evaluate Collector stream-cap drop expression (120/60 = 2 req/s)
+    evaluate(
+        tmp_path,
+        expr_col.replace(" or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\".*\"}))", ""),
+        series,
+        [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": 2}],
+    )
+
+
+def test_collector_status_reports_up_state(tmp_path):
+    """Verify that a collector reports UP status based on healthy telemetry."""
+    p10 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 10)
+    t_status = next(t for t in p10["targets"] if t.get("refId") == "Status")
+    expr_status = re.sub(r"\$\{[^}]+\}", ".*", t_status["expr"]).replace("$__rate_interval", "5m")
+
+    series = [
+        {
+            "series": 'up{source="otelcol-telemetry",collector_alias="dev",net_host_name="127.0.0.1"}',
+            "values": "1x31",
+        }
+    ]
+
+    evaluate(
+        tmp_path,
+        expr_status,
+        series,
+        [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": 1}],
+    )
+
+

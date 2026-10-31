@@ -10,7 +10,7 @@ Provides two specialized SpanProcessors:
 
 import logging
 import threading
-from typing import Dict, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -27,6 +27,13 @@ _DEFAULT_ROUTE_LIMIT = 512
 _DEFAULT_SERVICE_LIMIT = 64
 _OVERFLOW_SENTINEL = "__other__"
 
+_ACTIVE_SPAN_PROCESSOR: Optional["RedSpanProcessor"] = None
+
+
+def get_active_span_processor() -> Optional["RedSpanProcessor"]:
+    """Return the active RedSpanProcessor instance for diagnostics."""
+    return _ACTIVE_SPAN_PROCESSOR
+
 
 class RedSpanProcessor(SpanProcessor):
     """Computes RED metrics on span completion.
@@ -42,12 +49,27 @@ class RedSpanProcessor(SpanProcessor):
         route_limit: int = _DEFAULT_ROUTE_LIMIT,
         service_limit: int = _DEFAULT_SERVICE_LIMIT,
     ) -> None:
+        global _ACTIVE_SPAN_PROCESSOR
         self.cardinality_limit_per_service = cardinality_limit_per_service
         self.route_limit = route_limit
         self.service_limit = service_limit
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._seen_operations: Dict[str, Set[str]] = {}
         self._seen_routes: Set[str] = set()
+        _ACTIVE_SPAN_PROCESSOR = self
+
+    def get_cardinality_stats(self) -> Dict[str, Any]:
+        """Return thread-safe snapshot of tracked cardinality counts and limits."""
+        with self._lock:
+            ops_counts = {svc: len(ops) for svc, ops in self._seen_operations.items()}
+            return {
+                "route_count": len(self._seen_routes),
+                "route_limit": self.route_limit,
+                "service_count": len(self._seen_operations),
+                "service_limit": self.service_limit,
+                "operation_counts": ops_counts,
+                "operation_limit": self.cardinality_limit_per_service,
+            }
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
         if span.is_recording():
@@ -161,13 +183,24 @@ class RedSpanProcessor(SpanProcessor):
                     operation = "unknown"
 
         # Thread-safe cardinality checks
+        orig_service = str(service)
         with self._lock:
             if len(self._seen_operations) >= self.service_limit and service not in self._seen_operations:
                 service = _OVERFLOW_SENTINEL
+                metrics.record_cardinality_grouping(
+                    service=_OVERFLOW_SENTINEL,
+                    scope="service",
+                    cause="service_limit",
+                )
             service_ops = self._seen_operations.setdefault(service, set())
             if len(service_ops) >= self.cardinality_limit_per_service:
                 if operation not in service_ops:
                     operation = _OVERFLOW_SENTINEL
+                    metrics.record_cardinality_grouping(
+                        service=orig_service if service != _OVERFLOW_SENTINEL else _OVERFLOW_SENTINEL,
+                        scope="operation",
+                        cause="operation_limit",
+                    )
             else:
                 service_ops.add(operation)
 
@@ -175,6 +208,11 @@ class RedSpanProcessor(SpanProcessor):
                 if len(self._seen_routes) >= self.route_limit:
                     if route not in self._seen_routes:
                         route = _OVERFLOW_SENTINEL
+                        metrics.record_cardinality_grouping(
+                            service=orig_service if service != _OVERFLOW_SENTINEL else _OVERFLOW_SENTINEL,
+                            scope="route",
+                            cause="route_limit",
+                        )
                 else:
                     self._seen_routes.add(route)
 

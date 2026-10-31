@@ -8,9 +8,9 @@ import logging
 import os
 import socket
 import threading
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from opentelemetry.metrics import Counter, Histogram
+from opentelemetry.metrics import Counter, Histogram, Observation
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
@@ -99,11 +99,12 @@ class RedMetricsRecorder:
         self.readers: List[MetricReader] = readers or []
         self.meter = meter_provider.get_meter("tp_trace")
         self.metric_cardinality_limit = max(1, int(getattr(config, "metric_cardinality_limit", 5000))) if config else 5000
-        self._metric_series_lock = threading.Lock()
+        self._metric_series_lock = threading.RLock()
         self._metric_series: Set[Tuple[Tuple[str, str], ...]] = set()
         self._metric_owners: Set[Tuple[str, str]] = set()
         self._repeated_query_series: Set[Tuple[Tuple[str, str], ...]] = set()
         self._repeated_query_owners: Set[Tuple[str, str]] = set()
+        self._admitted_diagnostic_services: Set[str] = set()
 
         # Instrument contracts matching spanmetrics connector:
         # - calls_total: Counter of completed requests
@@ -123,6 +124,26 @@ class RedMetricsRecorder:
             description="Total HTTP requests affected by detected repeated query (potential N+1) patterns",
             unit="1",
         )
+        self.cardinality_grouping_total: Counter = self.meter.create_counter(
+            name="apm_cardinality_grouping_total",
+            description="Total observations grouped into __other__ due to cardinality limits",
+            unit="1",
+        )
+        try:
+            self.cardinality_tracked_gauge = self.meter.create_observable_gauge(
+                name="apm_cardinality_tracked",
+                callbacks=[self._observe_cardinality_tracked],
+                description="Current count of tracked entities under cardinality limits",
+                unit="",
+            )
+            self.cardinality_limit_gauge = self.meter.create_observable_gauge(
+                name="apm_cardinality_limit",
+                callbacks=[self._observe_cardinality_limit],
+                description="Configured cardinality limit by scope and service",
+                unit="",
+            )
+        except Exception as exc:
+            logger.debug("Failed to create cardinality observable gauges: %s", exc)
 
     def shutdown(self) -> None:
         """Shut down metric readers and meter provider."""
@@ -135,6 +156,293 @@ class RedMetricsRecorder:
             self.meter_provider.shutdown()
         except Exception:
             pass
+
+    def _observe_cardinality_tracked(self, options: Any = None) -> Iterable[Observation]:
+        try:
+            cfg = self.config
+            resolved_project = str((cfg.project_name if cfg else None) or "default")
+            resolved_cluster = str((cfg.cluster_name if cfg else None) or "")
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
+            # Metric series tracked
+            with self._metric_series_lock:
+                series_count = len(self._metric_series)
+            yield Observation(
+                series_count,
+                {
+                    "project_name": resolved_project,
+                    "cluster_name": resolved_cluster,
+                    "normalized_service": "all",
+                    "scope": "metric_series",
+                    "worker_id": worker_identity,
+                    "metric_source": "tp_trace_sdk",
+                },
+            )
+
+            # Query active span processor if available
+            proc = None
+            try:
+                from tp_trace.red import get_active_span_processor
+
+                proc = get_active_span_processor()
+            except Exception:
+                pass
+
+            if proc is not None:
+                stats = proc.get_cardinality_stats()
+                yield Observation(
+                    stats["route_count"],
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "django",
+                        "scope": "route",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                yield Observation(
+                    stats["service_count"],
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "__other__",
+                        "scope": "service",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                if stats["operation_counts"]:
+                    for svc, count in stats["operation_counts"].items():
+                        yield Observation(
+                            count,
+                            {
+                                "project_name": resolved_project,
+                                "cluster_name": resolved_cluster,
+                                "normalized_service": str(svc),
+                                "scope": "operation",
+                                "worker_id": worker_identity,
+                                "metric_source": "tp_trace_sdk",
+                            },
+                        )
+                else:
+                    yield Observation(
+                        0,
+                        {
+                            "project_name": resolved_project,
+                            "cluster_name": resolved_cluster,
+                            "normalized_service": "django",
+                            "scope": "operation",
+                            "worker_id": worker_identity,
+                            "metric_source": "tp_trace_sdk",
+                        },
+                    )
+            else:
+                yield Observation(
+                    0,
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "django",
+                        "scope": "route",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                yield Observation(
+                    0,
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "django",
+                        "scope": "operation",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+        except Exception as exc:
+            logger.debug("Failed to observe cardinality tracked: %s", exc)
+
+    def _observe_cardinality_limit(self, options: Any = None) -> Iterable[Observation]:
+        try:
+            cfg = self.config
+            resolved_project = str((cfg.project_name if cfg else None) or "default")
+            resolved_cluster = str((cfg.cluster_name if cfg else None) or "")
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
+            yield Observation(
+                self.metric_cardinality_limit,
+                {
+                    "project_name": resolved_project,
+                    "cluster_name": resolved_cluster,
+                    "normalized_service": "all",
+                    "scope": "metric_series",
+                    "worker_id": worker_identity,
+                    "metric_source": "tp_trace_sdk",
+                },
+            )
+
+            proc = None
+            try:
+                from tp_trace.red import get_active_span_processor
+
+                proc = get_active_span_processor()
+            except Exception:
+                pass
+
+            if proc is not None:
+                stats = proc.get_cardinality_stats()
+                yield Observation(
+                    stats["route_limit"],
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "django",
+                        "scope": "route",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                yield Observation(
+                    stats["service_limit"],
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "__other__",
+                        "scope": "service",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                if stats["operation_counts"]:
+                    for svc in stats["operation_counts"].keys():
+                        yield Observation(
+                            stats["operation_limit"],
+                            {
+                                "project_name": resolved_project,
+                                "cluster_name": resolved_cluster,
+                                "normalized_service": str(svc),
+                                "scope": "operation",
+                                "worker_id": worker_identity,
+                                "metric_source": "tp_trace_sdk",
+                            },
+                        )
+                else:
+                    yield Observation(
+                        stats["operation_limit"],
+                        {
+                            "project_name": resolved_project,
+                            "cluster_name": resolved_cluster,
+                            "normalized_service": "django",
+                            "scope": "operation",
+                            "worker_id": worker_identity,
+                            "metric_source": "tp_trace_sdk",
+                        },
+                    )
+            else:
+                yield Observation(
+                    512,
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "django",
+                        "scope": "route",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                yield Observation(
+                    128,
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "django",
+                        "scope": "operation",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+                yield Observation(
+                    64,
+                    {
+                        "project_name": resolved_project,
+                        "cluster_name": resolved_cluster,
+                        "normalized_service": "__other__",
+                        "scope": "service",
+                        "worker_id": worker_identity,
+                        "metric_source": "tp_trace_sdk",
+                    },
+                )
+        except Exception as exc:
+            logger.debug("Failed to observe cardinality limit: %s", exc)
+
+    def record_cardinality_grouping(
+        self,
+        *,
+        service: str,
+        scope: str,
+        cause: str,
+        project_name: Optional[str] = None,
+        cluster_name: Optional[str] = None,
+    ) -> None:
+        """Record diagnostic count of an observation grouped into __other__."""
+        try:
+            cfg = self.config
+            resolved_project = str(project_name or (cfg.project_name if cfg else None) or "default")
+            resolved_cluster = str(cluster_name or (cfg.cluster_name if cfg else None) or "")
+
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
+            valid_scopes = {"operation", "route", "service", "metric_series", "repeated_queries"}
+            valid_causes = {
+                "operation_limit",
+                "route_limit",
+                "service_limit",
+                "metric_series_limit",
+                "repeated_query_series_limit",
+            }
+            norm_scope = scope if scope in valid_scopes else "unknown"
+            norm_cause = cause if cause in valid_causes else "unknown"
+
+            with self._metric_series_lock:
+                if len(self._admitted_diagnostic_services) < 64:
+                    self._admitted_diagnostic_services.add(str(service))
+                    norm_service = str(service)
+                elif str(service) in self._admitted_diagnostic_services:
+                    norm_service = str(service)
+                else:
+                    norm_service = "__other__"
+
+            attributes = {
+                "project_name": resolved_project,
+                "cluster_name": resolved_cluster,
+                "normalized_service": norm_service,
+                "scope": norm_scope,
+                "cause": norm_cause,
+                "worker_id": worker_identity,
+                "metric_source": "tp_trace_sdk",
+            }
+            self.cardinality_grouping_total.add(1, attributes)
+        except Exception as exc:
+            logger.debug("Failed to record cardinality grouping diagnostic: %s", exc)
 
     def record_request(
         self,
@@ -310,6 +618,15 @@ class RedMetricsRecorder:
         # apparently stable dimensions (method, status, service) can vary without
         # bound. Retain only admitted owners, with two error-split series per
         # owner and a shared pair for owners arriving after budget exhaustion.
+        orig_svc = str(attributes.get("normalized_service", "__other__"))
+        self.record_cardinality_grouping(
+            service=orig_svc,
+            scope="metric_series",
+            cause="metric_series_limit",
+            project_name=owner[0],
+            cluster_name=owner[1],
+        )
+
         return {
             "project_name": owner[0],
             "cluster_name": owner[1],
@@ -379,6 +696,13 @@ class RedMetricsRecorder:
                     else:
                         if owner not in self._repeated_query_owners:
                             owner = ("__other__", "__other__")
+                        self.record_cardinality_grouping(
+                            service=str(service or "django"),
+                            scope="repeated_queries",
+                            cause="repeated_query_series_limit",
+                            project_name=owner[0],
+                            cluster_name=owner[1],
+                        )
                         # Keep counts while bounding every varying dimension,
                         # including tenant and owner values. Do not add worker_id
                         # or other labels outside this metric's allowlist.
@@ -475,6 +799,8 @@ def create_red_metrics_recorder(
     if view_kwargs:
         views.append(View(instrument_name="calls_total", **view_kwargs))
         views.append(View(instrument_name="repeated_query_affected_requests_total", **view_kwargs))
+        views.append(View(instrument_name="apm_repeated_query_affected_requests_total", **view_kwargs))
+        views.append(View(instrument_name="apm_cardinality_grouping_total", **view_kwargs))
 
     if resource is None:
         res_attrs: Dict[str, Any] = {}
@@ -638,3 +964,28 @@ def record_repeated_query_affected_request(
 
 
 record_repeated_query_pattern = record_repeated_query_affected_request
+
+
+def record_cardinality_grouping(
+    *,
+    service: str,
+    scope: str,
+    cause: str,
+    project_name: Optional[str] = None,
+    cluster_name: Optional[str] = None,
+) -> None:
+    """Record diagnostic count of an observation grouped into __other__ using the active recorder."""
+    recorder = _ACTIVE_RECORDER
+    if recorder is None:
+        return
+
+    if recorder.config and recorder.config.disabled:
+        return
+
+    recorder.record_cardinality_grouping(
+        service=service,
+        scope=scope,
+        cause=cause,
+        project_name=project_name,
+        cluster_name=cluster_name,
+    )
