@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 PYTHON ?= python3
 VENV ?= .venv
-COMPOSE ?= docker compose
+COMPOSE ?= docker compose $(if $(wildcard .env),--env-file .env) -f dev/docker-compose.yml
 
 .PHONY: help install lint test pre-commit build check-config up rebuild restart down nuke logs ps smoke traffic
 
@@ -55,3 +55,6 @@ ps: ## Show stack status
 
 smoke: ## Verify host ingestion, storage, app dependencies, and Grafana
 	$(PYTHON) tests/e2e/smoke.py
+
+traffic: ## Generate a bounded sample workload (ARGS overrides the default)
+	bash dev/sample-app/generate_traffic.sh $(if $(ARGS),$(ARGS),--count 20 --redis)

@@ -154,7 +154,7 @@ def worker_processes_for_tasks(logs, task_ids):
 
 def worker_logs(since):
     result = subprocess.run(
-        ["docker", "compose", "logs", "--no-color", "--since", since, "celery-worker"],
+        ["docker", "compose", "-f", "dev/docker-compose.yml", "logs", "--no-color", "--since", since, "celery-worker"],
         cwd=str(Path(__file__).resolve().parents[2]),
         capture_output=True,
         text=True,

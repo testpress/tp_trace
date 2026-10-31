@@ -4,17 +4,26 @@ Run the full local observability development environment including the sample Dj
 
 ## Starting the Stack
 
-From the repository root ("home"):
+From the repository root (the root Compose wrapper has been removed):
+
+```bash
+# First run, or after Dockerfile/dependency changes:
+make rebuild
+# Subsequent starts using existing images:
+make up
+```
+
+Or from `dev/`, run `docker compose up -d --build` on the first run.
+For subsequent starts:
 
 ```bash
 docker compose up -d
 ```
 
-Or from the `dev/` directory:
-
-```bash
-docker compose up -d
-```
+Root Makefile commands explicitly select `dev/docker-compose.yml` and load a root
+`.env` when present. From `dev/`, add `--env-file ../.env` to Compose commands
+if using that file. Project, network, and volume names are unchanged. The sample
+application and traffic generator are now in `dev/sample-app/`.
 
 ## Available Services
 
@@ -37,12 +46,12 @@ Port overrides can be specified via environment variables before running `docker
 
 ## Using a Deployed Collector
 
-The sample app and Celery worker read their OTLP/HTTP endpoint from
+From the repository root, the sample app and Celery worker read their OTLP/HTTP endpoint from
 `TP_TRACE_ENDPOINT`. Point them at a collector running elsewhere (for example the
 Ansible deployment) before starting the stack:
 
 ```bash
-TP_TRACE_ENDPOINT=http://<collector-host>:4318 docker compose up -d
+TP_TRACE_ENDPOINT=http://collector.example.com:4318 make up
 ```
 
 The collector pushes metrics to Prometheus over TCP `9090`. The target host must
@@ -73,12 +82,14 @@ Grafana automatically provisions all dashboards from `grafana/dashboards/` into 
 
 ## Stopping the Stack
 
+From the repository root:
+
 ```bash
-docker compose down
+make down
 ```
 
 To clean all persistent volume data:
 
 ```bash
-docker compose down -v
+make nuke
 ```

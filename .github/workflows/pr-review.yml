@@ -68,9 +68,9 @@ jobs:
             - Integrations cover Django, PostgreSQL/psycopg2, Redis, requests, and botocore.
             - tests/: SDK tests. tests/e2e/: explicit checks against a running local stack;
               these are not part of the default pytest run.
-            - sample-app/: Django application and traffic generator used to exercise the SDK.
+            - dev/sample-app/: Django application and traffic generator used to exercise the SDK.
             - dev/: local Docker Compose stack with Collector, Tempo, Prometheus, databases,
-              Redis, and the HTTP test service. Root Compose delegates to this directory.
+              Redis, and the HTTP test service. Root Makefile commands select this Compose file explicitly.
             - grafana/: canonical dashboards and datasource provisioning.
             - setup/: separate deployment configuration; preserve its purpose and check it
               when a shared change affects deployment. Do not assume it matches dev/.

@@ -61,4 +61,4 @@ jobs:
           echo "${HOME}/.local/bin" >> $GITHUB_PATH
       - run: python -m pytest
       - run: python -m build
-      - run: docker compose config --quiet
+      - run: make check-config
