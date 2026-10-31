@@ -717,7 +717,6 @@ def create_red_metrics_recorder(
     views: List[View] = [latency_view]
     if view_kwargs:
         views.append(View(instrument_name="calls_total", **view_kwargs))
-        views.append(View(instrument_name="repeated_query_affected_requests_total", **view_kwargs))
         views.append(View(instrument_name="apm_repeated_query_affected_requests_total", **view_kwargs))
         views.append(View(instrument_name="apm_cardinality_grouping_total", **view_kwargs))
 
