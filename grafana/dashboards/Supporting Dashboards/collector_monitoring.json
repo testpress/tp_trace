@@ -43,7 +43,7 @@
       "includeVars": false,
       "keepTime": true,
       "targetBlank": false,
-      "title": "← Back to Service Catalog",
+      "title": "\u2190 Back to Service Catalog",
       "type": "link",
       "url": "/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
     },
@@ -371,6 +371,11 @@
                         "color": "green",
                         "index": 0,
                         "text": "Healthy"
+                      },
+                      "2": {
+                        "color": "red",
+                        "index": 4,
+                        "text": "Data Loss"
                       }
                     },
                     "type": "value"
@@ -535,6 +540,139 @@
                 "value": "s"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stream-Cap Usage"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "noValue",
+                "value": "0%"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "#d97706",
+                      "value": 70
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Stream Drops (Data Loss)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "noValue",
+                "value": "0"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.001
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SDK Grouped (Preserved)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "noValue",
+                "value": "0"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "#d97706",
+                      "value": 0.001
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              }
+            ]
           }
         ]
       },
@@ -662,6 +800,42 @@
           "range": false,
           "refId": "Uptime",
           "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max by (net_host_name, collector_alias) ((otelcol_deltatocumulative_streams_tracked{collector_alias=~\"(${instance:pipe})\"} / (otelcol_deltatocumulative_streams_limit{collector_alias=~\"(${instance:pipe})\"} or (0 * otelcol_deltatocumulative_streams_tracked{collector_alias=~\"(${instance:pipe})\"} + 50000))) * 100)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "Stream_Cap"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum by (net_host_name, collector_alias) (rate(otelcol_deltatocumulative_dropped_datapoints{collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "Stream_Drops"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum by (net_host_name, collector_alias) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) or rate(calls_total{normalized_operation=\"__other__\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "SDK_Grouping"
         }
       ],
       "title": "Collectors",
@@ -685,7 +859,10 @@
               "Value #Ingest": 5,
               "Value #Export": 6,
               "Value #Queue": 7,
-              "Value #Uptime": 8
+              "Value #Uptime": 8,
+              "Value #Stream_Cap": 9,
+              "Value #Stream_Drops": 10,
+              "Value #SDK_Grouping": 11
             },
             "renameByName": {
               "collector_alias": "Alias",
@@ -696,7 +873,10 @@
               "Value #Ingest": "Ingest Rate",
               "Value #Export": "Export Rate",
               "Value #Queue": "Queue Usage",
-              "Value #Uptime": "Uptime"
+              "Value #Uptime": "Uptime",
+              "Value #Stream_Cap": "Stream-Cap Usage",
+              "Value #Stream_Drops": "Stream Drops (Data Loss)",
+              "Value #SDK_Grouping": "SDK Grouped (Preserved)"
             }
           }
         }
@@ -1097,7 +1277,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 21
+        "y": 31
       },
       "id": 12,
       "options": {
@@ -1194,7 +1374,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 21
+        "y": 31
       },
       "id": 13,
       "options": {
@@ -1298,7 +1478,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 21
+        "y": 31
       },
       "id": 22,
       "options": {
@@ -1341,7 +1521,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 49
       },
       "id": 199,
       "panels": [],
@@ -1354,7 +1534,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 40
       },
       "id": 286,
       "title": "Receivers",
@@ -1447,7 +1627,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 31
+        "y": 41
       },
       "id": 228,
       "interval": "$minstep",
@@ -1597,7 +1777,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 31
+        "y": 41
       },
       "id": 280,
       "interval": "$minstep",
@@ -1747,7 +1927,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 31
+        "y": 41
       },
       "id": 247,
       "interval": "$minstep",
@@ -1816,7 +1996,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 49
       },
       "id": 287,
       "title": "Processors",
@@ -1926,7 +2106,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 40
+        "y": 50
       },
       "id": 285,
       "interval": "$minstep",
@@ -2093,7 +2273,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 40
+        "y": 50
       },
       "id": 283,
       "interval": "$minstep",
@@ -2260,7 +2440,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 40
+        "y": 50
       },
       "id": 284,
       "interval": "$minstep",
@@ -2429,7 +2609,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 48
+        "y": 58
       },
       "id": 235,
       "interval": "$minstep",
@@ -2658,7 +2838,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 48
+        "y": 58
       },
       "id": 250,
       "interval": "$minstep",
@@ -2887,7 +3067,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 48
+        "y": 58
       },
       "id": 251,
       "interval": "$minstep",
@@ -3035,7 +3215,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 56
+        "y": 66
       },
       "id": 249,
       "interval": "$minstep",
@@ -3176,7 +3356,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 56
+        "y": 66
       },
       "id": 236,
       "interval": "$minstep",
@@ -3319,7 +3499,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 56
+        "y": 66
       },
       "id": 256,
       "interval": "$minstep",
@@ -3388,7 +3568,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 64
+        "y": 74
       },
       "id": 288,
       "title": "Exporters",
@@ -3481,7 +3661,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 65
+        "y": 75
       },
       "id": 237,
       "interval": "$minstep",
@@ -3646,7 +3826,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 65
+        "y": 75
       },
       "id": 238,
       "interval": "$minstep",
@@ -3811,7 +3991,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 65
+        "y": 75
       },
       "id": 248,
       "interval": "$minstep",
@@ -3955,7 +4135,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 74
+        "y": 84
       },
       "id": 210,
       "options": {
@@ -4068,7 +4248,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 74
+        "y": 84
       },
       "id": 255,
       "options": {
@@ -4181,7 +4361,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 74
+        "y": 84
       },
       "id": 267,
       "options": {
@@ -4295,7 +4475,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 83
+        "y": 93
       },
       "id": 302,
       "interval": "$minstep",
@@ -4379,7 +4559,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 92
+        "y": 102
       },
       "id": 289,
       "title": "Collector",
@@ -4522,7 +4702,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 93
+        "y": 103
       },
       "id": 240,
       "interval": "$minstep",
@@ -4737,7 +4917,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 93
+        "y": 103
       },
       "id": 252,
       "interval": "$minstep",
@@ -4952,7 +5132,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 93
+        "y": 103
       },
       "id": 253,
       "interval": "$minstep",
@@ -5163,7 +5343,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 102
+        "y": 112
       },
       "id": 239,
       "interval": "$minstep",
@@ -5309,7 +5489,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 102
+        "y": 112
       },
       "id": 241,
       "interval": "$minstep",
@@ -5423,7 +5603,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 102
+        "y": 112
       },
       "id": 254,
       "interval": "$minstep",
@@ -5513,7 +5693,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 111
+        "y": 121
       },
       "id": 257,
       "interval": "$minstep",
@@ -5562,7 +5742,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 116
+        "y": 126
       },
       "id": 290,
       "title": "Signal flows",
@@ -5578,7 +5758,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 117
+        "y": 127
       },
       "id": 258,
       "options": {
@@ -5656,7 +5836,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 117
+        "y": 127
       },
       "id": 260,
       "options": {
@@ -5734,7 +5914,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 117
+        "y": 127
       },
       "id": 261,
       "options": {
@@ -5808,7 +5988,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 136
       },
       "id": 291,
       "panels": [
@@ -6161,7 +6341,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 127
+        "y": 137
       },
       "id": 292,
       "panels": [
@@ -7155,7 +7335,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 128
+        "y": 138
       },
       "id": 293,
       "panels": [
@@ -7331,7 +7511,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 129
+        "y": 139
       },
       "id": 294,
       "panels": [
@@ -7639,7 +7819,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 130
+        "y": 140
       },
       "id": 295,
       "title": "Documentation",
@@ -7650,7 +7830,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 131
+        "y": 141
       },
       "id": 245,
       "options": {
@@ -7665,6 +7845,311 @@
       "pluginVersion": "13.2.2",
       "title": "Documentation",
       "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 400,
+      "panels": [],
+      "title": "Application Cardinality Safeguards & Limits",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Monitors distinct URL routes and SQL query counts against application budgets. Shows exactly which service is approaching limits or having excess telemetry collapsed into __other__.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Service"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "aws-s3": {
+                        "text": "AWS S3 Storage"
+                      },
+                      "celery": {
+                        "text": "Celery Worker"
+                      },
+                      "django": {
+                        "text": "Django Web Application"
+                      },
+                      "postgres": {
+                        "text": "PostgreSQL Database"
+                      },
+                      "redis": {
+                        "text": "Redis Cache"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tracked Resource"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "metric_series": {
+                        "text": "Tenant / Tag Combinations"
+                      },
+                      "operation": {
+                        "text": "SQL Queries / Handlers"
+                      },
+                      "repeated_queries": {
+                        "text": "N+1 Repeated Query Patterns"
+                      },
+                      "route": {
+                        "text": "HTTP URL Routes"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Current Count"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Budget Cap"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Budget Used"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "gauge"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "#f59e0b",
+                      "value": 75
+                    },
+                    {
+                      "color": "#ef4444",
+                      "value": 95
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active Overflow"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "#f59e0b",
+                      "value": 0.001
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 403,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Active Overflow"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))",
+          "format": "table",
+          "instant": true,
+          "refId": "Tracked"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))",
+          "format": "table",
+          "instant": true,
+          "refId": "Limit"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "100 * (max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))) / (max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5)))))",
+          "format": "table",
+          "instant": true,
+          "refId": "UsagePct"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "(sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}[2m])))",
+          "format": "table",
+          "instant": true,
+          "refId": "GroupedRate"
+        }
+      ],
+      "title": "Application Cardinality Safeguards & Overflow Status",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "Active Overflow": 5,
+              "Budget Cap": 3,
+              "Budget Used": 4,
+              "Current Count": 2,
+              "Service": 0,
+              "Tracked Resource": 1,
+              "Value #GroupedRate": 5,
+              "Value #Limit": 3,
+              "Value #Tracked": 2,
+              "Value #UsagePct": 4,
+              "normalized_service": 0,
+              "scope": 1
+            },
+            "renameByName": {
+              "Value #GroupedRate": "Active Overflow",
+              "Value #Limit": "Budget Cap",
+              "Value #Tracked": "Current Count",
+              "Value #UsagePct": "Budget Used",
+              "normalized_service": "Service",
+              "scope": "Tracked Resource"
+            }
+          }
+        }
+      ],
+      "type": "table"
     }
   ],
   "refresh": "30s",
@@ -8160,7 +8645,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "OpenTelemetry Collector — Health, Resource Usage & Metrics",
+  "title": "OpenTelemetry Collector \u2014 Health, Resource Usage & Metrics",
   "uid": "tp-trace-otel-collector-health",
   "version": 6
 }
