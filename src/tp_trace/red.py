@@ -61,11 +61,12 @@ class RedSpanProcessor(SpanProcessor):
     def get_cardinality_stats(self) -> Dict[str, Any]:
         """Return thread-safe snapshot of tracked cardinality counts and limits."""
         with self._lock:
-            ops_counts = {svc: len(ops) for svc, ops in self._seen_operations.items()}
+            non_overflow_services = [s for s in self._seen_operations if s != _OVERFLOW_SENTINEL]
+            ops_counts = {svc: len(ops) for svc, ops in self._seen_operations.items() if svc != _OVERFLOW_SENTINEL}
             return {
                 "route_count": len(self._seen_routes),
                 "route_limit": self.route_limit,
-                "service_count": len(self._seen_operations),
+                "service_count": len(non_overflow_services),
                 "service_limit": self.service_limit,
                 "operation_counts": ops_counts,
                 "operation_limit": self.cardinality_limit_per_service,
@@ -184,23 +185,21 @@ class RedSpanProcessor(SpanProcessor):
 
         # Thread-safe cardinality checks
         orig_service = str(service)
+        grouping_events = []
         with self._lock:
-            if len(self._seen_operations) >= self.service_limit and service not in self._seen_operations:
+            non_overflow_services = [s for s in self._seen_operations if s != _OVERFLOW_SENTINEL]
+            if len(non_overflow_services) >= self.service_limit and service not in self._seen_operations:
                 service = _OVERFLOW_SENTINEL
-                metrics.record_cardinality_grouping(
-                    service=_OVERFLOW_SENTINEL,
-                    scope="service",
-                    cause="service_limit",
-                )
+                grouping_events.append(("all", "service", "service_limit"))
             service_ops = self._seen_operations.setdefault(service, set())
             if len(service_ops) >= self.cardinality_limit_per_service:
                 if operation not in service_ops:
                     operation = _OVERFLOW_SENTINEL
-                    metrics.record_cardinality_grouping(
-                        service=orig_service if service != _OVERFLOW_SENTINEL else _OVERFLOW_SENTINEL,
-                        scope="operation",
-                        cause="operation_limit",
-                    )
+                    grouping_events.append((
+                        orig_service if service != _OVERFLOW_SENTINEL else _OVERFLOW_SENTINEL,
+                        "operation",
+                        "operation_limit",
+                    ))
             else:
                 service_ops.add(operation)
 
@@ -208,13 +207,20 @@ class RedSpanProcessor(SpanProcessor):
                 if len(self._seen_routes) >= self.route_limit:
                     if route not in self._seen_routes:
                         route = _OVERFLOW_SENTINEL
-                        metrics.record_cardinality_grouping(
-                            service=orig_service if service != _OVERFLOW_SENTINEL else _OVERFLOW_SENTINEL,
-                            scope="route",
-                            cause="route_limit",
-                        )
+                        grouping_events.append((
+                            "all",
+                            "route",
+                            "route_limit",
+                        ))
                 else:
                     self._seen_routes.add(route)
+
+        for event_service, event_scope, event_cause in grouping_events:
+            metrics.record_cardinality_grouping(
+                service=event_service,
+                scope=event_scope,
+                cause=event_cause,
+            )
 
         # Duration
         start_time = getattr(span, "start_time", None) or 0
@@ -263,7 +269,10 @@ class RedSpanProcessor(SpanProcessor):
             )
 
     def shutdown(self) -> None:
-        pass
+        global _ACTIVE_SPAN_PROCESSOR
+        with self._lock:
+            if _ACTIVE_SPAN_PROCESSOR is self:
+                _ACTIVE_SPAN_PROCESSOR = None
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         return True

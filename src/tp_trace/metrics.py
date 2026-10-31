@@ -201,7 +201,7 @@ class RedMetricsRecorder:
                     {
                         "project_name": resolved_project,
                         "cluster_name": resolved_cluster,
-                        "normalized_service": "django",
+                        "normalized_service": "all",
                         "scope": "route",
                         "worker_id": worker_identity,
                         "metric_source": "tp_trace_sdk",
@@ -212,7 +212,7 @@ class RedMetricsRecorder:
                     {
                         "project_name": resolved_project,
                         "cluster_name": resolved_cluster,
-                        "normalized_service": "__other__",
+                        "normalized_service": "all",
                         "scope": "service",
                         "worker_id": worker_identity,
                         "metric_source": "tp_trace_sdk",
@@ -231,41 +231,6 @@ class RedMetricsRecorder:
                                 "metric_source": "tp_trace_sdk",
                             },
                         )
-                else:
-                    yield Observation(
-                        0,
-                        {
-                            "project_name": resolved_project,
-                            "cluster_name": resolved_cluster,
-                            "normalized_service": "django",
-                            "scope": "operation",
-                            "worker_id": worker_identity,
-                            "metric_source": "tp_trace_sdk",
-                        },
-                    )
-            else:
-                yield Observation(
-                    0,
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "django",
-                        "scope": "route",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                yield Observation(
-                    0,
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "django",
-                        "scope": "operation",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
         except Exception as exc:
             logger.debug("Failed to observe cardinality tracked: %s", exc)
 
@@ -309,7 +274,7 @@ class RedMetricsRecorder:
                     {
                         "project_name": resolved_project,
                         "cluster_name": resolved_cluster,
-                        "normalized_service": "django",
+                        "normalized_service": "all",
                         "scope": "route",
                         "worker_id": worker_identity,
                         "metric_source": "tp_trace_sdk",
@@ -320,7 +285,7 @@ class RedMetricsRecorder:
                     {
                         "project_name": resolved_project,
                         "cluster_name": resolved_cluster,
-                        "normalized_service": "__other__",
+                        "normalized_service": "all",
                         "scope": "service",
                         "worker_id": worker_identity,
                         "metric_source": "tp_trace_sdk",
@@ -339,52 +304,6 @@ class RedMetricsRecorder:
                                 "metric_source": "tp_trace_sdk",
                             },
                         )
-                else:
-                    yield Observation(
-                        stats["operation_limit"],
-                        {
-                            "project_name": resolved_project,
-                            "cluster_name": resolved_cluster,
-                            "normalized_service": "django",
-                            "scope": "operation",
-                            "worker_id": worker_identity,
-                            "metric_source": "tp_trace_sdk",
-                        },
-                    )
-            else:
-                yield Observation(
-                    512,
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "django",
-                        "scope": "route",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                yield Observation(
-                    128,
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "django",
-                        "scope": "operation",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                yield Observation(
-                    64,
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "__other__",
-                        "scope": "service",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
         except Exception as exc:
             logger.debug("Failed to observe cardinality limit: %s", exc)
 

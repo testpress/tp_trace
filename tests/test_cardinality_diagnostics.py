@@ -93,7 +93,10 @@ def test_overflow_limits_cardinality_without_losing_aggregate_measurements():
     for dp in grouping_points:
         assert dp.attributes.get("project_name") == "card-test"
         assert dp.attributes.get("cluster_name") == "test-cluster"
-        assert dp.attributes.get("normalized_service") == "django"
+        if dp.attributes.get("scope") in ("route", "service"):
+            assert dp.attributes.get("normalized_service") == "all"
+        else:
+            assert dp.attributes.get("normalized_service") == "django"
         assert dp.attributes.get("metric_source") == "tp_trace_sdk"
         assert dp.attributes.get("scope") in ("route", "operation")
         assert dp.attributes.get("cause") in ("route_limit", "operation_limit")
@@ -245,3 +248,49 @@ def test_telemetry_safety_in_cardinality_diagnostics():
     recorder.record_cardinality_grouping(service="django", scope="operation", cause="operation_limit")
     obs = list(recorder._observe_cardinality_tracked())
     assert isinstance(obs, list)
+
+
+def test_service_count_excludes_overflow_sentinel_and_never_exceeds_limit():
+    """Verify that service_count in stats never exceeds service_limit when __other__ is added."""
+    processor = RedSpanProcessor(service_limit=2, cardinality_limit_per_service=10)
+    for i in range(5):
+        span = DummySpan(
+            name=f"call_{i}",
+            attributes={"normalized.service": f"service_{i}", "normalized.operation": "op"},
+            kind=SpanKind.CLIENT,
+        )
+        processor.on_end(span)
+
+    stats = processor.get_cardinality_stats()
+    assert stats["service_count"] == 2
+    assert stats["service_count"] <= stats["service_limit"]
+    processor.shutdown()
+
+
+def test_span_processor_shutdown_clears_active_pointer():
+    """Verify that RedSpanProcessor.shutdown() clears _ACTIVE_SPAN_PROCESSOR."""
+    from tp_trace.red import get_active_span_processor
+
+    proc = RedSpanProcessor()
+    assert get_active_span_processor() is proc
+    proc.shutdown()
+    assert get_active_span_processor() is None
+
+
+def test_gauges_omit_scope_when_no_active_span_processor():
+    """Verify that _observe_cardinality_tracked/limit omit processor scopes when none is active."""
+    from tp_trace.red import get_active_span_processor
+
+    assert get_active_span_processor() is None
+
+    recorder = create_red_metrics_recorder(config=None, metric_readers=[InMemoryMetricReader()])
+    tracked_obs = list(recorder._observe_cardinality_tracked())
+    limit_obs = list(recorder._observe_cardinality_limit())
+
+    tracked_scopes = [o.attributes["scope"] for o in tracked_obs]
+    limit_scopes = [o.attributes["scope"] for o in limit_obs]
+
+    # Only metric_series belongs to metrics recorder; route/service/operation must not be emitted
+    assert tracked_scopes == ["metric_series"]
+    assert limit_scopes == ["metric_series"]
+
