@@ -1,4 +1,0 @@
-name: tp-trace-dev
-
-include:
-  - path: dev/docker-compose.yml

@@ -26,7 +26,7 @@ RUN python -m pip install --no-cache-dir \
 # when only the sample application's code changes.
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
-COPY sample-app/requirements.txt ./requirements.txt
+COPY dev/sample-app/requirements.txt ./requirements.txt
 
 # This is a development/sample image, so install tp_trace editable.
 # Build dependencies are already installed above, avoiding pip's temporary
@@ -36,11 +36,11 @@ RUN python -m pip install --no-cache-dir \
     -e . \
     -r requirements.txt
 
-COPY sample-app/api ./api/
-COPY sample-app/config ./config/
-COPY sample-app/manage.py \
-     sample-app/gunicorn.conf.py \
-     sample-app/userlist.txt \
+COPY dev/sample-app/api ./api/
+COPY dev/sample-app/config ./config/
+COPY dev/sample-app/manage.py \
+     dev/sample-app/gunicorn.conf.py \
+     dev/sample-app/userlist.txt \
      ./
 
 RUN TP_TRACE_DISABLED=true python manage.py collectstatic --noinput
