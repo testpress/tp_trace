@@ -154,7 +154,7 @@ def worker_processes_for_tasks(logs, task_ids):
 
 def worker_logs(since):
     result = subprocess.run(
-        ["docker", "compose", "logs", "--no-color", "--since", since, "celery-worker"],
+        ["docker", "compose", "-f", "dev/docker-compose.yml", "logs", "--no-color", "--since", since, "celery-worker"],
         cwd=str(Path(__file__).resolve().parents[2]),
         capture_output=True,
         text=True,
@@ -166,7 +166,7 @@ def worker_logs(since):
 
 
 def main():
-    env_file = Path(__file__).resolve().parents[2] / ".env"
+    env_file = Path(__file__).resolve().parents[2] / "dev" / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             if line.strip() and not line.lstrip().startswith("#") and "=" in line:

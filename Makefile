@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 PYTHON ?= python3
 VENV ?= .venv
-COMPOSE ?= docker compose
+COMPOSE ?= docker compose -f dev/docker-compose.yml
 
 .PHONY: help install lint test pre-commit build check-config up rebuild restart down nuke logs ps smoke traffic
 

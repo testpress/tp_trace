@@ -4,10 +4,19 @@ Run the full local observability development environment including the sample Dj
 
 ## Starting the Stack
 
-From the repository root ("home"):
+Optionally copy `.env.example` to `.env` in this directory to override ports and the bind address.
+
+From the repository root:
 
 ```bash
-docker compose up -d
+make rebuild   # first start, or after dependency or Dockerfile changes
+make up        # later starts, using existing images
+```
+
+Or run Compose directly. From the repository root:
+
+```bash
+docker compose -f dev/docker-compose.yml up -d
 ```
 
 Or from the `dev/` directory:
@@ -15,6 +24,8 @@ Or from the `dev/` directory:
 ```bash
 docker compose up -d
 ```
+
+The `docker compose` commands in the rest of this document assume the `dev/` directory.
 
 ## Available Services
 

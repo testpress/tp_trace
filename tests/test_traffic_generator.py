@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "sample-app/generate_traffic.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "dev/sample-app/generate_traffic.sh"
 
 
 @pytest.mark.parametrize(

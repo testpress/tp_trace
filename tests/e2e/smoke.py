@@ -44,8 +44,8 @@ def eventually(label, check):
 
 
 def main():
-    # Match Compose's root .env defaults without requiring python-dotenv.
-    env_file = Path(__file__).resolve().parents[2] / ".env"
+    # Match Compose's dev/.env defaults without requiring python-dotenv.
+    env_file = Path(__file__).resolve().parents[2] / "dev" / ".env"
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             if line.strip() and not line.lstrip().startswith("#") and "=" in line:

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 
 def load_bootstrap():
-    path = Path(__file__).resolve().parents[1] / "sample-app/config/otel.py"
+    path = Path(__file__).resolve().parents[1] / "dev/sample-app/config/otel.py"
     spec = importlib.util.spec_from_file_location("sample_otel_test", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

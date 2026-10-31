@@ -41,8 +41,8 @@ Collector configuration:
 - `src/tp_trace/`: published SDK and optional integrations.
 - `tests/test_*.py`: SDK tests; `tests/conftest.py` provides shared setup.
 - `tests/e2e/`: explicit live-stack probes, outside ordinary pytest discovery.
-- `sample-app/`: instrumented Django application and traffic generator.
-- `dev/`: local observability stack; root Compose delegates here.
+- `dev/`: local development stack: Compose file, collector/Tempo/Prometheus configs, and
+  `dev/sample-app/` (instrumented Django application and traffic generator).
 - `grafana/`: canonical dashboards and datasource provisioning.
 - `setup/`: separate deployment configuration. Preserve its purpose; assess shared
   changes without copying intentional local exposure into deployment settings.
@@ -73,7 +73,7 @@ Useful commands:
 | Deployment Compose, when affected | `docker compose -f setup/docker-compose.yml config --quiet` |
 | Live pipeline | `make smoke` |
 | Oversized export regression | `python3 tests/e2e/check_large_batch.py` |
-| Traffic script syntax | `bash -n sample-app/generate_traffic.sh` |
+| Traffic script syntax | `bash -n dev/sample-app/generate_traffic.sh` |
 
 `make up` applies Compose changes using existing images; `make rebuild` builds
 explicitly. `make restart SERVICE=otel-collector` reloads the collector's mounted

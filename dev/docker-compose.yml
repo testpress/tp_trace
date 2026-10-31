@@ -276,7 +276,7 @@ services:
       start_period: 30s
     build:
       context: ..
-      dockerfile: sample-app/Dockerfile
+      dockerfile: dev/sample-app/Dockerfile
     image: tp-trace-dev-sample-app:latest
     container_name: tp-sample-app
     restart: on-failure:5
@@ -297,8 +297,8 @@ services:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       GUNICORN_WORKERS: "2"
     volumes:
-      - ../sample-app/api:/app/api
-      - ../sample-app/config:/app/config
+      - ./sample-app/api:/app/api
+      - ./sample-app/config:/app/config
       - ../src:/app/src
     command: ["sh", "-c", "python manage.py setup_databases && exec gunicorn config.wsgi:application --config gunicorn.conf.py"]
     ports:
@@ -349,8 +349,8 @@ services:
       TP_TRACE_PROJECT_NAME: otel-sample
 
     volumes:
-      - ../sample-app/api:/app/api
-      - ../sample-app/config:/app/config
+      - ./sample-app/api:/app/api
+      - ./sample-app/config:/app/config
       - ../src:/app/src
 
     command:

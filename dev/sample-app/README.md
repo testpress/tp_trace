@@ -1,21 +1,22 @@
 # tp_trace sample Django application
 
-This directory is a Django application used to exercise the SDK's integrations. To run it with local PostgreSQL, Redis, RabbitMQ, Celery worker, the Collector, Tempo, Prometheus, and Grafana, follow the [development setup](../dev/README.md).
+This directory is a Django application used to exercise the SDK's integrations. To run it with local PostgreSQL, Redis, RabbitMQ, Celery worker, the Collector, Tempo, Prometheus, and Grafana, follow the [development setup](../README.md).
 
 The application contains examples for PostgreSQL, replicas, PgBouncer, Redis, RabbitMQ / Celery asynchronous tasks, outbound HTTP, Boto3/MinIO, errors, slow requests, and Django templates.
 
 ## Choosing the Collector endpoint
 
 The app reads its OTLP/HTTP endpoint from `TP_TRACE_ENDPOINT`. The
-[development stack](../dev/README.md) defaults to its own Collector; export a
+[development stack](../README.md) defaults to its own Collector; export a
 different endpoint to send the sample app's telemetry to a deployed Collector:
 
 ```bash
+# From the repository root
 TP_TRACE_ENDPOINT=http://<collector-host>:4318 docker compose -f dev/docker-compose.yml up -d
 ```
 
 The deployed Collector must be able to reach Prometheus on TCP `9090`; see the
-[development README](../dev/README.md#using-a-deployed-collector) for the
+[development README](../README.md#using-a-deployed-collector) for the
 failure signature and connectivity checks.
 
 ## Running Celery tasks
@@ -40,4 +41,4 @@ To run a standalone Celery worker locally:
 celery -A api.celery_app:app worker --loglevel=info --concurrency=2
 ```
 
-Use [the first-trace tutorial](../docs/tutorials/first-trace.md) for the SDK setup and [the integration reference](../docs/reference/integrations.md) to see what each example produces.
+Use [the first-trace tutorial](../../docs/tutorials/first-trace.md) for the SDK setup and [the integration reference](../../docs/reference/integrations.md) to see what each example produces.
