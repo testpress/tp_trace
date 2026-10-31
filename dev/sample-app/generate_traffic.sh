@@ -28,6 +28,8 @@ WORKER_DIR=""
 WORKER_ID=0
 
 # Service selection flags
+BURST_MODE=0
+BURST_SIZE=50
 SERVICE_PRODUCT=0
 SERVICE_REDIS=0
 SERVICE_HTTP=0
@@ -118,6 +120,19 @@ while [[ "$#" -gt 0 ]]; do
     shift
     ;;
   -v | --verbose) VERBOSE=1 ;;
+
+  # Burst Cardinality Mode
+  --burst | --cardinality-burst) BURST_MODE=1 ;;
+  --burst-size)
+    BURST_SIZE="${2:-}"
+    if [[ ! "$BURST_SIZE" =~ ^[0-9]{1,9}$ ]] || [ "$((10#$BURST_SIZE))" -eq 0 ]; then
+      echo "--burst-size requires a positive integer (maximum 999999999)" >&2
+      exit 1
+    fi
+    BURST_SIZE=$((10#$BURST_SIZE))
+    BURST_MODE=1
+    shift
+    ;;
 
   # Comprehensive mode (exercises all instrumentations)
   --all) RUN_ALL=1 ;;
@@ -218,6 +233,11 @@ while [[ "$#" -gt 0 ]]; do
     echo "  -y, --error       Spam 500 error endpoint endpoints"
     echo "  --n-plus-one      Spam repeated database queries endpoint (triggers N+1 detection)"
     echo ""
+    echo "Burst Cardinality Flags (Simulates High-Cardinality Production Traffic):"
+    echo "  --burst, --cardinality-burst  Generate high-cardinality bursts with randomized routes,"
+    echo "                                dynamic SQL queries, multi-DB targets, tenants, and status codes"
+    echo "  --burst-size N                Number of unique randomized requests per burst cycle (default: 50)"
+    echo ""
     exit 0
     ;;
   *)
@@ -255,6 +275,9 @@ if [ -n "$REQUEST_GAP" ] && ! [[ "$REQUEST_GAP" =~ ^0*(\.0*)?$ ]]; then
 fi
 if [ "$RUN_ALL" -eq 1 ]; then
   echo "   Scope: ALL Instrumentations (Postgres Primary & Slaves 1-3, Redis, Requests HTTP, S3, Celery, Django)"
+fi
+if [ "$BURST_MODE" -eq 1 ]; then
+  echo "   Burst Mode: HIGH CARDINALITY (${BURST_SIZE} diverse requests/cycle across routes, SQL, multi-DB, tenants)"
 fi
 if [ "$HAS_DB_FILTER" -eq 1 ]; then
   echo -n "   Target Database(s): "
@@ -307,6 +330,7 @@ send_req() {
   local path="$2"
   local data="$3"
   local desc="$4"
+  local extra_header="${5:-}"
   local url="${BASE_URL}${path}"
 
   COUNT_TOTAL=$((COUNT_TOTAL + 1))
@@ -315,13 +339,15 @@ send_req() {
   local http_code
   local body
 
-  if [ "$method" == "POST" ]; then
-    response=$(curl -s -w "\n%{http_code}" -X POST "$url" \
-      -H "Content-Type: application/json" \
-      -d "$data" --max-time 10 2>/dev/null || echo "000")
-  else
-    response=$(curl -s -w "\n%{http_code}" -X GET "$url" --max-time 10 2>/dev/null || echo "000")
+  local -a curl_cmd=(curl -s -w "\n%{http_code}" -X "$method" "$url" --max-time 10)
+  if [ -n "$extra_header" ]; then
+    curl_cmd+=(-H "$extra_header")
   fi
+  if [ "$method" == "POST" ] || [ "$method" == "PUT" ] || [ "$method" == "PATCH" ]; then
+    curl_cmd+=(-H "Content-Type: application/json" -d "$data")
+  fi
+
+  response=$("${curl_cmd[@]}" 2>/dev/null || echo "000")
 
   http_code=$(echo "$response" | tail -n1 | tr -d '\r')
   if [ -z "$http_code" ] || [ "${#http_code}" -ne 3 ]; then
@@ -355,9 +381,137 @@ send_req() {
   fi
 }
 
+# Run a high-cardinality burst cycle stressing routes, queries, DBs, and status codes
+run_burst_cycle() {
+  local cycle_num="$1"
+  echo -e "\n${C_BOLD}${C_MAGENTA}--- Burst Cycle #${cycle_num} (${BURST_SIZE} diverse requests) ---${C_RESET}"
+
+  local partials=("_header" "_footer" "_product_card" "_stock_badge" "_sidebar")
+  local dbs=("default" "slave1" "slave2" "slave3")
+  local s3_ops=("list" "put" "get" "head")
+
+  for ((i = 1; i <= BURST_SIZE; i++)); do
+    if [ "$REQUEST_COUNT" -gt 0 ] && [ "$COUNT_TOTAL" -ge "$REQUEST_COUNT" ]; then
+      break
+    fi
+
+    local rnd=$((RANDOM % 9000 + 1000))
+    local tenant="X-Tenant-ID: tenant-$((RANDOM % 50 + 1))"
+    local sel=$(( (i + RANDOM) % 12 ))
+
+    case $sel in
+    0)
+      # Dynamic Product Detail (200 / 404 variation)
+      local pid=$((RANDOM % 300 + 1))
+      send_req "GET" "/api/products/${pid}/" "" "Burst: Product Detail #${pid}" "$tenant"
+      ;;
+    1)
+      # Redis Cached Product Lookup
+      local pid=$((RANDOM % 150 + 1))
+      send_req "GET" "/api/products/${pid}/cached/" "" "Burst: Redis Cache Product #${pid}" "$tenant"
+      ;;
+    2)
+      # Atomic Stock Adjustment (DB Write + Lock)
+      local pid=$((RANDOM % 100 + 1))
+      local delta=$((RANDOM % 7 - 3))
+      send_req "POST" "/api/products/${pid}/adjust_stock/" "{\"delta\": ${delta}}" "Burst: Adjust Stock #${pid} (${delta})" "$tenant"
+      ;;
+    3)
+      # HTML Template Waterfall or Dynamic Partials
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        local pid=$((RANDOM % 100 + 1))
+        send_req "GET" "/api/products-tmpl/${pid}/" "" "Burst: HTML Template #${pid}" "$tenant"
+      else
+        local pidx=$((RANDOM % ${#partials[@]}))
+        send_req "GET" "/api/partial/${partials[$pidx]}/" "" "Burst: HTML Partial ${partials[$pidx]}" "$tenant"
+      fi
+      ;;
+    4)
+      # Multi-DB Read Queries (Distributed Across All 4 Databases)
+      local db_idx=$((RANDOM % ${#dbs[@]}))
+      local target_db="${dbs[$db_idx]}"
+      send_req "GET" "/api/multi-db/?db=${target_db}&burst_seed=${rnd}" "" "Burst: Multi-DB Read [${target_db}]" "$tenant"
+      ;;
+    5)
+      # Multi-DB Writes & Updates (Distributed Across Replicas & Primary)
+      local db_idx=$((RANDOM % ${#dbs[@]}))
+      local target_db="${dbs[$db_idx]}"
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        send_req "POST" "/api/multi-db/?db=${target_db}&action=insert" "" "Burst: Multi-DB Insert [${target_db}]" "$tenant"
+      else
+        send_req "POST" "/api/multi-db/?db=${target_db}&action=update" "" "Burst: Multi-DB Update [${target_db}]" "$tenant"
+      fi
+      ;;
+    6)
+      # Cross-Database Synchronization & Stock Transfer
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        send_req "POST" "/api/products/sync-all-dbs/" "{\"name\": \"BurstOmni-${rnd}\", \"price\": \"79.99\", \"stock\": 100}" "Burst: 4-DB Sync Omni-Write" "$tenant"
+      else
+        local transfer_amt=$((RANDOM % 5 + 1))
+        send_req "POST" "/api/products/multi-db-transfer/" "{\"amount\": ${transfer_amt}}" "Burst: Cross-DB Transfer (${transfer_amt} units)" "$tenant"
+      fi
+      ;;
+    7)
+      # Randomized Unique Raw SQL Queries (Produces unique SQL statements / entropy)
+      local sql_choice=$((RANDOM % 4))
+      case $sql_choice in
+      0) send_req "GET" "/api/raw-sql/?query=SELECT%20${rnd}%20AS%20burst_entropy_${rnd}" "" "Burst: Raw SQL [Entropy #${rnd}]" "$tenant" ;;
+      1) send_req "GET" "/api/raw-sql/?query=SELECT%20id,%20name,%20stock%20FROM%20api_product%20WHERE%20id%3E$((RANDOM % 50))%20LIMIT%205" "" "Burst: Raw SQL [Filtered Scan]" "$tenant" ;;
+      2) send_req "GET" "/api/raw-sql/?query=SELECT%20COUNT(*)%20FROM%20api_product%20WHERE%20stock%3E$((RANDOM % 20))" "" "Burst: Raw SQL [Aggregate Query]" "$tenant" ;;
+      3) send_req "GET" "/api/raw-sql/?query=SELECT%20pg_backend_pid(),%20NOW(),%20${rnd}" "" "Burst: Raw SQL [Backend Info #${rnd}]" "$tenant" ;;
+      esac
+      ;;
+    8)
+      # Repeated Queries (Simulated N+1 Pattern with Dynamic Count)
+      local n_count=$((RANDOM % 25 + 5))
+      send_req "GET" "/api/repeated-queries/?count=${n_count}" "" "Burst: N+1 Repeated Queries (${n_count} DB loops)" "$tenant"
+      ;;
+    9)
+      # Asynchronous Celery Dispatch & S3 Storage Operations
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        send_req "POST" "/api/celery/publish/" "{\"value\": ${rnd}, \"fail\": false}" "Burst: Celery Async Task [value=${rnd}]" "$tenant"
+      else
+        local op_idx=$((RANDOM % ${#s3_ops[@]}))
+        send_req "GET" "/api/s3-storage/?op=${s3_ops[$op_idx]}" "" "Burst: MinIO S3 [${s3_ops[$op_idx]}]" "$tenant"
+      fi
+      ;;
+    10)
+      # Product Entity Lifecycle & Multi-Statement Transactions
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        local p_price="$((RANDOM % 80 + 10)).$((RANDOM % 90 + 10))"
+        send_req "POST" "/api/products/" "{\"name\": \"BurstProd-${rnd}\", \"price\": \"${p_price}\", \"stock\": $((RANDOM % 50 + 1))}" "Burst: Create Product [${p_price}]" "$tenant"
+      else
+        local tx_ops=$((RANDOM % 4 + 2))
+        send_req "POST" "/api/db-tx/" "{\"operations\": ${tx_ops}}" "Burst: DB Tx (${tx_ops} statements)" "$tenant"
+      fi
+      ;;
+    11)
+      # Edge Cases & Status Code Diversity (4xx, 5xx, 429, 404, 405)
+      local edge_choice=$((RANDOM % 5))
+      case $edge_choice in
+      0) send_req "GET" "/api/products/throttled/" "" "Burst Probe: 429 Throttle Endpoint" "$tenant" ;;
+      1) send_req "GET" "/api/products/error/" "" "Burst Probe: 500 Deliberate Server Error" "$tenant" ;;
+      2) send_req "GET" "/api/products/$((90000 + RANDOM % 10000))/" "" "Burst Probe: 404 Unmatched Product" "$tenant" ;;
+      3) send_req "GET" "/api/webhook/" "" "Burst Probe: 405 Method Not Allowed" "$tenant" ;;
+      4) send_req "POST" "/api/multi-db/?db=nonexistent_db_${rnd}" "" "Burst Probe: 400 Invalid DB Parameter" "$tenant" ;;
+      esac
+      ;;
+    esac
+  done
+}
+
 # Run one full traffic cycle with diverse scenarios
 run_traffic_cycle() {
   local cycle_num="$1"
+
+  # =========================================================================
+  # High-Cardinality Burst Mode (Dynamic routes, SQL queries, multi-DB, tenants)
+  # =========================================================================
+  if [ "$BURST_MODE" -eq 1 ]; then
+    run_burst_cycle "$cycle_num"
+    return
+  fi
+
   echo -e "\n${C_BOLD}${C_MAGENTA}--- Cycle #${cycle_num} ---${C_RESET}"
 
   local rnd=$((RANDOM % 900 + 100))
