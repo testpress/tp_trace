@@ -4,6 +4,7 @@
 .venv
 tests
 docs
+docs-archive
 *.egg-info
 __pycache__
 *.py[cod]

@@ -27,7 +27,6 @@ curl -f http://localhost:3200/ready
 Tempo receives OTLP on container ports `4317` and `4318`; Docker publishes them as host ports `4327` and `4328`. Configure the Collector to send to the published port appropriate to its transport.
 
 Tempo mounts the canonical [config/tempo.yaml](../config/tempo.yaml), also used
-by local development. Reapply with `docker compose up -d` to change the mount
-path while preserving the named volume. See [shared configuration](../config/README.md).
-
-For the full endpoint list, see [deployment reference](../docs/reference/deployment.md).
+by local development. After this mount-path migration, use `docker compose up -d`
+to recreate the container while preserving its named volume. See
+[shared configuration](../docs/06-environments.md) for configuration ownership.
