@@ -48,3 +48,6 @@ Use the Ansible configure playbook separately for production. Shared source does
 not automatically update running hosts. Production Prometheus is not deployed
 by this repository; its canonical scrape file requires `localhost:9090` and
 `tempo:3200` to resolve in that environment.
+
+For the architecture and configuration rationale, see the developer
+[environment guide](../docs/06-environments.md).
