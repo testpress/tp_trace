@@ -17,28 +17,9 @@ from tp_trace.compat.attributes import (
 )
 
 
-def _set_attr(span: Any, target: Optional[Any], key: str, value: Any) -> None:
-    # For ended spans, prefer direct mutation via compat first (public API often no-ops)
+def _set_attr(span: Any, key: str, value: Any) -> None:
     try:
-        if hasattr(span, "is_recording") and span.is_recording():
-            if hasattr(span, "set_attribute"):
-                try:
-                    span.set_attribute(key, value)
-                    return
-                except Exception:
-                    pass
-            set_attribute_safe(span, key, value)
-            return
-    except Exception:
-        pass
-    # Ended span - try compat mutation first
-    if set_attribute_safe(span, key, value):
-        return
-    # Fallback to public API if it somehow works
-    try:
-        if hasattr(span, "set_attribute"):
-            span.set_attribute(key, value)
-            return
+        set_attribute_safe(span, key, value)
     except Exception:
         pass
 
@@ -96,23 +77,20 @@ def normalize_span_attributes(span: Any) -> None:
                 "http.route_template",
                 "django.route",
             ):
-                if target is not None:
-                    delete_attribute_safe(span, bad_key)
-                # if recording, can't delete via public API - skip
+                delete_attribute_safe(span, bad_key)
             if not attrs.get("normalized.service"):
-                _set_attr(span, target, "normalized.service", "celery")
+                _set_attr(span, "normalized.service", "celery")
             if not attrs.get("normalized.operation"):
                 kind = getattr(span, "kind", None)
                 action = "apply_async" if kind == SpanKind.PRODUCER else "run"
-                _set_attr(span, target, "normalized.operation", f"celery.{action}.unknown")
+                _set_attr(span, "normalized.operation", f"celery.{action}.unknown")
             return
 
         # Strip http attrs from DB/cache
         svc_cand = attrs.get("normalized.service") or attrs.get("db.system") or ""
         if attrs.get("db.system") or svc_cand in ("redis", "postgres", "pgbouncer"):
             for bad_key in ("http.method", "http.request.method", "http.route"):
-                if target is not None:
-                    delete_attribute_safe(span, bad_key)
+                delete_attribute_safe(span, bad_key)
 
         # Normalize service
         if not attrs.get("normalized.service"):
@@ -126,7 +104,7 @@ def normalize_span_attributes(span: Any) -> None:
                 svc = "postgres"
             elif svc == "aws-api":
                 svc = "aws-s3"
-            _set_attr(span, target, "normalized.service", str(svc or "django"))
+            _set_attr(span, "normalized.service", str(svc or "django"))
 
         svc = attrs.get("normalized.service") or (target.get("normalized.service") if target else None)
 
@@ -134,6 +112,6 @@ def normalize_span_attributes(span: Any) -> None:
         if not attrs.get("normalized.operation"):
             op = _infer_operation(span, attrs, svc)
             if op:
-                _set_attr(span, target, "normalized.operation", str(op))
+                _set_attr(span, "normalized.operation", str(op))
     except Exception:
         pass

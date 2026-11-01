@@ -148,24 +148,32 @@ def get_mutable_attributes(span: Any) -> Optional[MutableMapping]:
 
 
 def set_attribute_safe(span: Any, key: str, value: Any) -> bool:
-    # Prefer public API
+    # For recording spans, use public API. For ended spans, write via compat first.
     try:
-        if hasattr(span, "set_attribute"):
+        if _is_recording_span(span):
             try:
-                span.set_attribute(key, value)
-                return True
+                if hasattr(span, "set_attribute"):
+                    span.set_attribute(key, value)
+                    return True
             except Exception:
                 pass
     except Exception:
         pass
     target = get_mutable_attributes(span)
-    if target is None:
-        return False
+    if target is not None:
+        try:
+            target[key] = value
+            return True
+        except Exception:
+            pass
+    # Fallback for recording spans or if mutation unavailable
     try:
-        target[key] = value
-        return True
+        if hasattr(span, "set_attribute"):
+            span.set_attribute(key, value)
+            return True
     except Exception:
-        return False
+        pass
+    return False
 
 
 def delete_attribute_safe(span: Any, key: str) -> bool:
