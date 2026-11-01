@@ -8,7 +8,7 @@ private internals goes through this module with version checks and a kill-switch
 
 import logging
 import os
-from typing import Any, Dict, Mapping, MutableMapping, Optional
+from typing import Any, Dict, MutableMapping, Optional, Tuple
 
 logger = logging.getLogger("tp_trace.compat.attributes")
 
@@ -19,12 +19,36 @@ try:
 except Exception:
     _OTEL_SDK_VERSION = "unknown"
 
-try:
-    from packaging.version import Version
 
-    _OTEL_SDK_VER = Version(_OTEL_SDK_VERSION) if _OTEL_SDK_VERSION != "unknown" else None
-except Exception:
-    _OTEL_SDK_VER = None
+def _parse_version(v: str) -> Optional[Tuple[int, int, int]]:
+    if not v or v == "unknown":
+        return None
+    # Strip common suffixes like b0, rc1
+    try:
+        # Take only digits and dots
+        parts = []
+        for token in v.replace("-", ".").replace("_", ".").split("."):
+            # Extract leading digits
+            num = ""
+            for ch in token:
+                if ch.isdigit():
+                    num += ch
+                else:
+                    break
+            if num:
+                parts.append(int(num))
+            if len(parts) >= 3:
+                break
+        if len(parts) >= 2:
+            while len(parts) < 3:
+                parts.append(0)
+            return (parts[0], parts[1], parts[2])
+    except Exception:
+        pass
+    return None
+
+
+_OTEL_SDK_VER_TUPLE = _parse_version(_OTEL_SDK_VERSION)
 
 _ATTR_MUTATION_DISABLED = os.environ.get("TP_TRACE_DISABLE_ATTR_MUTATION", "").strip().lower() in (
     "1",
@@ -32,16 +56,34 @@ _ATTR_MUTATION_DISABLED = os.environ.get("TP_TRACE_DISABLE_ATTR_MUTATION", "").s
     "yes",
     "on",
 )
+_WARNED_DISABLED = False
 
 
 def _sdk_version_ok() -> bool:
+    global _WARNED_DISABLED
     if _ATTR_MUTATION_DISABLED:
+        if not _WARNED_DISABLED:
+            logger.debug("tp_trace: attribute mutation disabled via TP_TRACE_DISABLE_ATTR_MUTATION")
+            _WARNED_DISABLED = True
         return False
-    if _OTEL_SDK_VER is None:
+    if _OTEL_SDK_VER_TUPLE is None:
+        if not _WARNED_DISABLED:
+            logger.debug("tp_trace: could not parse opentelemetry-sdk version; disabling ended-span attribute mutation")
+            _WARNED_DISABLED = True
         return False
     try:
-        return (1, 20) <= (_OTEL_SDK_VER.major, _OTEL_SDK_VER.minor) <= (1, 60)
+        major, minor, _ = _OTEL_SDK_VER_TUPLE
+        if (major, minor) < (1, 20):
+            if not _WARNED_DISABLED:
+                logger.debug("tp_trace: opentelemetry-sdk %s too old for ended-span mutation", _OTEL_SDK_VERSION)
+                _WARNED_DISABLED = True
+            return False
+        # Don't fail closed on newer versions - rely on structure checks
+        return True
     except Exception:
+        if not _WARNED_DISABLED:
+            logger.debug("tp_trace: attribute mutation disabled due to version check failure")
+            _WARNED_DISABLED = True
         return False
 
 
@@ -67,26 +109,27 @@ def _find_mutable_dict(attrs_obj: Any) -> Optional[MutableMapping]:
         return None
     if isinstance(attrs_obj, dict):
         return attrs_obj
-    for name in ("_dict", "_attributes", "attributes", "_attrs"):
+    # Prefer known internal names for BoundedAttributes
+    for name in ("_dict",):
         try:
             cand = getattr(attrs_obj, name, None)
             if isinstance(cand, dict):
                 return cand
-            if cand is not None and hasattr(cand, "__setitem__"):
-                # Some objects are dict-like
-                if isinstance(cand, MutableMapping):
-                    return cand
+            if isinstance(cand, MutableMapping) and not isinstance(cand, type(attrs_obj)):
+                return cand
         except Exception:
             continue
-    # Try __dict__
-    try:
-        for v in attrs_obj.__dict__.values():
-            if isinstance(v, dict):
-                return v
-            if isinstance(v, MutableMapping):
-                return v
-    except Exception:
-        pass
+    # Try other common names but be more careful
+    for name in ("_attributes", "_attrs"):
+        try:
+            cand = getattr(attrs_obj, name, None)
+            if isinstance(cand, dict):
+                # Only use if it's clearly an internal storage
+                return cand
+            if isinstance(cand, MutableMapping):
+                return cand
+        except Exception:
+            continue
     return None
 
 

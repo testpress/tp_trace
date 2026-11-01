@@ -581,7 +581,7 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
             safe_set_attribute(span, "http.user_agent", ua)
 
         if query_mode == "strip" or not url_query:
-            safe_set_attribute(span, "url.query", "")
+            pass
         else:
             safe_set_attribute(span, "url.query", url_query)
 
@@ -695,7 +695,7 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
         safe_set_attribute(span, "url.path", url_path)
         safe_set_attribute(span, "http.target", target_url)
         if query_mode == "strip" or not url_query:
-            safe_set_attribute(span, "url.query", "")
+            pass
         else:
             safe_set_attribute(span, "url.query", url_query)
 

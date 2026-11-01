@@ -18,19 +18,34 @@ from tp_trace.compat.attributes import (
 
 
 def _set_attr(span: Any, target: Optional[Any], key: str, value: Any) -> None:
-    # Try public API first
+    # For ended spans, prefer direct mutation via compat first (public API often no-ops)
+    try:
+        if hasattr(span, "is_recording") and span.is_recording():
+            if hasattr(span, "set_attribute"):
+                try:
+                    span.set_attribute(key, value)
+                    return
+                except Exception:
+                    pass
+            set_attribute_safe(span, key, value)
+            return
+    except Exception:
+        pass
+    # Ended span - try compat mutation first
+    if set_attribute_safe(span, key, value):
+        return
+    # Fallback to public API if it somehow works
     try:
         if hasattr(span, "set_attribute"):
             span.set_attribute(key, value)
             return
     except Exception:
         pass
-    set_attribute_safe(span, key, value)
 
 
 def _infer_operation(span: Any, attrs: Dict[str, Any], svc: Optional[str]) -> Optional[str]:
     if svc == "redis" or attrs.get("db.system") == "redis":
-        if attrs.get("db.redis.pipeline_length"):
+        if attrs.get("db.redis.pipeline_length") is not None and attrs.get("db.redis.pipeline_length") != 0:
             return "redis.pipeline"
         if attrs.get("db.operation"):
             return f"redis.{str(attrs.get('db.operation')).lower()}"
