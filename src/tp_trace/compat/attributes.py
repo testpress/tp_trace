@@ -123,10 +123,7 @@ def _find_mutable_dict(attrs_obj: Any) -> Optional[MutableMapping]:
 
 
 def get_mutable_attributes(span: Any) -> Optional[MutableMapping]:
-    """Get a mutable attribute mapping if possible. Prefer public API."""
-    if _is_recording_span(span):
-        # Use public API on recording spans
-        return None
+    """Get a mutable attribute mapping if possible."""
     if not _sdk_version_ok():
         return None
     attrs_obj = _get_attrs_obj(span)
