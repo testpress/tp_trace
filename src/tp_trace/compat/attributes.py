@@ -115,17 +115,6 @@ def _find_mutable_dict(attrs_obj: Any) -> Optional[MutableMapping]:
             cand = getattr(attrs_obj, name, None)
             if isinstance(cand, dict):
                 return cand
-            if isinstance(cand, MutableMapping) and not isinstance(cand, type(attrs_obj)):
-                return cand
-        except Exception:
-            continue
-    # Try other common names but be more careful
-    for name in ("_attributes", "_attrs"):
-        try:
-            cand = getattr(attrs_obj, name, None)
-            if isinstance(cand, dict):
-                # Only use if it's clearly an internal storage
-                return cand
             if isinstance(cand, MutableMapping):
                 return cand
         except Exception:
@@ -157,6 +146,7 @@ def set_attribute_safe(span: Any, key: str, value: Any) -> bool:
                     return True
             except Exception:
                 pass
+            return False
     except Exception:
         pass
     target = get_mutable_attributes(span)
@@ -166,13 +156,6 @@ def set_attribute_safe(span: Any, key: str, value: Any) -> bool:
             return True
         except Exception:
             pass
-    # Fallback for recording spans or if mutation unavailable
-    try:
-        if hasattr(span, "set_attribute"):
-            span.set_attribute(key, value)
-            return True
-    except Exception:
-        pass
     return False
 
 

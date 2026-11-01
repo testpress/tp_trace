@@ -31,14 +31,7 @@ def _infer_operation(span: Any, attrs: Dict[str, Any], svc: Optional[str]) -> Op
         if attrs.get("db.operation"):
             return f"redis.{str(attrs.get('db.operation')).lower()}"
         name = getattr(span, "name", "") or ""
-        raw = (
-            str(name)
-            .replace("🔸", "")
-            .replace("REDIS:", "")
-            .replace("redis:", "")
-            .strip()
-            .lower()
-        )
+        raw = str(name).replace("🔸", "").replace("REDIS:", "").replace("redis:", "").strip().lower()
         return f"redis.{raw}" if raw else "redis.command"
     elif svc in ("postgres", "pgbouncer") or attrs.get("db.system") in ("postgres", "postgresql"):
         return attrs.get("db.statement") or "postgres.query"
@@ -95,10 +88,7 @@ def normalize_span_attributes(span: Any) -> None:
         # Normalize service
         if not attrs.get("normalized.service"):
             svc = (
-                attrs.get("peer.service")
-                or attrs.get("db.system")
-                or attrs.get("rpc.system")
-                or attrs.get("component")
+                attrs.get("peer.service") or attrs.get("db.system") or attrs.get("rpc.system") or attrs.get("component")
             )
             if svc == "postgresql":
                 svc = "postgres"
