@@ -454,7 +454,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((sum by (project_name, cluster_name, http_route, http_method) (increase(apm_repeated_query_affected_requests_total{instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[5m])) > 0), \"Severity\", \"\u26a0\ufe0f Warning\", \"project_name\", \".*\"), \"SeverityLabel\", \"REPEATED QUERIES\", \"project_name\", \".*\"), \"SeverityBadge\", \"Warning\", \"project_name\", \".*\"), \"Color\", \"#f59e0b\", \"project_name\", \".*\"), \"BgColor\", \"rgba(245, 158, 11, 0.08)\", \"project_name\", \".*\"), \"BorderColor\", \"rgba(245, 158, 11, 0.35)\", \"project_name\", \".*\"), \"Headline\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Description\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Service\", \"Django\", \"project_name\", \".*\"), \"ImpactSub\", \"Database Efficiency\", \"project_name\", \".*\"), \"BaselineText\", \"0\", \"project_name\", \".*\"), \"Deviation\", \"Repeated\", \"project_name\", \".*\"), \"ContributionText\", \"N+1\", \"project_name\", \".*\"), \"AffectedText\", \"Repeated DB Queries\", \"project_name\", \".*\"), \"MetricType\", \"Repeated Queries\", \"project_name\", \".*\"), \"MetricUnit\", \"reqs\", \"project_name\", \".*\"), \"MetricPrefix\", \"\", \"project_name\", \".*\"), \"EvidenceSub\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"ActionText\", \"-> Investigate Endpoint\", \"project_name\", \".*\"), \"TargetUrl\", \"/d/n-plus-one-detail?var-service=django&\", \"project_name\", \".*\"), \"ImpactText\", \" \", \"http_method\", \"http_route\")",
+          "expr": "label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((sum by (project_name, cluster_name, http_route, http_method) (increase(apm_repeated_query_affected_requests_total{worker_id!=\"\",instance!=\"\", institute_subdomain=~\"${institute:regex}\", normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}[5m])) > 0), \"Severity\", \"\u26a0\ufe0f Warning\", \"project_name\", \".*\"), \"SeverityLabel\", \"REPEATED QUERIES\", \"project_name\", \".*\"), \"SeverityBadge\", \"Warning\", \"project_name\", \".*\"), \"Color\", \"#f59e0b\", \"project_name\", \".*\"), \"BgColor\", \"rgba(245, 158, 11, 0.08)\", \"project_name\", \".*\"), \"BorderColor\", \"rgba(245, 158, 11, 0.35)\", \"project_name\", \".*\"), \"Headline\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Description\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Service\", \"Django\", \"project_name\", \".*\"), \"ImpactSub\", \"Database Efficiency\", \"project_name\", \".*\"), \"BaselineText\", \"0\", \"project_name\", \".*\"), \"Deviation\", \"Repeated\", \"project_name\", \".*\"), \"ContributionText\", \"N+1\", \"project_name\", \".*\"), \"AffectedText\", \"Repeated DB Queries\", \"project_name\", \".*\"), \"MetricType\", \"Repeated Queries\", \"project_name\", \".*\"), \"MetricUnit\", \"reqs\", \"project_name\", \".*\"), \"MetricPrefix\", \"\", \"project_name\", \".*\"), \"EvidenceSub\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"ActionText\", \"-> Investigate Endpoint\", \"project_name\", \".*\"), \"TargetUrl\", \"/d/n-plus-one-detail?var-service=django&\", \"project_name\", \".*\"), \"ImpactText\", \" \", \"http_method\", \"http_route\")",
           "format": "table",
           "instant": true,
           "range": false,
@@ -1005,7 +1005,7 @@
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "pointSize": 5,
-            "showPoints": "auto",
+            "showPoints": "always",
             "spanNulls": true
           },
           "decimals": 2,
@@ -1143,7 +1143,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "always",
             "spanNulls": true,
             "stacking": {
               "group": "A",
