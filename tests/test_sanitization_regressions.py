@@ -8,7 +8,9 @@ from tp_trace.sanitize import normalize_sql_for_metric, sanitize_sql, sanitize_u
 
 @pytest.mark.parametrize("mode", [None, "expose", "redact", "strip"])
 def test_malformed_url_never_returns_userinfo(mode):
-    assert sanitize_url("http://admin:secret@[bad-host]:99999/path?token=private", mode=mode) == "<unparseable-url>"
+    # An unmatched IPv6 bracket raises on Python 3.8 too; hostname validation
+    # for matched brackets differs between supported Python versions.
+    assert sanitize_url("http://admin:secret@[bad-host/path?token=private", mode=mode) == "<unparseable-url>"
 
 
 @pytest.mark.parametrize(
