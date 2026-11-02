@@ -5,7 +5,6 @@ from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
 _WHITESPACE_RE = re.compile(r"\s+")
-_STRING_LITERAL_RE = re.compile(r"'(?:''|[^'])*'")
 # Match numeric literals not attached to word characters (e.g. '= 42', ', 123.45', 'IN (1, 2)')
 _NUMERIC_LITERAL_RE = re.compile(r"(?<=[^\w\$.])\b\d+(?:\.\d+)?\b")
 # Match an IN/NOT IN predicate whose value list is purely a comma-separated run of
@@ -14,9 +13,8 @@ _IN_PLACEHOLDER_LIST_RE = re.compile(
     r"\b(IN|NOT\s+IN)\s*\(\s*(?:\?|%s|\$\d+)(?:\s*,\s*(?:\?|%s|\$\d+))*\s*\)", re.IGNORECASE
 )
 _BATCH_VALUES_RE = re.compile(r"\bVALUES\s*\([^)]+\)(?:\s*,\s*\([^)]+\))+", re.IGNORECASE)
-_SQL_COMMENTS_RE = re.compile(r"/\*.*?\*/|--[^\r\n]*")
-_DOLLAR_QUOTE_RE = re.compile(r"\$(\w*)\$.*?\$\1\$", re.DOTALL)
-_UNCLOSED_DOLLAR_QUOTE_RE = re.compile(r"\$[a-zA-Z_]\w*\$|\$\$")
+_SQL_TOKEN_RE = re.compile(r"--|/\*|[\'\"$]")
+_DOLLAR_TAG_RE = re.compile(r"\$(?:[a-zA-Z_]\w*)?\$")
 _SAVEPOINT_RE = re.compile(
     r"\b(SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+([\"`']?)(?:s\d+_\w+|\w+)\2", re.IGNORECASE
 )
@@ -52,6 +50,86 @@ _SENSITIVE_QUERY_KEYS = {
 }
 
 
+def _redact_sql_literals(sql: str) -> str:
+    """Scan bounded input once, respecting SQL lexical boundaries.
+
+    A plain string's backslash semantics depend on the server setting. Reject
+    that ambiguous case instead of guessing which quote closes the literal.
+    Explicit PostgreSQL E-strings have known backslash escape semantics.
+    """
+    parts = []
+    i = 0
+    size = len(sql)
+    while i < size:
+        token = _SQL_TOKEN_RE.search(sql, i)
+        if token is None:
+            parts.append(sql[i:])
+            break
+        parts.append(sql[i : token.start()])
+        i = token.start()
+        if sql.startswith("--", i):
+            i += 2
+            while i < size and sql[i] not in "\r\n":
+                i += 1
+            parts.append(" ")
+        elif sql.startswith("/*", i):
+            depth = 1
+            i += 2
+            while i < size and depth:
+                if sql.startswith("/*", i):
+                    depth += 1
+                    i += 2
+                elif sql.startswith("*/", i):
+                    depth -= 1
+                    i += 2
+                else:
+                    i += 1
+            if depth:
+                raise ValueError("unterminated SQL comment")
+            parts.append(" ")
+        elif sql[i] in ("'", '"'):
+            quote = sql[i]
+            start = i
+            escaped = (
+                quote == "'"
+                and i > 0
+                and sql[i - 1] in "eE"
+                and (i < 2 or not (sql[i - 2].isalnum() or sql[i - 2] in "_$"))
+            )
+            i += 1
+            while i < size:
+                if sql[i] == "\\" and quote == "'":
+                    if not escaped:
+                        raise ValueError("ambiguous SQL escape")
+                    i += 2
+                elif sql[i] == quote:
+                    if i + 1 < size and sql[i + 1] == quote:
+                        i += 2
+                    else:
+                        i += 1
+                        break
+                else:
+                    i += 1
+            else:
+                raise ValueError("unterminated SQL quote")
+            parts.append("?" if quote == "'" else sql[start:i])
+        elif sql[i] == "$" and (i == 0 or not (sql[i - 1].isalnum() or sql[i - 1] in "_$")):
+            tag = _DOLLAR_TAG_RE.match(sql, i)
+            if tag is None:
+                parts.append(sql[i])
+                i += 1
+                continue
+            end = sql.find(tag.group(), tag.end())
+            if end < 0:
+                raise ValueError("unterminated dollar quote")
+            parts.append("?")
+            i = end + len(tag.group())
+        else:
+            parts.append(sql[i])
+            i += 1
+    return "".join(parts)
+
+
 def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) -> str:
     """
     Sanitize SQL statements by replacing literal values with placeholders.
@@ -59,6 +137,7 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
     Replaces:
     - Postgres dollar-quoted strings: $$secret$$ or $tag$secret$tag$ -> ?
     - String literals: 'example' -> ?
+    - SQL comments (including nested block comments) -> whitespace
     - Numeric literals: 42, 3.14 -> ?
     - Collapses placeholder list arity: 'IN (?, ?, ?)' -> 'IN (?)'
     - Parameterizes savepoint names: SAVEPOINT "s8597110336_x1" -> SAVEPOINT ?
@@ -80,14 +159,7 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
     pre_truncated = sql[: max_length * 4]
 
     try:
-        # 1. Replace dollar-quoted strings first
-        sanitized = _DOLLAR_QUOTE_RE.sub("?", pre_truncated)
-        # Check for unclosed dollar quote tags
-        if _UNCLOSED_DOLLAR_QUOTE_RE.search(sanitized):
-            return "<unparseable-sql>"
-
-        # 2. Replace string literals
-        sanitized = _STRING_LITERAL_RE.sub("?", sanitized)
+        sanitized = _redact_sql_literals(pre_truncated)
 
         # 3. Replace numeric literals
         sanitized = _NUMERIC_LITERAL_RE.sub("?", sanitized)
@@ -129,8 +201,7 @@ def normalize_sql_for_metric(sql: Optional[str], max_length: int = _MAX_METRIC_S
         return sanitized
 
     try:
-        # Strip comments
-        cleaned = _SQL_COMMENTS_RE.sub("", sanitized)
+        cleaned = sanitized
         # Collapse batch insert VALUES (...), (...)
         cleaned = _BATCH_VALUES_RE.sub("VALUES (...)", cleaned)
         # Collapse IN placeholder lists
@@ -214,9 +285,5 @@ def sanitize_url(url: Optional[str], strip_query: bool = False, mode: Optional[s
         )
         return cleaned
     except Exception:
-        # Never return raw URL on parse error to avoid leaking query tokens or credentials
-        try:
-            clean = str(url).split("?", 1)[0].split("#", 1)[0]
-            return clean if clean else "<unparseable-url>"
-        except Exception:
-            return "<unparseable-url>"
+        # No part of a malformed URL is safe to return as-is.
+        return "<unparseable-url>"

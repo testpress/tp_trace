@@ -14,7 +14,7 @@ from tp_trace.safety import UNTRACED, attempt, safe_enrich, safe_set_attribute, 
 from tp_trace.tracing import traced_span
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 
-from .request import _format_view_from_match, _normalize_route, _resolve_view_name
+from .request import _format_view_from_match, _normalize_route, _request_method, _resolve_view_name
 
 _in_view_dispatch: ContextVar[bool] = ContextVar("in_view_dispatch", default=False)
 
@@ -64,12 +64,12 @@ def traced_get_response(wrapped: Callable, instance: Any, args: Any, kwargs: Any
         tracer_name="tp_trace.django",
     ) as span:
         _apply_tags(span)
-        method = attempt(getattr, request, "method", default="GET", _label="request.method")
+        method = attempt(_request_method, request, default="GET", _label="request.method")
         pre_route = attempt(_normalize_route, request, initial_route, default=initial_route, _label="normalize_route")
         route_token = None
         if pre_route and pre_route != "__unmatched__":
             route_token = set_request_route(pre_route, method)
-        match = getattr(request, "resolver_match", None)
+        match = attempt(getattr, request, "resolver_match", default=None, _label="resolver_match")
         resolved_view = (
             attempt(_format_view_from_match, match, method, default=None, _label="view_format") if match else None
         )
@@ -165,7 +165,7 @@ def _build_dispatch_plan(instance: Any, wrapped: Callable, args: Any, kwargs: An
     )
 
     request = args[0] if args else kwargs.get("request")
-    method = attempt(getattr, request, "method", default="GET", _label="request.method")
+    method = attempt(_request_method, request, default="GET", _label="request.method")
     method = method.lower() if isinstance(method, str) else "get"
 
     dispatch_cls = attempt(
@@ -249,7 +249,7 @@ def traced_view_dispatch(wrapped: Callable, instance: Any, args: Any, kwargs: An
                         _label="normalize_route",
                     )
                     if norm_route and norm_route != "__unmatched__":
-                        req_method = attempt(getattr, request, "method", default="GET", _label="request.method")
+                        req_method = attempt(_request_method, request, default="GET", _label="request.method")
                         route_token = set_request_route(norm_route, req_method)
                         safe_set_attribute(dispatch_span, "http.route", norm_route)
 
