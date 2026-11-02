@@ -630,6 +630,12 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
         logger.debug("Error in django request hook", exc_info=True)
 
 
+def _request_method(request: Any) -> str:
+    """Normalize telemetry metadata without changing the request object."""
+    method = getattr(request, "method", "GET")
+    return method.upper() if isinstance(method, str) and method else "GET"
+
+
 def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> None:
     """Official OTel DjangoInstrumentor response hook.
 
@@ -637,25 +643,27 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
     (X-Trace-ID, X-Span-ID, traceparent), user attribution, repeated query
     anomaly detection, request metrics, and resets context tokens.
     """
-    ctx = getattr(request, "_tp_request_context", None)
-    tracker_token = ctx[0] if ctx else None
-    route_token = ctx[1] if ctx else None
-    view_token = ctx[2] if ctx else None
-    start_time = ctx[3] if ctx else None
-    preresolved_route = ctx[4] if ctx else None
-
+    tracker_token = route_token = view_token = None
     try:
+        ctx = getattr(request, "_tp_request_context", None)
+        tracker_token = ctx[0] if ctx else None
+        route_token = ctx[1] if ctx else None
+        view_token = ctx[2] if ctx else None
+        start_time = ctx[3] if ctx else None
+        preresolved_route = ctx[4] if ctx else None
+
         if span is None:
             return
 
         cfg = attempt(_get_config, default=None, _label="request_config")
-        method = getattr(request, "method", "GET").upper()
+        method = attempt(_request_method, request, default="GET", _label="request.method")
         path = getattr(request, "path", "/")
 
         duration_ms = ((time.monotonic() - start_time) * 1000.0) if start_time else 0.0
         safe_set_attribute(span, "http.request.duration_ms", duration_ms)
 
         status_code = attempt(getattr, response, "status_code", default=200, _label="response.status_code")
+        status_code = attempt(int, status_code, default=200, _label="response.status_code.int")
         error = status_code >= 500
 
         norm_route = attempt(_normalize_route, request, path, default="__unmatched__", _label="normalize_route")
@@ -777,6 +785,8 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
             attempt(_set_headers, _label="trace_headers")
 
         _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
+    except Exception:
+        logger.debug("Error in django response hook", exc_info=True)
     finally:
         if span is not None:
             try:
@@ -786,14 +796,13 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
             except Exception:
                 pass
         if tracker_token is not None:
-            reset_request_db_tracker(tracker_token)
+            attempt(reset_request_db_tracker, tracker_token, _label="reset_db_tracker")
         if view_token is not None:
-            reset_request_view(view_token)
+            attempt(reset_request_view, view_token, _label="reset_view")
         if route_token is not None:
-            reset_request_route(route_token)
-        reset_request_tags()
-        if hasattr(request, "_tp_request_context"):
-            try:
-                delattr(request, "_tp_request_context")
-            except Exception:
-                pass
+            attempt(reset_request_route, route_token, _label="reset_route")
+        attempt(reset_request_tags, _label="reset_tags")
+        try:
+            delattr(request, "_tp_request_context")
+        except Exception:
+            pass
