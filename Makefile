@@ -60,4 +60,4 @@ smoke: ## Verify host ingestion, storage, app dependencies, and Grafana
 	$(PYTHON) tests/e2e/smoke.py
 
 traffic: ## Generate a bounded sample workload (ARGS overrides the default)
-	bash dev/sample-app/generate_traffic.sh $(if $(ARGS),$(ARGS),--count 20 --redis)
+	bash dev/sample-app/generate_traffic.sh $(if $(ARGS),$(ARGS),--count 200 -c 10)
