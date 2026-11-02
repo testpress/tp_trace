@@ -7864,7 +7864,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Shows distinct HTTP route templates and service operations against per-worker budgets. Current Count is the maximum tracked count across workers; Active Overflow is the recent grouping rate, not a historical total.",
+      "description": "Shows distinct HTTP route templates and service operations against per-worker budgets. Current Count is the maximum tracked count across workers; Active Overflow is the total count of observations grouped into __other__.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -7877,15 +7877,20 @@
             },
             "properties": [
               {
-                "id": "custom.width",
-                "value": 180
-              },
-              {
                 "id": "mappings",
                 "value": [
                   {
                     "options": {
                       "aws-s3": {
+                        "text": "AWS S3 Storage (Boto3)"
+                      },
+                      "boto3": {
+                        "text": "AWS S3 Storage (Boto3)"
+                      },
+                      "boto": {
+                        "text": "AWS S3 Storage (Boto3)"
+                      },
+                      "s3": {
                         "text": "AWS S3 Storage"
                       },
                       "celery": {
@@ -7917,10 +7922,6 @@
             },
             "properties": [
               {
-                "id": "custom.width",
-                "value": 250
-              },
-              {
                 "id": "mappings",
                 "value": [
                   {
@@ -7942,6 +7943,15 @@
                         "text": "Celery task operations"
                       },
                       "aws-s3:operation": {
+                        "text": "S3 (Boto3) operations"
+                      },
+                      "boto3:operation": {
+                        "text": "S3 (Boto3) operations"
+                      },
+                      "boto:operation": {
+                        "text": "S3 (Boto3) operations"
+                      },
+                      "s3:operation": {
                         "text": "S3 operations"
                       }
                     }
@@ -7998,30 +8008,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Current Count"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 140
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Budget Cap"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 140
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "Budget Used"
             },
             "properties": [
@@ -8055,22 +8041,18 @@
                     }
                   ]
                 }
-              },
-              {
-                "id": "custom.width",
-                "value": 200
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Active Overflow"
+              "options": "Total Overflow"
             },
             "properties": [
               {
                 "id": "unit",
-                "value": "reqps"
+                "value": "short"
               },
               {
                 "id": "custom.cellOptions",
@@ -8090,14 +8072,10 @@
                     },
                     {
                       "color": "#f59e0b",
-                      "value": 0.001
+                      "value": 1
                     }
                   ]
                 }
-              },
-              {
-                "id": "custom.width",
-                "value": 180
               }
             ]
           }
@@ -8116,7 +8094,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Active Overflow"
+            "displayName": "Total Overflow"
           }
         ]
       },
@@ -8127,7 +8105,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "label_join((label_replace((((max by (normalized_service) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"operation\", normalized_service!~\"__other__\"})) > (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))) or (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))), \"scope\", \"operation\", \"\", \".*\") or (max by (normalized_service, scope) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"route\", normalized_service!~\"__other__\"}))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -8138,7 +8116,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "label_join((max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"})), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "Limit"
@@ -8149,7 +8127,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((100 * (max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))) / (max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5)))))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "label_join((100 * (label_replace((((max by (normalized_service) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"operation\", normalized_service!~\"__other__\"})) > (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))) or (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))), \"scope\", \"operation\", \"\", \".*\") or (max by (normalized_service, scope) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"route\", normalized_service!~\"__other__\"})))) / (max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"})), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "UsagePct"
@@ -8160,7 +8138,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join(((sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}[2m])))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "label_join(((sum by (normalized_service, scope) (apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"})) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"}))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "GroupedRate"
@@ -8180,11 +8158,11 @@
               "scope": true
             },
             "indexByName": {
-              "Active Overflow": 5,
               "Budget Cap": 3,
               "Budget Used": 4,
               "Current Count": 2,
               "Service": 0,
+              "Total Overflow": 5,
               "Tracked Resource": 1,
               "Value #GroupedRate": 5,
               "Value #Limit": 3,
@@ -8194,7 +8172,7 @@
               "tracked_resource": 1
             },
             "renameByName": {
-              "Value #GroupedRate": "Active Overflow",
+              "Value #GroupedRate": "Total Overflow",
               "Value #Limit": "Budget Cap",
               "Value #Tracked": "Current Count",
               "Value #UsagePct": "Budget Used",

@@ -469,7 +469,7 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
 
 
 def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
-    """Verify that Collector Monitoring Panel 403 reports the service and rate of cardinality grouping."""
+    """Verify that Collector Monitoring Panel 403 reports the service and count of cardinality grouping."""
     p403 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 403)
     t_rate = next(t for t in p403["targets"] if t.get("refId") == "GroupedRate")
     expr_rate = re.sub(r"\$\{[^}]+\}", ".*", t_rate["expr"]).replace("$__rate_interval", "5m")
@@ -483,9 +483,9 @@ def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
 
     evaluate(
         tmp_path,
-        expr_rate.replace(" or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\".*\", normalized_service=~\"django|postgres\", scope=~\"route|operation\"} or apm_cardinality_limit_ratio{collector_alias=~\".*\", normalized_service=~\"django|postgres\", scope=~\"route|operation\"}))", "").replace(" or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\".*\", normalized_service!~\"all|__other__\"}[2m])))", ""),
+        expr_rate.replace(" or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\".*\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\".*\", scope=~\"route|operation\", normalized_service!~\"__other__\"}))", ""),
         series,
-        [{"labels": '{normalized_service="postgres",scope="operation",tracked_resource="postgres:operation"}', "value": 1}],
+        [{"labels": '{normalized_service="postgres",scope="operation",tracked_resource="postgres:operation"}', "value": 1800}],
     )
 
 
