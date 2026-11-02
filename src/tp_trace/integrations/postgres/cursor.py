@@ -14,7 +14,7 @@ from opentelemetry.context import (
 from tp_trace.config_access import get_config as _get_config, set_config as set_config
 from tp_trace.route_context import record_request_db_query
 from tp_trace.safety import UNTRACED, attempt, safe_set_attribute
-from tp_trace.sanitize import _MAX_STATEMENT_LENGTH, normalize_sql_for_metric, sanitize_sql
+from tp_trace.sanitize import _MAX_STATEMENT_LENGTH, _normalize_sanitized_sql, sanitize_sql
 from tp_trace.tracing import reentrant_guard, suppress_instrumentation, traced_span
 
 logger = logging.getLogger("tp_trace.integrations.postgres")
@@ -139,9 +139,9 @@ def _build_db_span_context(
 ) -> Tuple[str, Dict[str, Any], str]:
     """Construct span name and attributes for a database query."""
     sanitized_sql = sanitize_sql(sql)
-    # Fingerprint the original input: the display statement may already have
-    # been truncated inside a quoted identifier. Each path redacts independently.
-    metric_sql = normalize_sql_for_metric(sql)
+    # Redact once, then derive both fingerprints without rescanning raw SQL or
+    # interpreting the bounded display statement as a complete SQL statement.
+    metric_sql = _normalize_sanitized_sql(sanitized_sql)
     op = extract_operation(sanitized_sql)
     db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service = _extract_django_db_meta(
         instance_or_conn
@@ -152,7 +152,7 @@ def _build_db_span_context(
     # For the request-local repeated query tracker, generate an untruncated
     # structural fingerprint up to _MAX_STATEMENT_LENGTH so wide Django models
     # do not truncate before WHERE and merge distinct queries into false-positive N+1 loops.
-    tracker_fingerprint = normalize_sql_for_metric(sql, max_length=_MAX_STATEMENT_LENGTH)
+    tracker_fingerprint = _normalize_sanitized_sql(sanitized_sql, max_length=_MAX_STATEMENT_LENGTH)
     summary = extract_query_summary(sanitized_sql)
     is_pgbouncer = is_pgbouncer_connection(db_host, db_port)
 

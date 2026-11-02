@@ -224,7 +224,16 @@ def normalize_sql_for_metric(sql: Optional[str], max_length: int = _MAX_METRIC_S
     # budget. Cutting a wide SELECT at the metric budget can split a quoted
     # identifier and incorrectly classify valid Django SQL as unparseable.
     sanitized = sanitize_sql(sql, max_length=max(_MAX_STATEMENT_LENGTH, max_length * 2))
-    if sanitized == "<unparseable-sql>":
+    return _normalize_sanitized_sql(sanitized, max_length=max_length)
+
+
+def _normalize_sanitized_sql(sanitized: str, max_length: int = _MAX_METRIC_STATEMENT_LENGTH) -> str:
+    """Derive a bounded fingerprint from already-redacted SQL; never pass raw SQL.
+
+    This deliberately does not lex the input again: a bounded display statement
+    can end inside an identifier without making the original SQL invalid.
+    """
+    if not sanitized or sanitized == "<unparseable-sql>":
         return sanitized
 
     try:

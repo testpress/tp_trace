@@ -138,3 +138,27 @@ def test_valid_sql_exceeding_scan_budget_keeps_safe_prefix(tail):
 def test_postgresql_unicode_literals_are_redacted_without_fallback(query, expected):
     assert sanitize_sql(query) == expected
     assert normalize_sql_for_metric(query) == expected
+
+
+def test_db_context_redacts_raw_sql_once_with_bounded_scan(monkeypatch):
+    import tp_trace.sanitize as sanitization
+    from tp_trace.integrations.postgres.cursor import _build_db_span_context
+
+    original = sanitization._redact_sql_literals
+    scans = []
+
+    def track_scan(sql, **kwargs):
+        scans.append(len(sql))
+        return original(sql, **kwargs)
+
+    monkeypatch.setattr(sanitization, "_redact_sql_literals", track_scan)
+    query = "SELECT " + ", ".join('"users_user"."field_%d"' % i for i in range(1500))
+    query += " FROM users WHERE email = 'private@example.test'"
+    _, attrs, tracker = _build_db_span_context(query, None)
+    assert len(scans) == 1
+    assert scans[0] <= 16384
+    assert attrs["db.statement"].startswith("SELECT ")
+    assert tracker.startswith("SELECT ")
+    assert "private@example.test" not in str(attrs)
+    assert len(attrs["db.statement"]) <= 256
+    assert len(tracker) <= 4096
