@@ -294,3 +294,32 @@ def test_gauges_omit_scope_when_no_active_span_processor():
     assert tracked_scopes == ["metric_series"]
     assert limit_scopes == ["metric_series"]
 
+
+def test_repeated_query_overflow_diagnostics_preserve_worker_counts(monkeypatch):
+    """Diagnostics must coexist with main's per-worker affected counters."""
+    import tp_trace.metrics as metrics
+
+    reader = InMemoryMetricReader()
+    recorder = create_red_metrics_recorder(
+        SDKConfig(project_name="worker-overflow", cluster_name="dev", metric_cardinality_limit=1),
+        metric_readers=[reader],
+    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/admitted/")
+    for worker in range(12):
+        monkeypatch.setattr(metrics.os, "getpid", lambda worker=worker: 1000 + worker)
+        for _ in range(worker + 1):
+            recorder.record_repeated_query_affected_request(method="GET", route="/overflow/")
+
+    data = reader.get_metrics_data()
+    emitted = {m.name: m for rm in data.resource_metrics for sm in rm.scope_metrics for m in sm.metrics}
+    affected = emitted["apm_repeated_query_affected_requests_total"].data.data_points
+    grouped = emitted["apm_cardinality_grouping_total"].data.data_points
+    overflow = [p for p in affected if p.attributes["http.route"] == "__other__"]
+    assert sum(p.value for p in affected) == 79
+    assert len(overflow) == len(grouped) == 12
+    assert {p.attributes["worker_id"]: p.value for p in overflow} == {
+        p.attributes["worker_id"]: p.value for p in grouped
+    }
+    assert sorted(p.value for p in grouped) == list(range(1, 13))
+    assert all(p.attributes["scope"] == "repeated_queries" for p in grouped)
+    assert all(p.attributes["cause"] == "repeated_query_series_limit" for p in grouped)

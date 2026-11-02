@@ -544,5 +544,3 @@ def test_collector_status_reports_up_state(tmp_path):
         series,
         [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": 1}],
     )
-
-
