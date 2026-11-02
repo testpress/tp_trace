@@ -137,15 +137,16 @@ def test_service_overview_error_rate_selects_whole_metric_source():
     assert expr.count('error="true"') == 2
 
 
-def test_service_overview_graphs_use_selected_range_for_sparse_counters():
+def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
     """Short refresh intervals must not hide counters exported less frequently."""
     dashboard = _load("Supporting Dashboards/service_overview.json")
     panels = {panel["title"]: panel for panel in dashboard["panels"]}
     for title in ("Requests and Errors", "Error Rate Over Time", "Latency Percentiles (P50 / P95 / P99)"):
         expressions = [target.get("expr", "") for target in panels[title]["targets"]]
         assert expressions
-        assert all("$__rate_interval" not in expr for expr in expressions)
-        assert all("$__range" in expr for expr in expressions)
+        assert all("$__rate_interval" in expr for expr in expressions)
+        assert all("$__range" not in expr for expr in expressions)
+        assert all(target.get("interval") == "1m" for target in panels[title]["targets"])
 
 
 def test_collector_spanmetrics_blocks_internal_and_django_server_spans():

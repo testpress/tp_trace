@@ -448,3 +448,21 @@ def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, exp
         [{"labels": result_labels, "value": round(expected, 6)}],
         interval="15s",
     )
+
+
+@pytest.mark.parametrize("panel_id,expected", [(6, 1.25), (7, 20)])
+def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected):
+    target = panel("Supporting Dashboards/service_overview.json", panel_id)["targets"][0]
+    min_step = 60 if target.get("interval") == "1m" else 15
+    expr = re.sub(r"\$\{[^}]+\}", ".*", target["expr"])
+    expr = expr.replace("$__range", "1h").replace("$__rate_interval", str(max(15 + min_step, 4 * min_step)) + "s")
+    labels = (
+        'project_name="test",cluster_name="dev",normalized_service="django",'
+        'normalized_operation="GET /test/",metric_source="tp_trace_sdk",'
+        'instance="collector",worker_id="w1",span_kind="SPAN_KIND_SERVER"'
+    )
+    series = [
+        {"series": "calls_total{" + labels + ',error="false"}', "values": "0+60x30"},
+        {"series": "calls_total{" + labels + ',error="true"}', "values": "0x27 60x2"},
+    ]
+    evaluate(tmp_path, "round((" + expr + "), 0.000001)", series, [{"labels": "{}", "value": expected}])
