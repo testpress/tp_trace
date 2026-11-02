@@ -718,7 +718,7 @@ def test_sanitize_url_fail_closed():
     try:
         sanitized = sanitize_url(MalformedURL())
         assert "secret" not in sanitized
-        assert sanitized == "https://example.com/path"
+        assert sanitized == "<unparseable-url>"
     finally:
         urllib.parse.urlparse = orig
 

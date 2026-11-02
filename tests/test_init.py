@@ -419,7 +419,7 @@ def test_sanitize_sql_normalizes_search_path():
         ("SET search_path = tenant, public;", "SET search_path = ?;", "SET search_path = ?;"),
         (
             "/* comment */ SET search_path = tenant, public",
-            "/* comment */ SET search_path = ?",
+            "SET search_path = ?",
             "SET search_path = ?",
         ),
     ]

@@ -81,6 +81,8 @@ def make_traced_cache_op(op_name: str):
             key = kwargs["key"]
         elif "keys" in kwargs:
             key = kwargs["keys"]
+        elif op_name == "set_many":
+            key = kwargs.get("data")
 
         span_attrs = {
             "django.cache.operation": op_name,
@@ -146,7 +148,9 @@ def make_traced_cache_op(op_name: str):
 
         if key is not None:
             try:
-                if isinstance(key, (list, tuple, set)):
+                if isinstance(key, dict):
+                    span_attrs["django.cache.key"] = ", ".join(str(k) for k in key)
+                elif isinstance(key, (list, tuple, set)):
                     span_attrs["django.cache.key"] = ", ".join(str(k) for k in key)
                 else:
                     span_attrs["django.cache.key"] = str(key)
