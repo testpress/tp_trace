@@ -485,7 +485,7 @@ def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
         tmp_path,
         expr_rate.replace(" or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\".*\", normalized_service=~\"django|postgres\", scope=~\"route|operation\"} or apm_cardinality_limit_ratio{collector_alias=~\".*\", normalized_service=~\"django|postgres\", scope=~\"route|operation\"}))", "").replace(" or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\".*\", normalized_service!~\"all|__other__\"}[2m])))", ""),
         series,
-        [{"labels": '{normalized_service="postgres",scope="operation"}', "value": 1}],
+        [{"labels": '{normalized_service="postgres",scope="operation",tracked_resource="postgres:operation"}', "value": 1}],
     )
 
 

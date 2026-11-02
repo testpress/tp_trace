@@ -7864,7 +7864,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Monitors distinct URL routes and SQL query counts against application budgets. Shows exactly which service is approaching limits or having excess telemetry collapsed into __other__.",
+      "description": "Shows distinct HTTP route templates and service operations against per-worker budgets. Current Count is the maximum tracked count across workers; Active Overflow is the recent grouping rate, not a historical total.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -7899,6 +7899,9 @@
                       },
                       "redis": {
                         "text": "Redis Cache"
+                      },
+                      "all": {
+                        "text": "All services"
                       }
                     },
                     "type": "value"
@@ -7915,27 +7918,78 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 200
+                "value": 250
               },
               {
                 "id": "mappings",
                 "value": [
                   {
+                    "type": "value",
                     "options": {
-                      "metric_series": {
-                        "text": "Tenant / Tag Combinations"
+                      "all:route": {
+                        "text": "HTTP route templates"
                       },
-                      "operation": {
-                        "text": "SQL Queries / Handlers"
+                      "postgres:operation": {
+                        "text": "SQL query patterns"
                       },
-                      "repeated_queries": {
-                        "text": "N+1 Repeated Query Patterns"
+                      "django:operation": {
+                        "text": "Request operations / handlers"
                       },
-                      "route": {
-                        "text": "HTTP URL Routes"
+                      "redis:operation": {
+                        "text": "Redis command patterns"
+                      },
+                      "celery:operation": {
+                        "text": "Celery task operations"
+                      },
+                      "aws-s3:operation": {
+                        "text": "S3 operations"
                       }
-                    },
-                    "type": "value"
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*:operation$",
+                      "result": {
+                        "text": "Service operations"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*:metric_series$",
+                      "result": {
+                        "text": "Metric label combinations"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*:repeated_queries$",
+                      "result": {
+                        "text": "Affected-request label combinations"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*:service$",
+                      "result": {
+                        "text": "Service names"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*:route$",
+                      "result": {
+                        "text": "HTTP route templates"
+                      }
+                    }
                   }
                 ]
               }
@@ -8073,7 +8127,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))",
+          "expr": "label_join((max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -8084,7 +8138,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))",
+          "expr": "label_join((max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "Limit"
@@ -8095,7 +8149,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "100 * (max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))) / (max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5)))))",
+          "expr": "label_join((100 * (max by (normalized_service, scope) (((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_tracked_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5))))) / (max by (normalized_service, scope) (((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}) or (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"})) or ((apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}) and ((rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) > 0) or ((apm_cardinality_tracked or apm_cardinality_tracked_ratio) / (apm_cardinality_limit or apm_cardinality_limit_ratio) >= 0.5)))))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "UsagePct"
@@ -8106,7 +8160,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}[2m])))",
+          "expr": "label_join(((sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=\"all\", scope=\"route\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}[2m])) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", normalized_service=~\"django|postgres\", scope=\"operation\"}))) or (sum by (normalized_service, scope) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}[2m])))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
           "format": "table",
           "instant": true,
           "refId": "GroupedRate"
@@ -8122,7 +8176,8 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "scope": true
             },
             "indexByName": {
               "Active Overflow": 5,
@@ -8136,7 +8191,7 @@
               "Value #Tracked": 2,
               "Value #UsagePct": 4,
               "normalized_service": 0,
-              "scope": 1
+              "tracked_resource": 1
             },
             "renameByName": {
               "Value #GroupedRate": "Active Overflow",
@@ -8144,7 +8199,7 @@
               "Value #Tracked": "Current Count",
               "Value #UsagePct": "Budget Used",
               "normalized_service": "Service",
-              "scope": "Tracked Resource"
+              "tracked_resource": "Tracked Resource"
             }
           }
         }
