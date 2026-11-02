@@ -1065,3 +1065,21 @@ def test_postgres_integration_does_not_touch_connections_before_apps_ready(monke
         assert tp_trace_django_db_execute_wrapper in mock_conn.execute_wrappers
     finally:
         integration.uninstrument()
+
+
+def test_large_valid_query_retains_safe_sql_and_executes_once():
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="postgres-test-svc", exporter=exporter, export_batch=False)
+    raw_cursor = MockRawCursor()
+    wrapper = CursorWrapper(raw_cursor, MockDatabaseConnection())
+    sql = "SELECT id FROM users WHERE note = '" + "private" * 4000 + "'"
+    result = wrapper.execute(sql)
+    assert result is raw_cursor
+    assert raw_cursor.executed == [(sql, None)]
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    attrs = spans[0].attributes
+    assert attrs["db.statement"].startswith("SELECT id FROM users WHERE note =")
+    assert "<unparseable-sql>" not in attrs["db.statement"]
+    assert "truncated" in attrs["db.statement.full"]
+    assert "private" not in str(dict(attrs))

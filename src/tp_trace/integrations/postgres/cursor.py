@@ -139,7 +139,9 @@ def _build_db_span_context(
 ) -> Tuple[str, Dict[str, Any], str]:
     """Construct span name and attributes for a database query."""
     sanitized_sql = sanitize_sql(sql)
-    metric_sql = normalize_sql_for_metric(sanitized_sql)
+    # Fingerprint the original input: the display statement may already have
+    # been truncated inside a quoted identifier. Each path redacts independently.
+    metric_sql = normalize_sql_for_metric(sql)
     op = extract_operation(sanitized_sql)
     db_alias, db_vendor, db_name, db_host, db_port, db_user, db_role, peer_service = _extract_django_db_meta(
         instance_or_conn
@@ -150,7 +152,7 @@ def _build_db_span_context(
     # For the request-local repeated query tracker, generate an untruncated
     # structural fingerprint up to _MAX_STATEMENT_LENGTH so wide Django models
     # do not truncate before WHERE and merge distinct queries into false-positive N+1 loops.
-    tracker_fingerprint = normalize_sql_for_metric(sanitized_sql, max_length=_MAX_STATEMENT_LENGTH)
+    tracker_fingerprint = normalize_sql_for_metric(sql, max_length=_MAX_STATEMENT_LENGTH)
     summary = extract_query_summary(sanitized_sql)
     is_pgbouncer = is_pgbouncer_connection(db_host, db_port)
 

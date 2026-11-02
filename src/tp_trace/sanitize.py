@@ -14,7 +14,7 @@ _IN_PLACEHOLDER_LIST_RE = re.compile(
 )
 _BATCH_VALUES_RE = re.compile(r"\bVALUES\s*\([^)]+\)(?:\s*,\s*\([^)]+\))+", re.IGNORECASE)
 _SQL_TOKEN_RE = re.compile(r"--|/\*|[\'\"$]")
-_DOLLAR_TAG_RE = re.compile(r"\$(?:[a-zA-Z_]\w*)?\$")
+_DOLLAR_TAG_RE = re.compile(r"\$(?:[^\W\d]\w*)?\$")
 _SAVEPOINT_RE = re.compile(
     r"\b(SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+([\"`']?)(?:s\d+_\w+|\w+)\2", re.IGNORECASE
 )
@@ -50,12 +50,14 @@ _SENSITIVE_QUERY_KEYS = {
 }
 
 
-def _redact_sql_literals(sql: str) -> str:
+def _redact_sql_literals(sql: str, truncated: bool = False) -> str:
     """Scan bounded input once, respecting SQL lexical boundaries.
 
     A plain string's backslash semantics depend on the server setting. Reject
     that ambiguous case instead of guessing which quote closes the literal.
     Explicit PostgreSQL E-strings have known backslash escape semantics.
+    If the scan budget cut off a construct, retain only the safe prefix before
+    that construct. The caller marks the result as truncated.
     """
     parts = []
     i = 0
@@ -85,6 +87,8 @@ def _redact_sql_literals(sql: str) -> str:
                 else:
                     i += 1
             if depth:
+                if truncated:
+                    return "".join(parts)
                 raise ValueError("unterminated SQL comment")
             parts.append(" ")
         elif sql[i] in ("'", '"'):
@@ -96,12 +100,23 @@ def _redact_sql_literals(sql: str) -> str:
                 and sql[i - 1] in "eE"
                 and (i < 2 or not (sql[i - 2].isalnum() or sql[i - 2] in "_$"))
             )
+            unicode_string = (
+                quote == "'"
+                and i >= 2
+                and sql[i - 2 : i].lower() == "u&"
+                and (i < 3 or not (sql[i - 3].isalnum() or sql[i - 3] in "_$"))
+            )
             i += 1
             while i < size:
                 if sql[i] == "\\" and quote == "'":
-                    if not escaped:
+                    if unicode_string:
+                        # U& strings require standard_conforming_strings=on;
+                        # Unicode escapes do not change lexical quote boundaries.
+                        i += 1
+                    elif escaped:
+                        i += 2
+                    else:
                         raise ValueError("ambiguous SQL escape")
-                    i += 2
                 elif sql[i] == quote:
                     if i + 1 < size and sql[i + 1] == quote:
                         i += 2
@@ -111,6 +126,8 @@ def _redact_sql_literals(sql: str) -> str:
                 else:
                     i += 1
             else:
+                if truncated:
+                    return "".join(parts)
                 raise ValueError("unterminated SQL quote")
             parts.append("?" if quote == "'" else sql[start:i])
         elif sql[i] == "$" and (i == 0 or not (sql[i - 1].isalnum() or sql[i - 1] in "_$")):
@@ -121,6 +138,8 @@ def _redact_sql_literals(sql: str) -> str:
                 continue
             end = sql.find(tag.group(), tag.end())
             if end < 0:
+                if truncated:
+                    return "".join(parts)
                 raise ValueError("unterminated dollar quote")
             parts.append("?")
             i = end + len(tag.group())
@@ -145,7 +164,9 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
     - Normalizes multiple whitespace characters into a single space.
     - Pre-truncates to bound regex processing time on large queries.
     - Truncates excessively long queries to max_length.
-    - Fail-closed: returns '<unparseable-sql>' on unparseable/unterminated constructs.
+    - Keeps a safe prefix with a truncation marker when the scan budget is exceeded.
+    - Fail-closed: returns '<unparseable-sql>' on ambiguous or unterminated input
+      within the scan budget.
     """
     if not sql:
         return ""
@@ -157,9 +178,10 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
 
     # Pre-truncate to bound regex execution time (O(max_length))
     pre_truncated = sql[: max_length * 4]
+    input_truncated = len(pre_truncated) < len(sql)
 
     try:
-        sanitized = _redact_sql_literals(pre_truncated)
+        sanitized = _redact_sql_literals(pre_truncated, truncated=input_truncated)
 
         # 3. Replace numeric literals
         sanitized = _NUMERIC_LITERAL_RE.sub("?", sanitized)
@@ -178,6 +200,8 @@ def sanitize_sql(sql: Optional[str], max_length: int = _MAX_STATEMENT_LENGTH) ->
 
         if len(normalized) > max_length:
             return normalized[:max_length] + " ... [truncated]"
+        if input_truncated:
+            return normalized + " ... [truncated]"
         return normalized
     except Exception:
         return "<unparseable-sql>"
@@ -196,7 +220,10 @@ def normalize_sql_for_metric(sql: Optional[str], max_length: int = _MAX_METRIC_S
     """
     if not sql:
         return ""
-    sanitized = sanitize_sql(sql, max_length=max_length * 2)
+    # Scan with the statement budget, independently of the shorter metric label
+    # budget. Cutting a wide SELECT at the metric budget can split a quoted
+    # identifier and incorrectly classify valid Django SQL as unparseable.
+    sanitized = sanitize_sql(sql, max_length=max(_MAX_STATEMENT_LENGTH, max_length * 2))
     if sanitized == "<unparseable-sql>":
         return sanitized
 

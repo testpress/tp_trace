@@ -48,8 +48,8 @@ def test_ambiguous_or_unterminated_sql_fails_closed(query):
     assert normalize_sql_for_metric(query) == "<unparseable-sql>"
 
 
-def test_sql_pretruncation_inside_literal_fails_closed():
-    assert sanitize_sql("SELECT '" + "private" * 100, max_length=20) == "<unparseable-sql>"
+def test_sql_pretruncation_inside_literal_keeps_only_safe_prefix():
+    assert sanitize_sql("SELECT '" + "private" * 100, max_length=20) == "SELECT ... [truncated]"
 
 
 @pytest.mark.parametrize("redis_backend", [False, True])
@@ -86,3 +86,55 @@ def test_cache_set_many_records_keys_without_values(redis_backend, keyword, mask
     else:
         # Full Redis command exposure remains the documented opt-in masking default.
         assert "private-token" in span.attributes["db.statement"]
+
+
+@pytest.mark.parametrize("columns", [100, 200])
+def test_wide_django_select_keeps_bounded_redacted_fingerprint(columns):
+    """A length limit inside a quoted identifier must not look like invalid SQL."""
+    from tp_trace.integrations.postgres.cursor import _build_db_span_context
+
+    fields = ", ".join('"users_user"."profile_field_{}"'.format(i) for i in range(columns))
+    query = "SELECT " + fields + ' FROM "users_user" WHERE "email" = \'private@example.test\' AND "id" = 42'
+    fingerprint = normalize_sql_for_metric(query)
+    assert fingerprint.startswith('SELECT "users_user".')
+    assert len(fingerprint) <= 256
+    _, attrs, tracker = _build_db_span_context(query, None)
+    assert attrs["db.statement"] == fingerprint
+    assert attrs["normalized.operation"] == fingerprint
+    assert attrs["db.query.summary"] != "<unparseable-sql>"
+    assert tracker.startswith('SELECT "users_user".')
+    assert len(tracker) <= 4096
+    for value in [fingerprint, tracker, attrs["db.statement.full"]]:
+        assert "private@example.test" not in value
+        assert "= 42" not in value
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        '"long_identifier' + "x" * 20000 + '" FROM users',
+        "'" + "private" * 4000 + "' FROM users",
+        "$body$" + "private" * 4000 + "$body$ FROM users",
+        "/* " + "private" * 4000 + " */ id FROM users",
+    ],
+)
+def test_valid_sql_exceeding_scan_budget_keeps_safe_prefix(tail):
+    query = "SELECT id, " + tail
+    for result in [sanitize_sql(query), normalize_sql_for_metric(query)]:
+        assert result.startswith("SELECT id,")
+        assert "<unparseable-sql>" not in result
+        assert "private" not in result
+        assert len(result) <= 4096 + len(" ... [truncated]")
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        (r"SELECT U&'d\0061t\+000061', 'private'", "SELECT U&?, ?"),
+        (r"SELECT u&'d\0061t''private' UESCAPE '!'", "SELECT u&? UESCAPE ?"),
+        ("SELECT $данные$it's private$данные$", "SELECT ?"),
+    ],
+)
+def test_postgresql_unicode_literals_are_redacted_without_fallback(query, expected):
+    assert sanitize_sql(query) == expected
+    assert normalize_sql_for_metric(query) == expected
