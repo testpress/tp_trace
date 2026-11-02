@@ -474,7 +474,11 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
             safe_set_attribute(span, "n_plus_one.severity", severity)
             safe_set_attribute(span, "n_plus_one.severity_reason", severity_reason)
             safe_set_attribute(span, "n_plus_one.tracker_overflowed", stats.tracker_overflowed)
-            if final_route and final_route != "__unmatched__" and not str(final_route).isdigit():
+            # The request-finalization hook can run more than once for a span when
+            # Django and the OTel middleware both finalize it. Keep the anomaly
+            # metric request-scoped even if evaluation is repeated.
+            already_recorded = bool(getattr(span, "_tp_trace_affected_metric_recorded", False))
+            if final_route and final_route != "__unmatched__" and not str(final_route).isdigit() and not already_recorded:
                 from tp_trace.metrics import record_repeated_query_affected_request
 
                 record_repeated_query_affected_request(
@@ -483,6 +487,10 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
                     service="django",
                     extra_attributes=get_current_tags(),
                 )
+                try:
+                    setattr(span, "_tp_trace_affected_metric_recorded", True)
+                except Exception:
+                    pass
     except Exception as n_plus_one_exc:
         logger.debug("Failed to evaluate/record repeated query anomaly: %s", n_plus_one_exc)
 
@@ -784,7 +792,14 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
 
             attempt(_set_headers, _label="trace_headers")
 
-        _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
+        # OTel/Django integrations may invoke the response hook twice for one
+        # request. Evaluate and emit request-scoped anomaly metrics once.
+        if not getattr(request, "_tp_trace_n_plus_one_evaluated", False):
+            try:
+                setattr(request, "_tp_trace_n_plus_one_evaluated", True)
+            except Exception:
+                pass
+            _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms)
     except Exception:
         logger.debug("Error in django response hook", exc_info=True)
     finally:

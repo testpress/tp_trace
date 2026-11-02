@@ -340,9 +340,10 @@ class RedMetricsRecorder:
 
         Fail-safe: Any error during recording is safely absorbed and never disrupts
         the host application.
-        Strict low-cardinality label allowlist: only normalized service, http.route, http.method,
-        project_name, cluster_name, metric_source, and optionally institute.subdomain.
-        Never emits raw SQL, query text, worker_id, or trace IDs.
+        Strict low-cardinality label allowlist: normalized service, http.route, http.method,
+        project_name, cluster_name, metric_source, worker_id, and optionally institute.subdomain.
+        Never emits raw SQL, query text, or trace IDs. ``worker_id`` keeps independent
+        process counters from being merged into one reset-prone stream by the Collector.
         The configured cardinality limit admits detailed series independently
         of RED metrics. Excess combinations share one overflow series per
         admitted project/cluster and one shared series for new owners.
@@ -369,6 +370,17 @@ class RedMetricsRecorder:
                         attributes["institute.subdomain"] = str(val)
                         break
 
+            # Counter streams from forked workers must remain distinct. The dashboard
+            # sums across this bounded identity label when calculating request totals.
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+            attributes["worker_id"] = worker_identity
+
             key = tuple(sorted((str(k), str(v)) for k, v in attributes.items()))
             owner = (str(resolved_project), str(resolved_cluster))
             with self._metric_series_lock:
@@ -380,8 +392,7 @@ class RedMetricsRecorder:
                         if owner not in self._repeated_query_owners:
                             owner = ("__other__", "__other__")
                         # Keep counts while bounding every varying dimension,
-                        # including tenant and owner values. Do not add worker_id
-                        # or other labels outside this metric's allowlist.
+                        # including tenant and owner values.
                         attributes = {
                             "project_name": owner[0],
                             "cluster_name": owner[1],
@@ -389,6 +400,7 @@ class RedMetricsRecorder:
                             "http.method": "__other__",
                             "http.route": "__other__",
                             "metric_source": "tp_trace_sdk",
+                            "worker_id": worker_identity,
                             "institute.subdomain": "__other__",
                         }
             self.repeated_query_affected_requests_total.add(1, attributes)
@@ -474,7 +486,7 @@ def create_red_metrics_recorder(
     views: List[View] = [latency_view]
     if view_kwargs:
         views.append(View(instrument_name="calls_total", **view_kwargs))
-        views.append(View(instrument_name="repeated_query_affected_requests_total", **view_kwargs))
+        views.append(View(instrument_name="apm_repeated_query_affected_requests_total", **view_kwargs))
 
     if resource is None:
         res_attrs: Dict[str, Any] = {}

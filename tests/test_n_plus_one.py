@@ -2,7 +2,7 @@
 
 Validates:
 1. Request-local tracker mechanics, bounded fingerprint storage, and reset behavior.
-2. Metrics recorder allowlist guarantees (no raw SQL, no trace ID, no worker ID).
+2. Metrics recorder allowlist guarantees (no raw SQL or trace ID; worker streams remain distinct).
 3. Config parsing, environment variable fallbacks, and non-raising defaults.
 4. Django request-level detection, root span tagging, and route cardinality guards.
 """
@@ -231,7 +231,6 @@ def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
     assert len(detailed) == 1
     assert detailed[0].value == 2
     for point in points:
-        assert "worker_id" not in point.attributes
         assert set(point.attributes) <= {
             "project_name",
             "cluster_name",
@@ -239,6 +238,7 @@ def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
             "http.method",
             "http.route",
             "metric_source",
+            "worker_id",
             "institute.subdomain",
         }
 
@@ -277,7 +277,6 @@ def test_repeated_query_metric_allowlist():
     assert attrs["institute.subdomain"] == "acme-corp"
 
     # Strictly forbidden labels (cardinality explosion prevention):
-    assert "worker_id" not in attrs
     assert "forbidden_worker_id" not in attrs
     assert "sql_query" not in attrs
     assert "trace_id" not in attrs
@@ -608,5 +607,55 @@ def test_wide_model_distinct_queries_do_not_false_positive():
         # 15 distinct query patterns of count 1 -> should NOT detect N+1
         assert stats.candidate_count == 0
         assert stats.dominant_count == 1
+    finally:
+        reset_request_db_tracker(token)
+
+
+@pytest.mark.parametrize("overflow", [False, True])
+def test_repeated_query_counters_keep_gunicorn_workers_separate(monkeypatch, overflow):
+    """Every process must export its own monotonic stream, including overflow."""
+    import tp_trace.metrics as metrics
+
+    reader = InMemoryMetricReader()
+    recorder = init_metrics(
+        config=SDKConfig(project_name="test", cluster_name="dev", metric_cardinality_limit=1),
+        metric_readers=[reader],
+    )
+    if overflow:
+        recorder.record_repeated_query_affected_request(method="GET", route="/admitted/")
+    for worker in range(12):
+        monkeypatch.setattr(metrics.os, "getpid", lambda worker=worker: 1000 + worker)
+        for _ in range(worker + 1):
+            recorder.record_request(method="GET", route="/courses/<pk>/", status_code=200, error=False, duration_ms=1)
+            recorder.record_repeated_query_affected_request(
+                method="GET",
+                route="/courses/<pk>/",
+                extra_attributes={"worker_id": "cannot-override-process"},
+            )
+    affected = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
+    affected = [p for p in affected if p.attributes["http.route"] != "/admitted/"]
+    calls = _get_metric_data_points(reader, "calls_total")
+    assert len(affected) == len(calls) == 12
+    assert {p.attributes["worker_id"]: p.value for p in affected} == {p.attributes["worker_id"]: p.value for p in calls}
+    assert sorted(p.value for p in affected) == list(range(1, 13))
+
+
+def test_repeated_query_evaluation_records_same_span_once():
+    from types import SimpleNamespace
+    from tp_trace.integrations.django.request import _evaluate_repeated_queries
+
+    reader = InMemoryMetricReader()
+    cfg = SDKConfig(project_name="test", cluster_name="dev")
+    init_metrics(config=cfg, metric_readers=[reader])
+    span = SimpleNamespace(set_attribute=lambda key, value: None)
+    token = init_request_db_tracker()
+    try:
+        for _ in range(15):
+            record_request_db_query("SELECT id FROM users WHERE id = ?", 1.0)
+        for _ in range(2):
+            _evaluate_repeated_queries(span, cfg, "/users/<pk>/", "GET", 100.0)
+        points = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
+        assert len(points) == 1
+        assert points[0].value == 1
     finally:
         reset_request_db_tracker(token)
