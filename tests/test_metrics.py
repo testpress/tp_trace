@@ -996,7 +996,11 @@ def test_owned_metric_export_temporality(monkeypatch, preference):
             histogram.record(value)
             assert recorder.meter_provider.force_flush()
 
-        expected = AggregationTemporality.CUMULATIVE if preference == "CUMULATIVE" else AggregationTemporality.DELTA
+        if preference in ("DELTA", "LOWMEMORY"):
+            expected = AggregationTemporality.DELTA
+        else:
+            expected = AggregationTemporality.CUMULATIVE
+
         collections = [
             {metric.name: metric.data for rm in batch.resource_metrics for sm in rm.scope_metrics for metric in sm.metrics}
             for batch in exports
@@ -1006,9 +1010,9 @@ def test_owned_metric_export_temporality(monkeypatch, preference):
             assert batch["calls_total"].aggregation_temporality == expected
             assert batch["duration_milliseconds"].aggregation_temporality == expected
         assert collections[0]["calls_total"].data_points[0].value == 3
-        assert collections[1]["calls_total"].data_points[0].value == (5 if preference == "CUMULATIVE" else 2)
-        assert collections[1]["duration_milliseconds"].data_points[0].count == (2 if preference == "CUMULATIVE" else 1)
-        assert collections[1]["duration_milliseconds"].data_points[0].sum == (5 if preference == "CUMULATIVE" else 2)
+        assert collections[1]["calls_total"].data_points[0].value == (2 if preference in ("DELTA", "LOWMEMORY") else 5)
+        assert collections[1]["duration_milliseconds"].data_points[0].count == (1 if preference in ("DELTA", "LOWMEMORY") else 2)
+        assert collections[1]["duration_milliseconds"].data_points[0].sum == (2 if preference in ("DELTA", "LOWMEMORY") else 5)
         assert os.environ.get(key) == preference
     finally:
         recorder.shutdown()

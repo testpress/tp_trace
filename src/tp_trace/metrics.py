@@ -673,13 +673,14 @@ def create_red_metrics_recorder(
                 from opentelemetry.sdk.metrics.export import AggregationTemporality
                 from tp_trace.exporter import SafeMetricExporter
 
-                # Default owned RED instruments to delta without changing the host
-                # environment. Explicit OTel preferences remain authoritative.
+                # Default owned RED instruments to cumulative for continuous Prometheus scraping
+                # and reliable single-request rate/histogram calculations.
+                # Explicit OTel preferences remain authoritative.
                 preferred_temporality: Optional[Dict[type, AggregationTemporality]] = None
                 if "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE" not in os.environ:
                     preferred_temporality = {
-                        SDKCounter: AggregationTemporality.DELTA,
-                        SDKHistogram: AggregationTemporality.DELTA,
+                        SDKCounter: AggregationTemporality.CUMULATIVE,
+                        SDKHistogram: AggregationTemporality.CUMULATIVE,
                     }
                 raw_exporter = OTLPMetricExporter(
                     endpoint=otlp_metrics_ep,
