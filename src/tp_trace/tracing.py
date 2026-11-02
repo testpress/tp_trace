@@ -128,8 +128,6 @@ def traced_span(
     with _span_lifecycle(name, kind, attributes, tracer_name, context) as span:
         try:
             yield span
-            if span.is_recording() and hasattr(span, "status") and span.status.status_code == StatusCode.UNSET:
-                span.set_status(StatusCode.OK)
         except BaseException as exc:
             # This block sits between the application's exception and the
             # caller, so every statement in it is guarded: a telemetry fault
@@ -142,6 +140,14 @@ def traced_span(
                 safe_set_attribute(span, "error.type", real_exc.__class__.__name__)
                 safe_set_status(span, StatusCode.ERROR, description=str(real_exc))
             raise
+        else:
+            # All reads and writes here are telemetry work, after the app has
+            # succeeded. Keep failures out of the application exception path.
+            try:
+                if span.is_recording() and hasattr(span, "status") and span.status.status_code == StatusCode.UNSET:
+                    span.set_status(StatusCode.OK)
+            except Exception:
+                logger.debug("tp_trace: could not mark span OK", exc_info=True)
 
 
 @contextlib.contextmanager

@@ -1051,3 +1051,64 @@ def test_base_integration_reinstrument_after_uninstrument_rewraps():
 
     integ.uninstrument()
     assert svc.compute() == 100
+
+
+@pytest.mark.parametrize("failure", ["is_recording", "status", "status_code", "set_status"])
+@pytest.mark.parametrize("app_fails", [False, True])
+def test_traced_span_status_failures_preserve_application(monkeypatch, failure, app_fails):
+    from contextlib import contextmanager
+    from opentelemetry.trace import StatusCode
+    import tp_trace.tracing as tracing_mod
+
+    class Status:
+        @property
+        def status_code(self):
+            if failure == "status_code":
+                raise RuntimeError("broken status code")
+            return StatusCode.UNSET
+
+    class Span:
+        def is_recording(self):
+            if failure == "is_recording":
+                raise RuntimeError("broken recording check")
+            return True
+
+        @property
+        def status(self):
+            if failure == "status":
+                raise RuntimeError("broken status")
+            return Status()
+
+        def set_status(self, *args, **kwargs):
+            if failure == "set_status":
+                raise RuntimeError("broken status mutation")
+
+        def set_attribute(self, *args):
+            pass
+
+        def record_exception(self, *args):
+            pass
+
+    @contextmanager
+    def lifecycle(*args):
+        yield Span()
+
+    monkeypatch.setattr(tracing_mod, "_span_lifecycle", lifecycle)
+    result = object()
+    error = ValueError("original application exception")
+    calls = []
+
+    def application():
+        with traced_span("test"):
+            calls.append(True)
+            if app_fails:
+                raise error
+            return result
+
+    if app_fails:
+        with pytest.raises(ValueError) as caught:
+            application()
+        assert caught.value is error
+    else:
+        assert application() is result
+    assert calls == [True]
