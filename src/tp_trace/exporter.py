@@ -9,98 +9,14 @@ import time
 from typing import Any, Optional
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from tp_trace.normalize import normalize_span_attributes
+
 logger = logging.getLogger("tp_trace.exporter")
 
 
 def _ensure_normalized_attributes(span: Any) -> None:
     try:
-        attrs = getattr(span, "_attributes", None)
-        if attrs is None:
-            attrs = getattr(span, "attributes", None)
-        target_dict = getattr(attrs, "_dict", None)
-        if target_dict is None and hasattr(attrs, "__setitem__"):
-            target_dict = attrs
-
-        if target_dict is not None:
-            is_owned_celery = bool(
-                target_dict.get("tp_trace.celery.owned") or (attrs and attrs.get("tp_trace.celery.owned"))
-            )
-            if is_owned_celery:
-                for bad_key in (
-                    "http.method",
-                    "http.request.method",
-                    "http.route",
-                    "http.route_template",
-                    "django.route",
-                ):
-                    if bad_key in target_dict:
-                        try:
-                            del target_dict[bad_key]
-                        except Exception:
-                            pass
-                if not target_dict.get("normalized.service"):
-                    target_dict["normalized.service"] = "celery"
-                if not target_dict.get("normalized.operation"):
-                    from opentelemetry.trace import SpanKind
-
-                    action = "apply_async" if getattr(span, "kind", None) == SpanKind.PRODUCER else "run"
-                    target_dict["normalized.operation"] = f"celery.{action}.unknown"
-                return
-
-            if not target_dict.get("normalized.service"):
-                svc = (
-                    target_dict.get("peer.service")
-                    or target_dict.get("db.system")
-                    or target_dict.get("rpc.system")
-                    or target_dict.get("component")
-                )
-                if svc == "postgresql":
-                    svc = "postgres"
-                elif svc == "aws-api":
-                    svc = "aws-s3"
-                target_dict["normalized.service"] = str(svc or "django")
-
-            svc = target_dict.get("normalized.service")
-            if not target_dict.get("normalized.operation"):
-                op = None
-                if svc == "redis" or target_dict.get("db.system") == "redis":
-                    if "db.redis.pipeline_length" in target_dict:
-                        op = "redis.pipeline"
-                    elif target_dict.get("db.operation"):
-                        op = f"redis.{str(target_dict.get('db.operation')).lower()}"
-                    elif getattr(span, "name", ""):
-                        raw = (
-                            getattr(span, "name", "")
-                            .replace("🔸", "")
-                            .replace("REDIS:", "")
-                            .replace("redis:", "")
-                            .strip()
-                            .lower()
-                        )
-                        op = f"redis.{raw}" if raw else "redis.command"
-                    else:
-                        op = "redis.command"
-                elif svc in ("postgres", "pgbouncer") or target_dict.get("db.system") in ("postgres", "postgresql"):
-                    op = target_dict.get("db.statement") or "postgres.query"
-                elif svc == "django":
-                    route_val = target_dict.get("http.route_template") or target_dict.get("http.route")
-                    if target_dict.get("http.method") and route_val:
-                        op = f"{target_dict.get('http.method')} {route_val}"
-                    else:
-                        op = getattr(span, "name", "")
-                elif target_dict.get("rpc.service") and target_dict.get("rpc.method"):
-                    op = f"{target_dict.get('rpc.service')}.{target_dict.get('rpc.method')}"
-                elif target_dict.get("db.statement"):
-                    op = target_dict.get("db.statement")
-                elif target_dict.get("http.method") and (
-                    target_dict.get("http.route_template") or target_dict.get("http.route")
-                ):
-                    route_val = target_dict.get("http.route_template") or target_dict.get("http.route")
-                    op = f"{target_dict.get('http.method')} {route_val}"
-                else:
-                    op = getattr(span, "name", "")
-                if op:
-                    target_dict["normalized.operation"] = str(op)
+        normalize_span_attributes(span)
     except Exception:
         pass
 

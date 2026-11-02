@@ -589,9 +589,26 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
             safe_set_attribute(span, "http.user_agent", ua)
 
         if query_mode == "strip" or not url_query:
-            safe_set_attribute(span, "url.query", "")
-            if hasattr(span, "_attributes") and hasattr(span._attributes, "pop"):
-                span._attributes.pop("url.query", None)
+            try:
+                from tp_trace.compat.attributes import get_mutable_attributes
+
+                target = get_mutable_attributes(span)
+                if target is not None:
+                    try:
+                        target.pop("url.query", None)
+                    except Exception:
+                        try:
+                            del target["url.query"]
+                        except Exception:
+                            pass
+                elif hasattr(span, "is_recording") and span.is_recording():
+                    if hasattr(span, "set_attribute"):
+                        try:
+                            span.set_attribute("url.query", "")
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         else:
             safe_set_attribute(span, "url.query", url_query)
 
@@ -713,9 +730,26 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
         safe_set_attribute(span, "url.path", url_path)
         safe_set_attribute(span, "http.target", target_url)
         if query_mode == "strip" or not url_query:
-            safe_set_attribute(span, "url.query", "")
-            if hasattr(span, "_attributes") and hasattr(span._attributes, "pop"):
-                span._attributes.pop("url.query", None)
+            try:
+                from tp_trace.compat.attributes import get_mutable_attributes
+
+                target = get_mutable_attributes(span)
+                if target is not None:
+                    try:
+                        target.pop("url.query", None)
+                    except Exception:
+                        try:
+                            del target["url.query"]
+                        except Exception:
+                            pass
+                elif hasattr(span, "is_recording") and span.is_recording():
+                    if hasattr(span, "set_attribute"):
+                        try:
+                            span.set_attribute("url.query", "")
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         else:
             safe_set_attribute(span, "url.query", url_query)
 
