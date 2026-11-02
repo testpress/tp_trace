@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-11-02
+
+### Added
+- **Bounded Cardinality Diagnostics & Safeguards**:
+  - Implemented configurable cardinality caps with headroom per scope and service (`routes=5000`, `operations=1000`, `services=100`).
+  - Added observable gauges `apm_cardinality_tracked` and `apm_cardinality_limit` with multi-worker support.
+  - Emitted `apm_cardinality_grouping_total` counter for observations grouped into `__other__`.
+  - Added dedicated Cardinality Safeguards & Limits table to `collector_monitoring` dashboard showing cluster-wide distinct counts and total overflow.
+- **Collector Ansible Firewall Automation**:
+  - Added automated iptables firewall rules for OpenTelemetry Collector deployment, securing OTLP ingress ports (`4317`/`4318`) and observability push endpoints (`4327`/`9090`).
+- **Telemetry Configuration Sharing**:
+  - Shared canonical OpenTelemetry Collector, Prometheus, and Tempo configurations between local development and production Ansible roles.
+
+### Changed
+- **Delta Metric Temporality & Pipeline Bounding**:
+  - Configured SDK metrics to default to delta temporality for scalable multi-worker aggregation.
+  - Added `deltatocumulative` processor in Collector pipeline with worker stream expiry (`max_stale: 5m`, `max_streams: 50000`) to bound memory.
+- **Collector Monitoring Dashboard Hierarchy**:
+  - Reorganized `collector_monitoring` dashboard into an unbroken 3x2 grid of key collector health indicators (CPU, Memory, Ingestion, Export, Drops, Queue), followed by application cardinality safeguards.
+- **OpenTelemetry Attribute Mutation Isolation**:
+  - Isolated span attribute mutations behind `BoundedAttributes` compatibility shims, safely handling immutable attribute dictionaries across OpenTelemetry versions.
+
+### Fixed
+- **Telemetry Safety & Sensitive Data Sanitization**:
+  - Prevented telemetry failures during Django response processing from affecting application requests.
+  - Sanitized sensitive data (tokens, passwords, session IDs, authorization headers) in database and HTTP span attributes.
+  - Preserved application return values and original exceptions when setting span status.
+- **Multi-Worker Metric Aggregation & Sparse Panels**:
+  - Fixed multi-worker integer call counts and aggregation in Grafana dashboards, resolving sparse panels and extrapolation anomalies.
+- **Explore Links & Datasource Resolution**:
+  - Fixed quote escaping in Operation Details Explore drilldown links and dynamically resolved Tempo datasource UIDs.
+
+---
+
 ## [0.2.0] - 2026-10-29
 
 ### Added
