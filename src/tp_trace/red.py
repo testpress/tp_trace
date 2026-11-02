@@ -17,14 +17,19 @@ from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.trace import SpanKind, StatusCode
 
 import tp_trace.metrics as metrics
+from tp_trace.config import (
+    DEFAULT_OPERATION_CARDINALITY_LIMIT,
+    DEFAULT_ROUTE_CARDINALITY_LIMIT,
+    DEFAULT_SERVICE_CARDINALITY_LIMIT,
+)
 from tp_trace.route_context import get_current_tags
 from tp_trace.safety import attempt
 
 logger = logging.getLogger("tp_trace.red")
 
-_DEFAULT_OPS_LIMIT_PER_SERVICE = 128
-_DEFAULT_ROUTE_LIMIT = 512
-_DEFAULT_SERVICE_LIMIT = 64
+_DEFAULT_OPS_LIMIT_PER_SERVICE = DEFAULT_OPERATION_CARDINALITY_LIMIT
+_DEFAULT_ROUTE_LIMIT = DEFAULT_ROUTE_CARDINALITY_LIMIT
+_DEFAULT_SERVICE_LIMIT = DEFAULT_SERVICE_CARDINALITY_LIMIT
 _OVERFLOW_SENTINEL = "__other__"
 
 _ACTIVE_SPAN_PROCESSOR: Optional["RedSpanProcessor"] = None

@@ -25,8 +25,23 @@
 | `TP_TRACE_QUERY_MODE` | `query_mode` | `expose` | URL query handling: `expose`, `redact`, or `strip`. |
 | `TP_TRACE_N_PLUS_ONE_DUPLICATE_THRESHOLD` | `n_plus_one_duplicate_threshold` | `15` | Successful executions of one normalized SQL shape needed for a repeated-query candidate; minimum `2`. |
 | `TP_TRACE_N_PLUS_ONE_MAX_FINGERPRINTS` | `n_plus_one_max_fingerprints` | `256` | Maximum distinct SQL shapes tracked per Django request; minimum `1`. |
+| `TP_TRACE_OPERATION_CARDINALITY_LIMIT` | `operation_cardinality_limit` | `1000` | Distinct normalized operations per service per worker, including SQL query patterns for PostgreSQL. |
+| `TP_TRACE_ROUTE_CARDINALITY_LIMIT` | `route_cardinality_limit` | `5000` | Distinct HTTP route templates per worker, shared across services. |
+| `TP_TRACE_SERVICE_CARDINALITY_LIMIT` | `service_cardinality_limit` | `16` | Distinct service categories per worker, such as Django, PostgreSQL, Redis, or Celery. |
+| `TP_TRACE_METRIC_CARDINALITY_LIMIT` | `metric_cardinality_limit` | `5000` | Metric label combinations per worker; independent of operation, route, and service budgets. |
 | `TP_TRACE_SERVICE_INSTANCE_ID` | `service_instance_id` | hostname | Prefix for native metric `worker_id` attribute (`<prefix>:<pid>`). Overrides the prefix for multi-process worker metric streams. Does not modify the OpenTelemetry Resource's `service.instance.id`. |
 
 `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_SERVICE_INSTANCE_ID` are also recognised where applicable.
 
 Repeated-query detection runs by default when Django request and database instrumentation are active. Invalid N+1 values fall back to the defaults. `TP_DOG_N_PLUS_ONE_DUPLICATE_THRESHOLD` and `TP_DOG_N_PLUS_ONE_MAX_FINGERPRINTS` are supported legacy aliases.
+
+Cardinality budgets are independent positive integers. Explicit `init()` arguments override
+the corresponding environment variables. Invalid operation, route, or service budgets
+fall back to their defaults. Restart application workers after changing these settings.
+
+Operation, route, and service budgets apply to native RED metric labels. Overflow
+measurements are counted under `__other__`; trace attributes retain their original
+values. The budgets are retained for the worker lifetime, not reset for each request
+or dashboard time range. The diagnostic gauges report the configured budgets.
+Increasing these budgets can increase application memory and exported metric streams;
+the Collector and storage enforce their own separate limits.

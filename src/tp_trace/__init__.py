@@ -202,7 +202,13 @@ def init(
 
         # Register RED metrics aggregator: computes 100% RED metrics for all dependencies
         try:
-            provider.add_span_processor(RedSpanProcessor())
+            provider.add_span_processor(
+                RedSpanProcessor(
+                    cardinality_limit_per_service=config.operation_cardinality_limit,
+                    route_limit=config.route_cardinality_limit,
+                    service_limit=config.service_cardinality_limit,
+                )
+            )
         except Exception as exc:
             logger.debug("tp_trace: Failed to register RedSpanProcessor: %s", exc)
 

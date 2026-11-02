@@ -323,3 +323,64 @@ def test_repeated_query_overflow_diagnostics_preserve_worker_counts(monkeypatch)
     assert sorted(p.value for p in grouped) == list(range(1, 13))
     assert all(p.attributes["scope"] == "repeated_queries" for p in grouped)
     assert all(p.attributes["cause"] == "repeated_query_series_limit" for p in grouped)
+
+
+def test_default_budgets_allow_testpress_query_headroom(monkeypatch):
+    for key in ["TP_TRACE_OPERATION_CARDINALITY_LIMIT", "TP_TRACE_ROUTE_CARDINALITY_LIMIT", "TP_TRACE_SERVICE_CARDINALITY_LIMIT"]:
+        monkeypatch.delenv(key, raising=False)
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert SDKConfig().operation_cardinality_limit == cfg.operation_cardinality_limit
+    assert cfg.operation_cardinality_limit == 1000
+    assert cfg.route_cardinality_limit == 5000
+    assert cfg.service_cardinality_limit == 16
+    processor = RedSpanProcessor()
+    for i in range(200):
+        processor.on_end(DummySpan(
+            attributes={"normalized.service": "postgres", "normalized.operation": "SELECT field_%d FROM example" % i},
+            kind=SpanKind.CLIENT,
+        ))
+    assert processor.get_cardinality_stats()["operation_counts"]["postgres"] == 200
+    processor.shutdown()
+
+
+def test_init_uses_configured_budgets_and_reports_actual_limits(monkeypatch):
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from tp_trace.red import get_active_span_processor
+
+    monkeypatch.setenv("TP_TRACE_OPERATION_CARDINALITY_LIMIT", "9")
+    monkeypatch.setenv("TP_TRACE_ROUTE_CARDINALITY_LIMIT", "12")
+    monkeypatch.setenv("TP_TRACE_SERVICE_CARDINALITY_LIMIT", "4")
+    reader = InMemoryMetricReader()
+    tp_trace.init(
+        project_name="configured-budgets", exporter=InMemorySpanExporter(),
+        export_batch=False, auto_patch=False, metric_readers=[reader],
+        operation_cardinality_limit=2,
+    )
+    processor = get_active_span_processor()
+    assert processor.get_cardinality_stats()["operation_limit"] == 2
+    assert processor.get_cardinality_stats()["route_limit"] == 12
+    assert processor.get_cardinality_stats()["service_limit"] == 4
+    for i in range(4):
+        processor.on_end(DummySpan(
+            attributes={"normalized.service": "postgres", "normalized.operation": "SELECT field_%d FROM example" % i},
+            kind=SpanKind.CLIENT,
+        ))
+    data = reader.get_metrics_data()
+    emitted = {m.name: m for rm in data.resource_metrics for sm in rm.scope_metrics for m in sm.metrics}
+    limits = {(p.attributes["scope"], p.attributes["normalized_service"]): p.value
+              for p in emitted["apm_cardinality_limit"].data.data_points}
+    assert limits[("operation", "postgres")] == 2
+    assert limits[("route", "all")] == 12
+    assert limits[("service", "all")] == 4
+    assert sum(p.value for p in emitted["calls_total"].data.data_points) == 4
+    assert sum(p.value for p in emitted["apm_cardinality_grouping_total"].data.data_points) == 2
+
+
+def test_invalid_cardinality_budgets_fall_back_safely(monkeypatch):
+    monkeypatch.setenv("TP_TRACE_OPERATION_CARDINALITY_LIMIT", "invalid")
+    monkeypatch.setenv("TP_TRACE_ROUTE_CARDINALITY_LIMIT", "0")
+    monkeypatch.setenv("TP_TRACE_SERVICE_CARDINALITY_LIMIT", "-1")
+    cfg = SDKConfig.from_env_and_kwargs()
+    assert cfg.operation_cardinality_limit == 1000
+    assert cfg.route_cardinality_limit == 5000
+    assert cfg.service_cardinality_limit == 16
