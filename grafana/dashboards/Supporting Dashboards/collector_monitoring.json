@@ -831,7 +831,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (net_host_name, collector_alias) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) or rate(apm_calls_total{normalized_operation=\"__other__\"}[2m]) or rate(calls_total{normalized_operation=\"__other__\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (net_host_name, collector_alias) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) or rate(apm_calls_total{normalized_operation=\"__other__\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "format": "table",
           "instant": true,
           "range": false,
@@ -1705,7 +1705,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"})",
+          "expr": "count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"})",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -1716,7 +1716,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"})) + 5000",
+          "expr": "(0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"})) + 5000",
           "format": "table",
           "instant": true,
           "refId": "Limit"
@@ -1727,7 +1727,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "100 * (count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"})) / 5000",
+          "expr": "100 * (count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"})) / 5000",
           "format": "table",
           "instant": true,
           "refId": "UsagePct"
@@ -1738,7 +1738,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (service_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\", otel_metric_overflow=\"true\"}[$__rate_interval]) or rate(calls_total{collector_alias=~\"(${instance:pipe})\", otel_metric_overflow=\"true\"}[$__rate_interval]))) or (0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}))",
+          "expr": "(sum by (service_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\",otel_metric_overflow=\"true\"}[$__rate_interval]))) or (0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"}))",
           "format": "table",
           "instant": true,
           "refId": "CollectorOverflow"
@@ -1749,7 +1749,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (service_name) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}[$__rate_interval]))) or (0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"} or calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!~\"__other__\"}))",
+          "expr": "(sum by (service_name) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"}[$__rate_interval]))) or (0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"}))",
           "format": "table",
           "instant": true,
           "refId": "GroupedRate"
@@ -4182,7 +4182,7 @@
           "refId": "C"
         }
       ],
-      "title": "Metric Points ${metric:text} (OTLP / legacy)",
+      "title": "Metric Points ${metric:text} (OTLP)",
       "type": "timeseries"
     },
     {

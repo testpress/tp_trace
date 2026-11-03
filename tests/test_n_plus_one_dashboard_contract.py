@@ -56,7 +56,7 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
     # Ensure rate query calculates percentage safely
     rate_panel = next(p for p in dashboard["panels"] if p.get("title") == "Affected Rate")
     rate_query = rate_panel["targets"][0]["expr"]
-    assert 'calls_total{metric_source="tp_trace_sdk"' in rate_query
+    assert 'calls_total{metric_source="tp_trace_sdk"' not in rate_query
     assert "apm_calls_total" in rate_query
     assert "100 *" in rate_query
 
@@ -114,15 +114,15 @@ def test_service_catalog_django_queries_use_server_span_kind():
             )
 
 
-def test_service_overview_keeps_native_and_connector_streams_disjoint():
-    """Native Django totals must not overlap sampled server-span metrics."""
+def test_service_overview_counts_collector_server_spans():
+    """Collector totals include server spans and exclude internal spans."""
     dashboard = _load("Supporting Dashboards/service_overview.json")
     panel = next(p for p in dashboard["panels"] if p.get("title") == "Requests and Errors")
     targets = {target["refId"]: target["expr"] for target in panel["targets"]}
 
     assert 'error="true"' in targets["B"]
     for expr in targets.values():
-        assert 'span_kind!~"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER"' in expr
+        assert 'span_kind!~"SPAN_KIND_INTERNAL"' in expr
 
 
 def test_service_overview_error_rate_selects_whole_metric_source():
@@ -131,10 +131,10 @@ def test_service_overview_error_rate_selects_whole_metric_source():
     panel = next(p for p in dashboard["panels"] if p.get("title") == "Error Rate Over Time")
     expr = panel["targets"][0]["expr"]
 
-    assert "rate(calls_total{" in expr
+    assert "rate(calls_total{" not in expr
     assert "rate(apm_calls_total{" in expr
-    assert 'span_kind!~"SPAN_KIND_INTERNAL|SPAN_KIND_SERVER"' in expr
-    assert expr.count('error="true"') == 2
+    assert 'span_kind!~"SPAN_KIND_INTERNAL"' in expr
+    assert expr.count('error="true"') == 1
 
 
 def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
@@ -276,3 +276,15 @@ def test_collector_red_queries_do_not_require_removed_sdk_labels_or_scopes():
                 r'apm_cardinality_(?:limit|tracked)\{[^}]*scope\s*(?:=|=~)\s*"(?:route|service|operation)',
                 expr,
             ), path
+
+
+
+def test_dashboards_only_query_collector_red_metrics():
+    import re
+
+    for path in DASHBOARDS.rglob("*.json"):
+        text = path.read_text()
+        assert not re.search(r"(?<!apm_)\bcalls_total\b|(?<!apm_)\bduration_milliseconds", text), path
+        for _, target in _all_targets(json.loads(text)):
+            if "apm_calls_total" in target.get("expr", ""):
+                assert "span_name" not in target["expr"], path

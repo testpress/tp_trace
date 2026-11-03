@@ -10,14 +10,10 @@ from tp_trace.version import __version__
 
 logger = logging.getLogger("tp_trace.config")
 
-DEFAULT_OPERATION_CARDINALITY_LIMIT = 1000
-DEFAULT_ROUTE_CARDINALITY_LIMIT = 5000
-DEFAULT_SERVICE_CARDINALITY_LIMIT = 16
 
 # Deprecated inputs that name the *project* after a *service*. Warned once each so
 # operators learn the canonical name without log spam.
 _warned_project_aliases: set = set()
-_warned_cardinality_limits: set = set()
 
 _TRUE_VALUES = {"1", "true", "yes", "on", "t", "y"}
 _FALSE_VALUES = {"0", "false", "no", "off", "f", "n"}
@@ -267,9 +263,6 @@ class SDKConfig:
     query_mode: str = "expose"
     n_plus_one_duplicate_threshold: int = 15
     n_plus_one_max_fingerprints: int = 256
-    operation_cardinality_limit: int = DEFAULT_OPERATION_CARDINALITY_LIMIT
-    route_cardinality_limit: int = DEFAULT_ROUTE_CARDINALITY_LIMIT
-    service_cardinality_limit: int = DEFAULT_SERVICE_CARDINALITY_LIMIT
 
     @classmethod
     def from_env_and_kwargs(
@@ -303,9 +296,6 @@ class SDKConfig:
         query_mode: Optional[str] = None,
         n_plus_one_duplicate_threshold: Optional[int] = None,
         n_plus_one_max_fingerprints: Optional[int] = None,
-        operation_cardinality_limit: Optional[int] = None,
-        route_cardinality_limit: Optional[int] = None,
-        service_cardinality_limit: Optional[int] = None,
         **extra: Any,
     ) -> "SDKConfig":
         """Build SDKConfig by prioritizing explicit kwargs over environment variables."""
@@ -430,37 +420,6 @@ class SDKConfig:
             resolved_metric_cardinality_limit = max(1, int(raw_cardinality_limit)) if raw_cardinality_limit is not None else 5000
         except Exception:
             resolved_metric_cardinality_limit = 5000
-
-        for _limit_name, _val in (
-            ("route_cardinality_limit", route_cardinality_limit if route_cardinality_limit is not None else os.getenv("TP_TRACE_ROUTE_CARDINALITY_LIMIT")),
-            ("service_cardinality_limit", service_cardinality_limit if service_cardinality_limit is not None else os.getenv("TP_TRACE_SERVICE_CARDINALITY_LIMIT")),
-            ("operation_cardinality_limit", operation_cardinality_limit if operation_cardinality_limit is not None else os.getenv("TP_TRACE_OPERATION_CARDINALITY_LIMIT")),
-        ):
-            if _val is not None and _limit_name not in _warned_cardinality_limits:
-                _warned_cardinality_limits.add(_limit_name)
-                logger.warning(
-                    "tp_trace: %s is deprecated and has no effect. "
-                    "Cardinality limits are now managed by the OpenTelemetry Collector.",
-                    _limit_name,
-                )
-
-        resolved_operation_cardinality_limit = _parse_positive_int_default(
-            operation_cardinality_limit if operation_cardinality_limit is not None else os.getenv("TP_TRACE_OPERATION_CARDINALITY_LIMIT"),
-            default=DEFAULT_OPERATION_CARDINALITY_LIMIT,
-            field_name="operation_cardinality_limit",
-        )
-
-        resolved_route_cardinality_limit = _parse_positive_int_default(
-            route_cardinality_limit if route_cardinality_limit is not None else os.getenv("TP_TRACE_ROUTE_CARDINALITY_LIMIT"),
-            default=DEFAULT_ROUTE_CARDINALITY_LIMIT,
-            field_name="route_cardinality_limit",
-        )
-
-        resolved_service_cardinality_limit = _parse_positive_int_default(
-            service_cardinality_limit if service_cardinality_limit is not None else os.getenv("TP_TRACE_SERVICE_CARDINALITY_LIMIT"),
-            default=DEFAULT_SERVICE_CARDINALITY_LIMIT,
-            field_name="service_cardinality_limit",
-        )
 
         resolved_service_instance_id = (
             service_instance_id
@@ -794,9 +753,6 @@ class SDKConfig:
             metrics_enabled=resolved_metrics_enabled,
             metrics_export_interval_millis=resolved_metrics_interval,
             metric_cardinality_limit=resolved_metric_cardinality_limit,
-            operation_cardinality_limit=resolved_operation_cardinality_limit,
-            route_cardinality_limit=resolved_route_cardinality_limit,
-            service_cardinality_limit=resolved_service_cardinality_limit,
             service_instance_id=resolved_service_instance_id,
             redis_mask_endpoint=resolved_redis_mask_endpoint,
             redis_mask_command=resolved_redis_mask_command,
