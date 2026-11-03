@@ -271,19 +271,6 @@ class RouteEnrichingSpanProcessor(SpanProcessor):
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
         try:
-            # Some Python OTLP exporters omit sampled bit 0 from span.flags.
-            # Record the SDK decision while the span is still mutable so the
-            # Collector can enforce it independently of exporter versions.
-            try:
-                ctx = getattr(span, "context", None)
-                if ctx is None and hasattr(span, "get_span_context"):
-                    ctx = span.get_span_context()
-                trace_flags = getattr(ctx, "trace_flags", None)
-                if trace_flags is not None:
-                    span.set_attribute("tp_trace.sampled", bool(trace_flags.sampled))
-            except Exception:
-                pass
-
             for k, v in self.static_attributes.items():
                 if v is not None:
                     span.set_attribute(k, v)

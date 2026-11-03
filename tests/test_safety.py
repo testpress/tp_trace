@@ -1203,22 +1203,15 @@ def test_preserve_sampled_attribute_fallback_when_get_mutable_attributes_returns
     assert calls.get("tp_trace.sampled") is True
 
 
-def test_on_start_safeguard_against_span_context_exceptions():
-    """Ensure on_start continues setting static attributes even if get_span_context raises."""
-    from tp_trace.route_context import RouteEnrichingSpanProcessor
-
-    calls = {}
+def test_preserve_sampled_attribute_safeguard_against_span_context_exceptions():
+    """Ensure preserve_sampled_attribute handles broken span context objects without raising."""
+    from tp_trace.normalize import preserve_sampled_attribute
 
     class FlakySpan:
         def get_span_context(self):
             raise RuntimeError("broken span context")
 
-        def set_attribute(self, key, value):
-            calls[key] = value
-
-    processor = RouteEnrichingSpanProcessor(static_attributes={"service.name": "my-service"})
     flaky_span = FlakySpan()
-    # Must not raise and must set static attributes despite get_span_context failing
-    processor.on_start(flaky_span)
-    assert calls.get("service.name") == "my-service"
+    # Must not raise despite get_span_context failing
+    preserve_sampled_attribute(flaky_span)
 
