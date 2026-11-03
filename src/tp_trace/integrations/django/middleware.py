@@ -120,6 +120,115 @@ _active_middleware_integration: ContextVar[Optional[Any]] = ContextVar("active_m
 _orig_handler_base_import_string: Optional[Callable] = None
 
 
+def _finalize_unended_root_span(official_middleware: Any, request: Any, exc: BaseException) -> None:
+    """Ensure root SERVER span is finalized and exported if an unhandled BaseException escapes.
+
+    Must never prevent exception propagation, alter application data, or modify the request.
+    """
+    try:
+        meta = getattr(request, "META", None)
+        if not isinstance(meta, dict):
+            return
+
+        span_key = getattr(official_middleware, "_environ_span_key", None)
+        activation_key = getattr(official_middleware, "_environ_activation_key", None)
+
+        span = meta.pop(span_key, None) if span_key else None
+        activation = meta.pop(activation_key, None) if activation_key else None
+
+        if span is not None and getattr(span, "is_recording", lambda: False)():
+            from opentelemetry.trace import Status, StatusCode
+            from tp_trace.safety import safe_record_exception, safe_set_attribute
+
+            # OTel's use_span activation.__exit__ records exception events for instances
+            # of Exception, but ignores non-Exception BaseExceptions (e.g. SystemExit).
+            # Avoid duplicate events by only recording manually when not an Exception or when activation is missing.
+            if activation is None or not isinstance(exc, Exception):
+                safe_record_exception(span, exc)
+            safe_set_attribute(span, "error", True)
+            try:
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+            except Exception:
+                pass
+
+            from tp_trace.integrations.django.request import (
+                _apply_sanitized_url_attributes,
+                _normalize_route,
+            )
+            from tp_trace.route_context import get_current_route
+
+            method = getattr(request, "method", "HTTP")
+            path = getattr(request, "path", "")
+
+            # Sanitize raw URL, query parameters, and target attributes according to query_mode
+            _apply_sanitized_url_attributes(span, request, path=path)
+
+            status_code = 500
+            norm_route = attempt(_normalize_route, request, path, default="__unmatched__", _label="normalize_route")
+            if not norm_route or norm_route == "__unmatched__":
+                current_ctx_route = get_current_route()
+                if current_ctx_route and current_ctx_route != "__unmatched__":
+                    norm_route = current_ctx_route
+
+            if norm_route and norm_route != "__unmatched__":
+                final_route = norm_route
+                final_name = f"{method} {norm_route}"
+                safe_set_attribute(span, "django.route", norm_route)
+            else:
+                final_route = str(status_code)
+                final_name = f"{method} {status_code}"
+
+            if hasattr(span, "update_name"):
+                span.update_name(final_name)
+
+            safe_set_attribute(span, "http.route", final_route)
+            safe_set_attribute(span, "http.route_template", final_route)
+            safe_set_attribute(span, "resource.name", final_name)
+            safe_set_attribute(span, "normalized.service", "django")
+            safe_set_attribute(span, "normalized.operation", final_name)
+            safe_set_attribute(span, "http.status_code", status_code)
+            safe_set_attribute(span, "http.response.status_code", status_code)
+
+        if activation is not None:
+            try:
+                activation.__exit__(type(exc), exc, getattr(exc, "__traceback__", None))
+            except Exception:
+                pass
+
+        if span is not None and getattr(span, "end_time", None) is None:
+            span.end()
+
+        # Clean up any in-flight context variables so they don't leak across requests,
+        # but only when _tp_request_context was initialized (ensuring outer scopes remain uncorrupted).
+        ctx = getattr(request, "_tp_request_context", None)
+        if ctx is not None:
+            tracker_token = ctx[0] if len(ctx) > 0 else None
+            route_token = ctx[1] if len(ctx) > 1 else None
+            view_token = ctx[2] if len(ctx) > 2 else None
+
+            from tp_trace.route_context import (
+                reset_request_db_tracker,
+                reset_request_route,
+                reset_request_tags,
+                reset_request_view,
+            )
+
+            if tracker_token is not None:
+                attempt(reset_request_db_tracker, tracker_token, _label="reset_db_tracker")
+            if view_token is not None:
+                attempt(reset_request_view, view_token, _label="reset_view")
+            if route_token is not None:
+                attempt(reset_request_route, route_token, _label="reset_route")
+            attempt(reset_request_tags, _label="reset_tags")
+            try:
+                delattr(request, "_tp_request_context")
+            except Exception:
+                pass
+    except Exception:
+        # Telemetry failures must never suppress or alter host exception
+        pass
+
+
 def _make_otel_middleware_factory(integration: Any, middleware_class: Any) -> Callable:
     """Keep OTel's middleware intact while scoping policy and owned-instance lifetime.
 
@@ -144,7 +253,11 @@ def _make_otel_middleware_factory(integration: Any, middleware_class: Any) -> Ca
             from tp_trace.propagator import django_extraction_context
 
             with django_extraction_context(request):
-                return official_middleware(request)
+                try:
+                    return official_middleware(request)
+                except BaseException as exc:
+                    _finalize_unended_root_span(official_middleware, request, exc)
+                    raise
 
         # Django registers these separately when it builds the handler chain.
         for name in ("process_view", "process_exception", "process_template_response"):

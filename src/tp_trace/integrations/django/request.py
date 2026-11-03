@@ -500,6 +500,65 @@ def _evaluate_repeated_queries(span, cfg, final_route, method, duration_ms):
 # -----------------------------------------------------------------------------
 
 
+def _apply_sanitized_url_attributes(
+    span: Any, request: Any, cfg: Any = None, path: str = "/"
+) -> Tuple[str, str, str]:
+    """Extract and sanitize URL and query attributes, applying them to the span.
+
+    Returns (sanitized, target_url, url_path).
+    """
+    try:
+        raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
+    except Exception:
+        raw_url = path
+
+    if cfg is None:
+        cfg = attempt(_get_config, default=None, _label="request_config")
+    query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
+    sanitized = sanitize_url(raw_url, mode=query_mode)
+    url_path = path
+    url_query = ""
+    try:
+        parsed = urlparse(sanitized)
+        url_path = parsed.path or path
+        url_query = parsed.query
+    except Exception:
+        pass
+
+    target_url = f"{url_path}?{url_query}" if url_query else url_path
+
+    safe_set_attribute(span, "url.full", sanitized)
+    safe_set_attribute(span, "http.url", sanitized)
+    safe_set_attribute(span, "url.path", url_path)
+    safe_set_attribute(span, "http.target", target_url)
+
+    if query_mode == "strip" or not url_query:
+        try:
+            from tp_trace.compat.attributes import get_mutable_attributes
+
+            target = get_mutable_attributes(span)
+            if target is not None:
+                try:
+                    target.pop("url.query", None)
+                except Exception:
+                    try:
+                        del target["url.query"]
+                    except Exception:
+                        pass
+            elif hasattr(span, "is_recording") and span.is_recording():
+                if hasattr(span, "set_attribute"):
+                    try:
+                        span.set_attribute("url.query", "")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    else:
+        safe_set_attribute(span, "url.query", url_query)
+
+    return sanitized, target_url, url_path
+
+
 def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
     """Official OTel DjangoInstrumentor request hook.
 
@@ -549,22 +608,7 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
         _prime_request(span, request)
 
         # 4. URL sanitization & query mode
-        try:
-            raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
-        except Exception:
-            raw_url = path
-        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
-        sanitized = sanitize_url(raw_url, mode=query_mode)
-        url_path = path
-        url_query = ""
-        try:
-            parsed = urlparse(sanitized)
-            url_path = parsed.path or path
-            url_query = parsed.query
-        except Exception:
-            pass
-
-        target_url = f"{url_path}?{url_query}" if url_query else url_path
+        sanitized, target_url, url_path = _apply_sanitized_url_attributes(span, request, cfg=cfg, path=path)
 
         # 5. Set attributes
         safe_set_attribute(span, "span.type", "web")
@@ -573,10 +617,6 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
         safe_set_attribute(span, "http.request.method", method)
         safe_set_attribute(span, "http.method", method)
         safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
-        safe_set_attribute(span, "url.full", sanitized)
-        safe_set_attribute(span, "http.url", sanitized)
-        safe_set_attribute(span, "url.path", url_path)
-        safe_set_attribute(span, "http.target", target_url)
         safe_set_attribute(span, "url.scheme", getattr(request, "scheme", "http"))
 
         ua = ""
@@ -587,30 +627,6 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
         if ua:
             safe_set_attribute(span, "user_agent.original", ua)
             safe_set_attribute(span, "http.user_agent", ua)
-
-        if query_mode == "strip" or not url_query:
-            try:
-                from tp_trace.compat.attributes import get_mutable_attributes
-
-                target = get_mutable_attributes(span)
-                if target is not None:
-                    try:
-                        target.pop("url.query", None)
-                    except Exception:
-                        try:
-                            del target["url.query"]
-                        except Exception:
-                            pass
-                elif hasattr(span, "is_recording") and span.is_recording():
-                    if hasattr(span, "set_attribute"):
-                        try:
-                            span.set_attribute("url.query", "")
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-        else:
-            safe_set_attribute(span, "url.query", url_query)
 
         if hasattr(request, "META") and isinstance(request.META, dict):
             from tp_trace.propagator import get_django_extraction_decision
@@ -707,51 +723,10 @@ def _tp_trace_django_response_hook(span: Any, request: Any, response: Any) -> No
 
         view_name = attempt(_resolve_view_name, request, method, default="view", _label="view_name")
 
-        try:
-            raw_url = request.build_absolute_uri() if hasattr(request, "build_absolute_uri") else path
-        except Exception:
-            raw_url = path
-        query_mode = getattr(cfg, "query_mode", "expose") if cfg else "expose"
-        sanitized = sanitize_url(raw_url, mode=query_mode)
-        url_path = path
-        url_query = ""
-        try:
-            parsed = urlparse(sanitized)
-            url_path = parsed.path or path
-            url_query = parsed.query
-        except Exception:
-            pass
-        target_url = f"{url_path}?{url_query}" if url_query else url_path
+        sanitized, target_url, url_path = _apply_sanitized_url_attributes(span, request, cfg=cfg, path=path)
 
         safe_set_attribute(span, "http.route", sanitized or target_url or url_path)
         safe_set_attribute(span, "http.route_template", final_route)
-        safe_set_attribute(span, "url.full", sanitized)
-        safe_set_attribute(span, "http.url", sanitized)
-        safe_set_attribute(span, "url.path", url_path)
-        safe_set_attribute(span, "http.target", target_url)
-        if query_mode == "strip" or not url_query:
-            try:
-                from tp_trace.compat.attributes import get_mutable_attributes
-
-                target = get_mutable_attributes(span)
-                if target is not None:
-                    try:
-                        target.pop("url.query", None)
-                    except Exception:
-                        try:
-                            del target["url.query"]
-                        except Exception:
-                            pass
-                elif hasattr(span, "is_recording") and span.is_recording():
-                    if hasattr(span, "set_attribute"):
-                        try:
-                            span.set_attribute("url.query", "")
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-        else:
-            safe_set_attribute(span, "url.query", url_query)
 
         if norm_route and norm_route != "__unmatched__":
             safe_set_attribute(span, "django.route", norm_route)
