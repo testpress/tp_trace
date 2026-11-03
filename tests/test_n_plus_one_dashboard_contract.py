@@ -12,7 +12,7 @@ def _load(relative):
 
 
 def _all_targets(dashboard):
-    for panel in dashboard["panels"]:
+    for panel in dashboard.get("panels", []):
         for target in panel.get("targets", []):
             yield panel, target
 
@@ -63,7 +63,7 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
 
 def test_operational_issue_link_passes_method_and_route_separately():
     dashboard = _load("Supporting Dashboards/operational_issues.json")
-    for panel in dashboard["panels"]:
+    for panel in dashboard.get("panels", []):
         if panel.get("title") != "All Detected Operational Issues":
             continue
         for override in panel.get("fieldConfig", {}).get("overrides", []):
@@ -149,32 +149,33 @@ def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
         assert all(target.get("interval") == "1m" for target in panels[title]["targets"])
 
 
-def test_collector_spanmetrics_blocks_internal_and_django_server_spans():
-    """Ensure the shared Collector configuration does not duplicate native RED signals."""
+def test_collector_spanmetrics_pipeline_and_filters():
+    """All recording spans reach RED aggregation before independent storage filtering."""
     import yaml
 
-    collector_config_file = ROOT / "config/otel-collector.yaml"
-    cfg = yaml.safe_load(collector_config_file.read_text())
-
-    pipelines = cfg.get("service", {}).get("pipelines", {})
-    if "traces/spanmetrics" in pipelines:
-        # Verify filter definition
-        filters = cfg.get("processors", {})
-        assert "filter/spanmetrics_drop_non_dependencies" in filters
-        span_rules = filters["filter/spanmetrics_drop_non_dependencies"]["traces"]["span"]
-        assert "kind == SPAN_KIND_INTERNAL" in span_rules
-        assert any("SPAN_KIND_SERVER" in r and "normalized.service" in r for r in span_rules)
-
-        # Verify pipeline wiring
-        spanmetrics_pipe = pipelines.get("traces/spanmetrics", {}).get("processors", [])
-        assert "filter/spanmetrics_drop_non_dependencies" in spanmetrics_pipe
-    else:
-        # Spanmetrics connector completely removed: native metrics handle RED signals
-        assert "spanmetrics" not in cfg.get("connectors", {})
-
-    metrics_pipe = pipelines.get("metrics", {}).get("processors", [])
-    assert "transform/drop_metric_worker_id" not in metrics_pipe
-    assert "deltatocumulative" in metrics_pipe
+    cfg = yaml.safe_load((ROOT / "config/otel-collector.yaml").read_text())
+    pipelines = cfg["service"]["pipelines"]
+    metrics = pipelines["traces/spanmetrics"]
+    assert metrics["receivers"] == ["otlp"]
+    assert metrics["exporters"] == ["spanmetrics"]
+    assert metrics["processors"] == [
+        "memory_limiter", "resource/drop_ephemeral", "filter/spanmetrics_drop_internal",
+        "transform/spanmetrics_route", "transform/spanmetrics_sanitize", "batch",
+    ]
+    assert "filter/drop_unsampled" not in metrics["processors"]
+    assert "filter/drop_unsampled" in pipelines["traces"]["processors"]
+    assert pipelines["traces"]["exporters"] == ["otlp/tempo"]
+    assert "spanmetrics" in pipelines["metrics"]["receivers"]
+    connector = cfg["connectors"]["spanmetrics"]
+    assert connector["aggregation_temporality"] == "AGGREGATION_TEMPORALITY_CUMULATIVE"
+    assert connector["histogram"]["unit"] == "ms"
+    assert connector["metrics_expiration"] == connector["series_expiration"] == "5m"
+    assert connector["aggregation_cardinality_limit"] == 5000
+    assert "span.name" in connector["exclude_dimensions"]
+    assert "institute" in [dimension["name"] for dimension in connector["dimensions"]]
+    assert cfg["processors"]["filter/spanmetrics_drop_internal"]["trace_conditions"] == [
+        "span.kind == SPAN_KIND_INTERNAL",
+    ]
 
 
 def test_dashboard_links_use_queryparam_not_raw_for_project():
@@ -258,3 +259,20 @@ def test_n_plus_one_detail_handles_flat_new_series_for_apm_calls(tmp_path):
 
     evaluate(tmp_path, expr_p10, [series[1]], [{"labels": "{}", "value": 10}])
     evaluate(tmp_path, expr_p12, series, [{"labels": "{}", "value": 100}])
+
+
+def test_collector_red_queries_do_not_require_removed_sdk_labels_or_scopes():
+    """Collector RED remains queryable without legacy SDK RED datapoints."""
+    import re
+
+    for path in DASHBOARDS.rglob("*.json"):
+        dashboard = json.loads(path.read_text())
+        for _, target in _all_targets(dashboard):
+            expr = target.get("expr", "")
+            for labels in re.findall(r'apm_(?:calls_total|duration_milliseconds\w*)\{([^}]+)\}', expr):
+                assert "worker_id" not in labels, path
+                assert "metric_source" not in labels, path
+            assert not re.search(
+                r'apm_cardinality_(?:limit|tracked)\{[^}]*scope\s*(?:=|=~)\s*"(?:route|service|operation)',
+                expr,
+            ), path

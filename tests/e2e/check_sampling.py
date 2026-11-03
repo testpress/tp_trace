@@ -135,10 +135,9 @@ def check_sdk_export():
             with tracer.start_as_current_span("request", kind=SpanKind.SERVER) as span:
                 decision = bool(span.get_span_context().trace_flags.sampled)
                 sampled += int(decision)
-                # In current SDK, SampledOnlySpanProcessor gates exports to sampled-only.
-                # Once SampledOnlySpanProcessor is removed in the spanmetrics migration,
-                # unsampled errors will reach the Collector and be preserved by filter/drop_unsampled.
-                expected[format(span.get_span_context().trace_id, "032x")] = decision
+                # Storage filtering preserves errors even when head sampling
+                # selected RECORD_ONLY; all spans still feed spanmetrics.
+                expected[format(span.get_span_context().trace_id, "032x")] = decision or error
                 span.set_status(Status(StatusCode.ERROR if error else StatusCode.OK))
         assert provider.force_flush()
         assert 0 < sampled < 21, "Probe needs both sampled and unsampled decisions"

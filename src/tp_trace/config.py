@@ -439,7 +439,7 @@ class SDKConfig:
             if _val is not None and _limit_name not in _warned_cardinality_limits:
                 _warned_cardinality_limits.add(_limit_name)
                 logger.warning(
-                    "tp_trace: %s is deprecated and has no effect in spanmetrics mode. "
+                    "tp_trace: %s is deprecated and has no effect. "
                     "Cardinality limits are now managed by the OpenTelemetry Collector.",
                     _limit_name,
                 )

@@ -23,6 +23,52 @@ receivers:
                 instance: "${env:OTEL_COLLECTOR_INSTANCE}"
                 collector_alias: "${env:OTEL_COLLECTOR_ALIAS}"
 
+connectors:
+  spanmetrics:
+    namespace: apm
+    aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
+    metrics_flush_interval: 15s
+    histogram:
+      unit: ms
+      explicit:
+        buckets:
+          - 5ms
+          - 25ms
+          - 100ms
+          - 250ms
+          - 500ms
+          - 1s
+          - 2.5s
+          - 5s
+    dimensions:
+      - name: http.method
+        default: ""
+      - name: http.status_code
+        default: ""
+      - name: http.route
+        default: ""
+      - name: db.system
+        default: ""
+      - name: db.operation
+        default: ""
+      - name: db.instance
+        default: ""
+      - name: error
+        default: ""
+      - name: normalized.service
+        default: ""
+      - name: normalized.operation
+        default: ""
+      - name: institute
+        default: ""
+    exclude_dimensions:
+      - span.name
+    # Stop exporting a resource's metrics once it stops sending spans (e.g. after deploy).
+    metrics_expiration: 5m
+    series_expiration: 5m
+    # Bound combinations per resource aggregation to guarantee memory bounds.
+    aggregation_cardinality_limit: 5000
+
 processors:
   memory_limiter:
     check_interval: 500ms
@@ -50,6 +96,12 @@ processors:
       - key: telemetry.sdk.name
         action: delete
 
+  # Drop internal framework spans from spanmetrics to prevent duplicate RED signals
+  filter/spanmetrics_drop_internal:
+    error_mode: ignore
+    trace_conditions:
+      - 'span.kind == SPAN_KIND_INTERNAL'
+
   # Drop unsampled spans before export to Tempo; preserve error spans
   filter/drop_unsampled:
     error_mode: ignore
@@ -57,6 +109,27 @@ processors:
       # tp_trace preserves the SDK decision explicitly: some OTLP exporters
       # omit sampled bit 0. For other producers, fall back to the wire flags.
       - '(span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0)) and span.status.code != STATUS_CODE_ERROR'
+
+  # Route normalization for spanmetrics
+  transform/spanmetrics_route:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["http.route"], attributes["http.route_template"]) where attributes["http.route_template"] != nil
+          - set(attributes["http.route"], attributes["django.route"]) where attributes["http.route_template"] == nil and attributes["django.route"] != nil
+          - set(attributes["http.route"], "__unmatched__") where attributes["http.route_template"] == nil and attributes["django.route"] == nil and attributes["http.route"] != nil
+
+  # DB attribute normalization for spanmetrics
+  transform/spanmetrics_sanitize:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - delete_key(attributes, "http.route") where attributes["db.system"] != nil
+          - delete_key(attributes, "http.method") where attributes["db.system"] != nil
+          - set(attributes["normalized.operation"], attributes["db.query.summary"]) where attributes["normalized.operation"] == nil and attributes["db.query.summary"] != nil and attributes["db.system"] != nil
+          - set(attributes["normalized.operation"], attributes["db.operation"]) where attributes["normalized.operation"] == nil and attributes["db.operation"] != nil
 
   batch:
     timeout: ${env:OTEL_COLLECTOR_BATCH_TIMEOUT:-500ms}
@@ -132,9 +205,23 @@ service:
       exporters:
         - otlp/tempo
 
+    traces/spanmetrics:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource/drop_ephemeral
+        - filter/spanmetrics_drop_internal
+        - transform/spanmetrics_route
+        - transform/spanmetrics_sanitize
+        - batch
+      exporters:
+        - spanmetrics
+
     metrics:
       receivers:
         - otlp
+        - spanmetrics
       processors:
         - memory_limiter
         - resource/drop_ephemeral
