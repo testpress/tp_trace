@@ -1533,7 +1533,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Visible non-overflow RED series by project and component (Django, PostgreSQL, Redis, Celery, and other instrumented services). Each series is a combination of operation, route, method, status, tenant, and other configured dimensions. Counts include series visible in Prometheus, not an exact Collector cache gauge. SDK Overflow is repeated-query observations grouped by SDK limits; it is separate from Collector overflow. Components do not have independent 5,000-series budgets. Shared Limit per Resource is a reference cap shared by all components in each Collector resource aggregation, not a separate allowance for this row.",
+      "description": "Visible non-overflow RED series by project and component (Django, PostgreSQL, Redis, Celery, and other instrumented services). Each series is a combination of operation, route, method, status, tenant, and other configured dimensions. Counts include series visible in Prometheus, not an exact Collector cache gauge. SDK Overflow is repeated-query observations grouped by SDK limits; it is separate from Collector overflow. Components do not have independent 5,000-series budgets. Shared Limit per Resource is a reference cap shared by all components in each Collector resource aggregation, not a separate allowance for this row. Overflow is the total observation count in the selected dashboard time range, not a per-second rate. Counter-based totals are estimates at export boundaries; initial exports of new series are included.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -1592,7 +1592,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "reqps"
+                "value": "none"
               },
               {
                 "id": "thresholds",
@@ -1605,10 +1605,14 @@
                     },
                     {
                       "color": "yellow",
-                      "value": 0.0001
+                      "value": 1
                     }
                   ]
                 }
+              },
+              {
+                "id": "decimals",
+                "value": 0
               }
             ]
           }
@@ -1660,10 +1664,10 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (project_name, normalized_service) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__rate_interval])) or (0 * count by (project_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}))",
+          "expr": "round(sum by (project_name, normalized_service) ((last_over_time(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__range]) and (resets(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__range]) == 0) unless (apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"} offset $__range)) or increase(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__range]))) or (0 * count by (project_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}))",
           "format": "table",
           "instant": true,
-          "refId": "GroupedRate"
+          "refId": "GroupedTotal"
         }
       ],
       "title": "Service Cardinality & SDK Anomaly Grouping",
@@ -1683,13 +1687,13 @@
               "normalized_service": 1,
               "Value #Tracked": 2,
               "Value #Limit": 3,
-              "Value #GroupedRate": 4
+              "Value #GroupedTotal": 4
             },
             "renameByName": {
               "project_name": "Project",
               "normalized_service": "Service",
               "Value #Tracked": "Current Combinations",
-              "Value #GroupedRate": "SDK Overflow",
+              "Value #GroupedTotal": "SDK Overflow",
               "Value #Limit": "Shared Limit per Resource"
             }
           }
@@ -1702,7 +1706,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Collector overflow grouped by project. Overflow series can lose normalized_service and cannot reliably identify Django, PostgreSQL, or another component. The configured cap is 5,000 combinations per resource aggregation, shared across components in that resource. A displayed project group can span multiple resources, so its visible series count is not divided by this cap. Prometheus-visible series counts can lag Collector expiry. Use the component table above to investigate contributors.",
+      "description": "Collector overflow grouped by project. Overflow series can lose normalized_service and cannot reliably identify Django, PostgreSQL, or another component. The configured cap is 5,000 combinations per resource aggregation, shared across components in that resource. A displayed project group can span multiple resources, so its visible series count is not divided by this cap. Prometheus-visible series counts can lag Collector expiry. Use the component table above to investigate contributors. Overflow is the total observation count in the selected dashboard time range, not a per-second rate. Counter-based totals are estimates at export boundaries; initial exports of new series are included.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -1716,7 +1720,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "reqps"
+                "value": "none"
               },
               {
                 "id": "thresholds",
@@ -1729,10 +1733,14 @@
                     },
                     {
                       "color": "red",
-                      "value": 0.0001
+                      "value": 1
                     }
                   ]
                 }
+              },
+              {
+                "id": "decimals",
+                "value": 0
               }
             ]
           }
@@ -1784,7 +1792,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (project_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow=\"true\"}[$__rate_interval])) or (0 * count by (project_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}))",
+          "expr": "round(sum by (project_name) ((last_over_time(apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow=\"true\"}[$__range]) and (resets(apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow=\"true\"}[$__range]) == 0) unless (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow=\"true\"} offset $__range)) or increase(apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow=\"true\"}[$__range]))) or (0 * count by (project_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}))",
           "format": "table",
           "instant": true,
           "refId": "CollectorOverflow"
