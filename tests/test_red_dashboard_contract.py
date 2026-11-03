@@ -489,52 +489,43 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
     evaluate(tmp_path, "round((" + expr + "), 0.000001)", series, [{"labels": "{}", "value": expected}])
 
 
-def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
-    """Verify that Collector Monitoring Panel 403 reports cardinality tracking and overflow."""
-    p403 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 403)
-    t_rate = next(t for t in p403["targets"] if t.get("refId") == "GroupedRate")
-    expr_rate = re.sub(r"\$\{[^}]+\}", ".*", t_rate["expr"]).replace("$__rate_interval", "5m")
-
+def test_collector_monitoring_breaks_down_components_without_inventing_budgets(tmp_path):
+    components = panel("Supporting Dashboards/collector_monitoring.json", 403)
+    targets = {t["refId"] for t in components["targets"]}
+    assert targets == {"Tracked", "GroupedRate"}
+    labels = 'collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod"'
     series = [
-        {
-            "series": 'apm_cardinality_grouping_total{collector_alias="dev",service_name="postgres",scope="operation",cause="operation_limit"}',
-            "values": "0+60x31",
-        }
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="django",normalized_operation="GET /courses",error="false"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="django",normalized_operation="GET /courses",error="true"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="postgres",normalized_operation="SELECT courses"}', "values": "0+60x31"},
+        # Real Collector overflow loses the component dimensions; never
+        # attribute it to Django or PostgreSQL using a fabricated label.
+        {"series": 'apm_calls_total{' + labels + ',otel_metric_overflow="true"}', "values": "0+120x31"},
+        {"series": 'apm_calls_total{collector_alias="c2",service_name="testpress",project_name="testpress",cluster_name="prod",normalized_service="django"}', "values": "0+60x31"},
+        {"series": 'apm_cardinality_grouping_total{' + labels + ',normalized_service="django",scope="repeated_queries",cause="repeated_query_series_limit"}', "values": "0+60x31"},
     ]
+    def result(collector, service, value):
+        return {"labels": '{cluster_name="prod",collector_alias="' + collector + '",normalized_service="' + service + '",project_name="testpress",service_name="testpress"}', "value": value}
 
-    stripped_expr = re.sub(
-        r'\s+or\s+\(0 \* count by \(service_name\).*?\)\)',
-        '',
-        expr_rate,
-        flags=re.DOTALL,
-    )
-    evaluate(
-        tmp_path,
-        stripped_expr,
-        series,
-        [{"labels": '{service_name="postgres"}', "value": 1}],
-    )
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked"), series, [
+        result("c1", "django", 2), result("c1", "postgres", 1), result("c2", "django", 1),
+    ])
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "GroupedRate"), series, [
+        result("c1", "django", 1), result("c1", "postgres", 0), result("c2", "django", 0),
+    ])
 
-    t_col = next(t for t in p403["targets"] if t.get("refId") == "CollectorOverflow")
-    expr_col = re.sub(r"\$\{[^}]+\}", ".*", t_col["expr"]).replace("$__rate_interval", "5m")
-    series_col = [
-        {
-            "series": 'apm_calls_total{collector_alias="dev",service_name="django",otel_metric_overflow="true"}',
-            "values": "0+120x31",
-        }
-    ]
-    stripped_col = re.sub(
-        r'\s+or\s+\(0 \* count by \(service_name\).*?\)\)',
-        '',
-        expr_col,
-        flags=re.DOTALL,
-    )
-    evaluate(
-        tmp_path,
-        stripped_col,
-        series_col,
-        [{"labels": '{service_name="django"}', "value": 2}],
-    )
+
+def test_collector_overflow_summary_preserves_unattributed_overflow(tmp_path):
+    summary = panel("Supporting Dashboards/collector_monitoring.json", 404)
+    assert "normalized_service" not in next(t["expr"] for t in summary["targets"] if t["refId"] == "CollectorOverflow")
+    series = [{
+        "series": 'apm_calls_total{collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod",otel_metric_overflow="true"}',
+        "values": "0+120x31",
+    }]
+    labels = '{cluster_name="prod",collector_alias="c1",project_name="testpress",service_name="testpress"}'
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 404, "CollectorOverflow"), series, [{"labels": labels, "value": 2}])
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 404, "Limit"), series, [{"labels": labels, "value": 5000}])
+    assert "UsagePct" not in {t["refId"] for t in summary["targets"]}
 
 
 def test_collector_monitoring_distinguishes_grouping_from_stream_cap_drops(tmp_path):

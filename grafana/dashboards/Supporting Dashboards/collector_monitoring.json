@@ -43,7 +43,7 @@
       "includeVars": true,
       "keepTime": true,
       "targetBlank": false,
-      "title": "\u2190 Back to Service Catalog",
+      "title": "← Back to Service Catalog",
       "type": "link",
       "url": "/d/tp-trace-project-catalog"
     },
@@ -1525,7 +1525,7 @@
       },
       "id": 400,
       "panels": [],
-      "title": "Application Cardinality Safeguards & Limits",
+      "title": "Service Cardinality & Collector Safeguards",
       "type": "row"
     },
     {
@@ -1533,7 +1533,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Monitors active time-series combinations (spanning route, method, status, tenant, database, and operation) against the Collector spanmetrics limit of 5,000 per resource aggregation. Shows real-time Collector overflow (otel_metric_overflow=true) and SDK repeated-query anomaly grouping.",
+      "description": "Visible non-overflow RED series by application and component (Django, PostgreSQL, Redis, Celery, and other instrumented services). Each series is a combination of operation, route, method, status, tenant, and other configured dimensions. Counts include series visible in Prometheus, not an exact Collector cache gauge. SDK Anomaly Overflow is repeated-query observations grouped by SDK limits; it is separate from Collector overflow. Components do not have independent 5,000-series budgets.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -1587,73 +1587,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Budget Used"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "#EAB839",
-                      "value": 70
-                    },
-                    {
-                      "color": "red",
-                      "value": 90
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Collector Overflow"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "reqps"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "red",
-                      "value": 0.0001
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "SDK Anomaly Overflow"
             },
             "properties": [
@@ -1694,7 +1627,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Total Overflow"
+            "displayName": "Active Combinations"
           }
         ]
       },
@@ -1705,7 +1638,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"})",
+          "expr": "count by (collector_alias, service_name, project_name, cluster_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!=\"\", otel_metric_overflow!=\"true\"})",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -1716,7 +1649,124 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"})) + 5000",
+          "expr": "sum by (collector_alias, service_name, project_name, cluster_name, normalized_service) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[$__rate_interval])) or (0 * count by (collector_alias, service_name, project_name, cluster_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}))",
+          "format": "table",
+          "instant": true,
+          "refId": "GroupedRate"
+        }
+      ],
+      "title": "Service Cardinality & SDK Anomaly Grouping",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "normalized_service": 0,
+              "project_name": 1,
+              "service_name": 2,
+              "cluster_name": 3,
+              "collector_alias": 4,
+              "Value #Tracked": 5,
+              "Value #GroupedRate": 6
+            },
+            "renameByName": {
+              "project_name": "Project",
+              "service_name": "Application",
+              "cluster_name": "Cluster",
+              "collector_alias": "Collector",
+              "normalized_service": "Service",
+              "Value #Tracked": "Active Combinations",
+              "Value #GroupedRate": "SDK Anomaly Overflow"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Collector overflow grouped by application, cluster, and Collector. Overflow series can lose normalized_service and cannot reliably identify Django, PostgreSQL, or another component. The configured cap is 5,000 combinations per resource aggregation, shared across components in that resource. A displayed application group can span multiple resources, so its visible series count is not divided by this cap. Prometheus-visible series counts can lag Collector expiry. Use the component table above to investigate contributors.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Collector Overflow"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.0001
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "id": 404,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Collector Overflow"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", otel_metric_overflow!=\"true\"}) or (0 * count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\"}))",
+          "format": "table",
+          "instant": true,
+          "refId": "Tracked"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "(0 * count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\"})) + 5000",
           "format": "table",
           "instant": true,
           "refId": "Limit"
@@ -1727,35 +1777,13 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "100 * (count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"})) / 5000",
-          "format": "table",
-          "instant": true,
-          "refId": "UsagePct"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "(sum by (service_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\",otel_metric_overflow=\"true\"}[$__rate_interval]))) or (0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"}))",
+          "expr": "sum by (collector_alias, service_name, project_name, cluster_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\", otel_metric_overflow=\"true\"}[$__rate_interval])) or (0 * count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\"}))",
           "format": "table",
           "instant": true,
           "refId": "CollectorOverflow"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "(sum by (service_name) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"}[$__rate_interval]))) or (0 * count by (service_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\",normalized_service!~\"__other__\"}))",
-          "format": "table",
-          "instant": true,
-          "refId": "GroupedRate"
         }
       ],
-      "title": "Service Cardinality Budgets & Overflow Diagnostics",
+      "title": "Collector Cardinality Budget & Overflow Summary",
       "transformations": [
         {
           "id": "merge",
@@ -1765,31 +1793,25 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true,
-              "scope": true,
-              "tracked_resource": true
+              "Time": true
             },
             "indexByName": {
-              "Service": 0,
-              "Value #Tracked": 1,
-              "Active Combinations": 1,
-              "Value #Limit": 2,
-              "Budget Cap": 2,
-              "Value #UsagePct": 3,
-              "Budget Used": 3,
-              "Value #CollectorOverflow": 4,
-              "Collector Overflow": 4,
-              "Value #GroupedRate": 5,
-              "SDK Anomaly Overflow": 5,
-              "service_name": 0
+              "project_name": 0,
+              "service_name": 1,
+              "cluster_name": 2,
+              "collector_alias": 3,
+              "Value #Tracked": 4,
+              "Value #Limit": 5,
+              "Value #CollectorOverflow": 6
             },
             "renameByName": {
-              "Value #Tracked": "Active Combinations",
-              "Value #Limit": "Budget Cap",
-              "Value #UsagePct": "Budget Used",
-              "Value #CollectorOverflow": "Collector Overflow",
-              "Value #GroupedRate": "SDK Anomaly Overflow",
-              "service_name": "Service"
+              "project_name": "Project",
+              "service_name": "Application",
+              "cluster_name": "Cluster",
+              "collector_alias": "Collector",
+              "Value #Tracked": "Visible Combinations",
+              "Value #Limit": "Cap per Resource",
+              "Value #CollectorOverflow": "Collector Overflow"
             }
           }
         }
@@ -1802,7 +1824,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 48
       },
       "id": 199,
       "panels": [],
@@ -1815,7 +1837,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 49
       },
       "id": 286,
       "title": "Receivers",
@@ -1908,7 +1930,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 41
+        "y": 50
       },
       "id": 228,
       "interval": "$minstep",
@@ -2058,7 +2080,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 41
+        "y": 50
       },
       "id": 280,
       "interval": "$minstep",
@@ -2208,7 +2230,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 41
+        "y": 50
       },
       "id": 247,
       "interval": "$minstep",
@@ -2277,7 +2299,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 58
       },
       "id": 287,
       "title": "Processors",
@@ -2387,7 +2409,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 50
+        "y": 59
       },
       "id": 285,
       "interval": "$minstep",
@@ -2554,7 +2576,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 50
+        "y": 59
       },
       "id": 283,
       "interval": "$minstep",
@@ -2721,7 +2743,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 50
+        "y": 59
       },
       "id": 284,
       "interval": "$minstep",
@@ -2890,7 +2912,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 58
+        "y": 67
       },
       "id": 235,
       "interval": "$minstep",
@@ -3119,7 +3141,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 58
+        "y": 67
       },
       "id": 250,
       "interval": "$minstep",
@@ -3348,7 +3370,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 58
+        "y": 67
       },
       "id": 251,
       "interval": "$minstep",
@@ -3496,7 +3518,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 66
+        "y": 75
       },
       "id": 249,
       "interval": "$minstep",
@@ -3637,7 +3659,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 66
+        "y": 75
       },
       "id": 236,
       "interval": "$minstep",
@@ -3780,7 +3802,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 66
+        "y": 75
       },
       "id": 256,
       "interval": "$minstep",
@@ -3849,7 +3871,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 74
+        "y": 83
       },
       "id": 288,
       "title": "Exporters",
@@ -3942,7 +3964,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 75
+        "y": 84
       },
       "id": 237,
       "interval": "$minstep",
@@ -4107,7 +4129,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 75
+        "y": 84
       },
       "id": 238,
       "interval": "$minstep",
@@ -4272,7 +4294,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 75
+        "y": 84
       },
       "id": 248,
       "interval": "$minstep",
@@ -4416,7 +4438,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 84
+        "y": 93
       },
       "id": 210,
       "options": {
@@ -4529,7 +4551,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 84
+        "y": 93
       },
       "id": 255,
       "options": {
@@ -4642,7 +4664,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 84
+        "y": 93
       },
       "id": 267,
       "options": {
@@ -4756,7 +4778,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 93
+        "y": 102
       },
       "id": 302,
       "interval": "$minstep",
@@ -4840,7 +4862,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 111
       },
       "id": 289,
       "title": "Collector",
@@ -4983,7 +5005,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 103
+        "y": 112
       },
       "id": 240,
       "interval": "$minstep",
@@ -5198,7 +5220,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 103
+        "y": 112
       },
       "id": 252,
       "interval": "$minstep",
@@ -5413,7 +5435,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 103
+        "y": 112
       },
       "id": 253,
       "interval": "$minstep",
@@ -5624,7 +5646,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 112
+        "y": 121
       },
       "id": 239,
       "interval": "$minstep",
@@ -5770,7 +5792,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 112
+        "y": 121
       },
       "id": 241,
       "interval": "$minstep",
@@ -5884,7 +5906,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 112
+        "y": 121
       },
       "id": 254,
       "interval": "$minstep",
@@ -5974,7 +5996,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 121
+        "y": 130
       },
       "id": 257,
       "interval": "$minstep",
@@ -6023,7 +6045,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 135
       },
       "id": 290,
       "title": "Signal flows",
@@ -6039,7 +6061,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 127
+        "y": 136
       },
       "id": 258,
       "options": {
@@ -6117,7 +6139,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 127
+        "y": 136
       },
       "id": 260,
       "options": {
@@ -6195,7 +6217,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 127
+        "y": 136
       },
       "id": 261,
       "options": {
@@ -6269,7 +6291,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 136
+        "y": 145
       },
       "id": 291,
       "panels": [
@@ -6622,7 +6644,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 137
+        "y": 146
       },
       "id": 292,
       "panels": [
@@ -7616,7 +7638,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 138
+        "y": 147
       },
       "id": 293,
       "panels": [
@@ -7792,7 +7814,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 139
+        "y": 148
       },
       "id": 294,
       "panels": [
@@ -8100,7 +8122,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 140
+        "y": 149
       },
       "id": 295,
       "title": "Documentation",
@@ -8111,7 +8133,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 141
+        "y": 150
       },
       "id": 245,
       "options": {
@@ -8621,7 +8643,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "OpenTelemetry Collector \u2014 Health, Resource Usage & Metrics",
+  "title": "OpenTelemetry Collector — Health, Resource Usage & Metrics",
   "uid": "tp-trace-otel-collector-health",
   "version": 6
 }
