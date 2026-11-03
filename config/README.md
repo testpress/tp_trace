@@ -20,20 +20,7 @@ not open port 13133. Local Compose explicitly enables it with
 `OTEL_COLLECTOR_EXTENSIONS=[health_check]` and binds to `0.0.0.0:13133` for the
 existing development health probe. Merely defining the extension does not start it.
 
-Local now uses the previous production tuning: 400/80 MiB memory/spike limits,
-500 ms batching with 256/512-item trigger/maximum sizes, and a Tempo queue of
-5,000 batches with eight consumers. Former local values were 256/64 MiB,
-1-second batching with 512/1,024 items, and a 1,000-batch queue with four consumers.
-This changes local buffering capacity and cadence, not metric labels or sampling.
-Tempo settings and persistent volume identities are unchanged. Local Compose
-publishes Tempo OTLP/gRPC on host port `4327`, matching deployment Compose. A
-Collector running in a VM can use `otel_collector_tempo_endpoint` set to the
-development host's reachable address on port `4327` (for example,
-`192.168.1.3:4327`). The in-stack Collector continues to use `tempo:4317`.
-After adding this port mapping, reapply Tempo with
-`docker compose -f dev/docker-compose.yml up -d --no-deps tempo` from the root;
-restarting alone does not apply a new port mapping. If using a root `.env`, add
-`--env-file .env` before `-f`. `DEV_BIND_ADDRESS` must permit the VM connection.
+For local startup, reloads, and VM connectivity, see the [development stack guide](../dev/README.md#stack-configuration).
 
 From the repository root, validate with:
 
@@ -43,8 +30,4 @@ make check-collector-config
 docker compose -f setup/docker-compose.yml config --quiet
 ```
 
-Use `make up` for the first local rollout of the changed mounts and environment.
-Use the Ansible configure playbook separately for production. Shared source does
-not automatically update running hosts. Production Prometheus is not deployed
-by this repository; its canonical scrape file requires `localhost:9090` and
-`tempo:3200` to resolve in that environment.
+Apply deployed Collector changes with the Ansible configure playbook. Shared source does not automatically update running hosts. Production Prometheus is managed separately; its canonical scrape file requires `localhost:9090` and `tempo:3200` to resolve in that environment.
