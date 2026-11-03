@@ -492,7 +492,7 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
 def test_collector_monitoring_breaks_down_components_without_inventing_budgets(tmp_path):
     components = panel("Supporting Dashboards/collector_monitoring.json", 403)
     targets = {t["refId"] for t in components["targets"]}
-    assert targets == {"Tracked", "GroupedRate"}
+    assert targets == {"Tracked", "Limit", "GroupedRate"}
     labels = 'collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod"'
     series = [
         {"series": 'apm_calls_total{' + labels + ',normalized_service="django",normalized_operation="GET /courses",error="false"}', "values": "0+60x31"},
@@ -504,15 +504,22 @@ def test_collector_monitoring_breaks_down_components_without_inventing_budgets(t
         {"series": 'apm_calls_total{collector_alias="c2",service_name="testpress",project_name="testpress",cluster_name="prod",normalized_service="django"}', "values": "0+60x31"},
         {"series": 'apm_cardinality_grouping_total{' + labels + ',normalized_service="django",scope="repeated_queries",cause="repeated_query_series_limit"}', "values": "0+60x31"},
     ]
-    def result(collector, service, value):
-        return {"labels": '{cluster_name="prod",collector_alias="' + collector + '",normalized_service="' + service + '",project_name="testpress",service_name="testpress"}', "value": value}
+    def result(service, value):
+        return {"labels": '{normalized_service="' + service + '",project_name="testpress"}', "value": value}
 
     evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked"), series, [
-        result("c1", "django", 2), result("c1", "postgres", 1), result("c2", "django", 1),
+        result("django", 3), result("postgres", 1),
     ])
     evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "GroupedRate"), series, [
-        result("c1", "django", 1), result("c1", "postgres", 0), result("c2", "django", 0),
+        result("django", 1), result("postgres", 0),
     ])
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Limit"), series, [
+        result("django", 5000), result("postgres", 5000),
+    ])
+    columns = set(components["transformations"][-1]["options"]["renameByName"].values())
+    assert "Shared Limit per Resource" in columns
+    assert "UsagePct" not in targets
+
 
 
 def test_collector_overflow_summary_preserves_unattributed_overflow(tmp_path):
@@ -522,7 +529,7 @@ def test_collector_overflow_summary_preserves_unattributed_overflow(tmp_path):
         "series": 'apm_calls_total{collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod",otel_metric_overflow="true"}',
         "values": "0+120x31",
     }]
-    labels = '{cluster_name="prod",collector_alias="c1",project_name="testpress",service_name="testpress"}'
+    labels = '{project_name="testpress"}'
     evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 404, "CollectorOverflow"), series, [{"labels": labels, "value": 2}])
     evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 404, "Limit"), series, [{"labels": labels, "value": 5000}])
     assert "UsagePct" not in {t["refId"] for t in summary["targets"]}
@@ -593,3 +600,23 @@ def test_catalog_keeps_zero_error_rows_for_collector_only_services(tmp_path):
         [{"series": "apm_calls_total{" + labels + "}", "values": "0+10x31"}],
         [{"labels": '{Service="defaultdb"}', "value": 0}],
     )
+
+
+
+def test_cardinality_project_filter_and_simple_columns(tmp_path):
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    project = next(v for v in dashboard["templating"]["list"] if v["name"] == "project")
+    assert project["includeAll"] and project["multi"]
+    assert project["allValue"] == ".*"
+    for item in dashboard["panels"]:
+        if item["id"] not in (403, 404):
+            continue
+        assert all('project_name=~"${project:regex}"' in t["expr"] for t in item["targets"])
+        columns = set(item["transformations"][-1]["options"]["renameByName"].values())
+        assert not columns.intersection({"Application", "Cluster", "Collector"})
+    expr = expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked").replace('project_name=~".*"', 'project_name=~"testpress"')
+    series = [
+        {"series": 'apm_calls_total{project_name="testpress",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{project_name="other",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
+    ]
+    evaluate(tmp_path, expr, series, [{"labels": '{normalized_service="django",project_name="testpress"}', "value": 1}])

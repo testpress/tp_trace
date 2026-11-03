@@ -1533,7 +1533,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Visible non-overflow RED series by application and component (Django, PostgreSQL, Redis, Celery, and other instrumented services). Each series is a combination of operation, route, method, status, tenant, and other configured dimensions. Counts include series visible in Prometheus, not an exact Collector cache gauge. SDK Anomaly Overflow is repeated-query observations grouped by SDK limits; it is separate from Collector overflow. Components do not have independent 5,000-series budgets.",
+      "description": "Visible non-overflow RED series by project and component (Django, PostgreSQL, Redis, Celery, and other instrumented services). Each series is a combination of operation, route, method, status, tenant, and other configured dimensions. Counts include series visible in Prometheus, not an exact Collector cache gauge. SDK Overflow is repeated-query observations grouped by SDK limits; it is separate from Collector overflow. Components do not have independent 5,000-series budgets. Shared Limit per Resource is a reference cap shared by all components in each Collector resource aggregation, not a separate allowance for this row.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -1587,7 +1587,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "SDK Anomaly Overflow"
+              "options": "SDK Overflow"
             },
             "properties": [
               {
@@ -1627,7 +1627,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Active Combinations"
+            "displayName": "Current Combinations"
           }
         ]
       },
@@ -1638,7 +1638,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count by (collector_alias, service_name, project_name, cluster_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!=\"\", otel_metric_overflow!=\"true\"})",
+          "expr": "count by (project_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"})",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -1649,7 +1649,18 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (collector_alias, service_name, project_name, cluster_name, normalized_service) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[$__rate_interval])) or (0 * count by (collector_alias, service_name, project_name, cluster_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}))",
+          "expr": "(0 * count by (project_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"})) + 5000",
+          "format": "table",
+          "instant": true,
+          "refId": "Limit"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum by (project_name, normalized_service) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__rate_interval])) or (0 * count by (project_name, normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}))",
           "format": "table",
           "instant": true,
           "refId": "GroupedRate"
@@ -1668,22 +1679,18 @@
               "Time": true
             },
             "indexByName": {
-              "normalized_service": 0,
-              "project_name": 1,
-              "service_name": 2,
-              "cluster_name": 3,
-              "collector_alias": 4,
-              "Value #Tracked": 5,
-              "Value #GroupedRate": 6
+              "project_name": 0,
+              "normalized_service": 1,
+              "Value #Tracked": 2,
+              "Value #Limit": 3,
+              "Value #GroupedRate": 4
             },
             "renameByName": {
               "project_name": "Project",
-              "service_name": "Application",
-              "cluster_name": "Cluster",
-              "collector_alias": "Collector",
               "normalized_service": "Service",
-              "Value #Tracked": "Active Combinations",
-              "Value #GroupedRate": "SDK Anomaly Overflow"
+              "Value #Tracked": "Current Combinations",
+              "Value #GroupedRate": "SDK Overflow",
+              "Value #Limit": "Shared Limit per Resource"
             }
           }
         }
@@ -1695,7 +1702,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Collector overflow grouped by application, cluster, and Collector. Overflow series can lose normalized_service and cannot reliably identify Django, PostgreSQL, or another component. The configured cap is 5,000 combinations per resource aggregation, shared across components in that resource. A displayed application group can span multiple resources, so its visible series count is not divided by this cap. Prometheus-visible series counts can lag Collector expiry. Use the component table above to investigate contributors.",
+      "description": "Collector overflow grouped by project. Overflow series can lose normalized_service and cannot reliably identify Django, PostgreSQL, or another component. The configured cap is 5,000 combinations per resource aggregation, shared across components in that resource. A displayed project group can span multiple resources, so its visible series count is not divided by this cap. Prometheus-visible series counts can lag Collector expiry. Use the component table above to investigate contributors.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -1755,7 +1762,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", otel_metric_overflow!=\"true\"}) or (0 * count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\"}))",
+          "expr": "count by (project_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow!=\"true\"}) or (0 * count by (project_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}))",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -1766,7 +1773,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(0 * count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\"})) + 5000",
+          "expr": "(0 * count by (project_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"})) + 5000",
           "format": "table",
           "instant": true,
           "refId": "Limit"
@@ -1777,7 +1784,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (collector_alias, service_name, project_name, cluster_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\", otel_metric_overflow=\"true\"}[$__rate_interval])) or (0 * count by (collector_alias, service_name, project_name, cluster_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (project_name) (rate(apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", otel_metric_overflow=\"true\"}[$__rate_interval])) or (0 * count by (project_name) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}))",
           "format": "table",
           "instant": true,
           "refId": "CollectorOverflow"
@@ -1797,18 +1804,12 @@
             },
             "indexByName": {
               "project_name": 0,
-              "service_name": 1,
-              "cluster_name": 2,
-              "collector_alias": 3,
               "Value #Tracked": 4,
               "Value #Limit": 5,
               "Value #CollectorOverflow": 6
             },
             "renameByName": {
               "project_name": "Project",
-              "service_name": "Application",
-              "cluster_name": "Cluster",
-              "collector_alias": "Collector",
               "Value #Tracked": "Visible Combinations",
               "Value #Limit": "Cap per Resource",
               "Value #CollectorOverflow": "Collector Overflow"
@@ -8164,6 +8165,36 @@
   ],
   "templating": {
     "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "definition": "label_values({__name__=~\"apm_calls_total|apm_cardinality_grouping_total\",project_name!=\"\"}, project_name)",
+        "description": "Filters the application cardinality tables. Collector infrastructure panels use the Collector filter.",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Project",
+        "multi": true,
+        "name": "project",
+        "options": [],
+        "query": "label_values({__name__=~\"apm_calls_total|apm_cardinality_grouping_total\",project_name!=\"\"}, project_name)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
       {
         "current": {
           "selected": true,
