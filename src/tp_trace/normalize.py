@@ -52,10 +52,9 @@ def _infer_operation(span: Any, attrs: Dict[str, Any], svc: Optional[str]) -> Op
         return getattr(span, "name", "")
 
 
-def normalize_span_attributes(span: Any) -> None:
-    """Normalize span attributes for tp_trace RED metrics/export."""
+def preserve_sampled_attribute(span: Any) -> None:
+    """Protect tp_trace.sampled through export against BoundedAttributes eviction."""
     try:
-        # Protect tp_trace.sampled through export against BoundedAttributes eviction
         ctx = getattr(span, "context", None)
         if ctx is None and hasattr(span, "get_span_context"):
             try:
@@ -70,6 +69,14 @@ def normalize_span_attributes(span: Any) -> None:
                 target["tp_trace.sampled"] = sampled_decision
             else:
                 _set_attr(span, "tp_trace.sampled", sampled_decision)
+    except Exception:
+        pass
+
+
+def normalize_span_attributes(span: Any) -> None:
+    """Normalize span attributes for tp_trace RED metrics/export."""
+    try:
+        preserve_sampled_attribute(span)
 
         target = get_mutable_attributes(span)
         attrs = get_attributes_view(span)

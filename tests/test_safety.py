@@ -1131,3 +1131,94 @@ def test_sampling_decision_protected_against_attribute_eviction():
 
     assert "tp_trace.sampled" in span.attributes
     assert span.attributes["tp_trace.sampled"] is True
+
+
+def test_preserve_sampled_attribute_unsampled():
+    """Ensure tp_trace.sampled is preserved as False when trace is not sampled."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.sampling import Decision, Sampler, SamplingResult
+    from tp_trace.normalize import preserve_sampled_attribute
+    from tp_trace.route_context import RouteEnrichingSpanProcessor
+
+    class RecordOnlySampler(Sampler):
+        def should_sample(self, parent_context, trace_id, name, kind=None, attributes=None, links=None, trace_state=None):
+            return SamplingResult(Decision.RECORD_ONLY)
+
+        def get_description(self):
+            return "RecordOnlySampler"
+
+    provider = TracerProvider(sampler=RecordOnlySampler())
+    processor = RouteEnrichingSpanProcessor()
+    provider.add_span_processor(processor)
+
+    tracer = provider.get_tracer("test_unsampled")
+    with tracer.start_as_current_span("unsampled_span") as span:
+        pass
+
+    assert "tp_trace.sampled" in span.attributes
+    assert span.attributes["tp_trace.sampled"] is False
+
+    # Also test the shared helper directly on an unsampled mock span
+    class MockFlags:
+        sampled = False
+
+    class MockContext:
+        trace_flags = MockFlags()
+
+    class MockSpan:
+        context = MockContext()
+        _attributes = {}
+
+    mock_span = MockSpan()
+    preserve_sampled_attribute(mock_span)
+    assert mock_span._attributes.get("tp_trace.sampled") is False
+
+
+def test_preserve_sampled_attribute_fallback_when_get_mutable_attributes_returns_none(monkeypatch):
+    """Ensure preserve_sampled_attribute falls back to set_attribute_safe when mutable attributes are unavailable."""
+    from tp_trace import normalize
+
+    calls = {}
+
+    class MockFlags:
+        sampled = True
+
+    class MockContext:
+        trace_flags = MockFlags()
+
+    class MockSpan:
+        def is_recording(self):
+            return True
+
+        def get_span_context(self):
+            return MockContext()
+
+        def set_attribute(self, key, value):
+            calls[key] = value
+
+    monkeypatch.setattr(normalize, "get_mutable_attributes", lambda span: None)
+
+    span = MockSpan()
+    normalize.preserve_sampled_attribute(span)
+    assert calls.get("tp_trace.sampled") is True
+
+
+def test_on_start_safeguard_against_span_context_exceptions():
+    """Ensure on_start continues setting static attributes even if get_span_context raises."""
+    from tp_trace.route_context import RouteEnrichingSpanProcessor
+
+    calls = {}
+
+    class FlakySpan:
+        def get_span_context(self):
+            raise RuntimeError("broken span context")
+
+        def set_attribute(self, key, value):
+            calls[key] = value
+
+    processor = RouteEnrichingSpanProcessor(static_attributes={"service.name": "my-service"})
+    flaky_span = FlakySpan()
+    # Must not raise and must set static attributes despite get_span_context failing
+    processor.on_start(flaky_span)
+    assert calls.get("service.name") == "my-service"
+
