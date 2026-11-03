@@ -840,6 +840,11 @@ def test_all_spans_batch_span_processor_older_otel_queue_fallback():
     memory_exporter = InMemorySpanExporter()
     processor = AllSpansBatchSpanProcessor(memory_exporter)
 
+    processor.shutdown()
+    processor.done = False
+    processor.max_queue_size = 10
+    processor.max_export_batch_size = 5
+
     # Test collections.deque fallback (OTel 1.20 - 1.33)
     if hasattr(processor, "_batch_processor"):
         delattr(processor, "_batch_processor")
@@ -879,6 +884,56 @@ def test_all_spans_batch_span_processor_older_otel_queue_fallback():
     processor.on_end(span2)
 
 
+
+@pytest.mark.parametrize("modern", [False, True])
+def test_all_spans_queue_failures_warn_once_without_breaking_application(modern, caplog):
+    import logging
+    from types import SimpleNamespace
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+
+    processor = object.__new__(AllSpansBatchSpanProcessor)
+
+    def fail(span):
+        raise RuntimeError("queue unavailable")
+
+    if modern:
+        processor._batch_processor = SimpleNamespace(emit=fail)
+    # The legacy object deliberately has no queue: upstream on_end would
+    # silently discard RECORD_ONLY spans if used as a compatibility fallback.
+    with caplog.at_level(logging.WARNING, logger="tp_trace.exporter"):
+        processor.on_end(object())
+        processor.on_end(object())
+    warnings = [record for record in caplog.records if "RED metrics may undercount" in record.message]
+    assert len(warnings) == 1
+
+
+def test_legacy_batch_queue_notifies_worker_and_handles_fork(monkeypatch):
+    import os
+    import threading
+    from collections import deque
+    from tp_trace import exporter
+
+    processor = object.__new__(exporter.AllSpansBatchSpanProcessor)
+    processor.queue = deque(maxlen=2)
+    processor.max_queue_size = 2
+    processor.max_export_batch_size = 1
+    processor.condition = threading.Condition()
+    processor._pid = -1
+    resets = []
+    processor._at_fork_reinit = lambda: resets.append(True)
+    monkeypatch.setattr(exporter, "_BSP_RESET_ONCE", None)
+    # Use a real unsampled span, including the fork-reset and worker wakeup path.
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+    span = ReadableSpan("legacy", context=SpanContext(1, 1, False, TraceFlags(0)))
+    processor.on_end(span)
+    assert resets == [True]
+    assert processor.queue[0] is span
+    processor._pid = os.getpid()
+    processor.done = True
+    processor.on_end(span)
+    assert len(processor.queue) == 1
+
 @pytest.mark.parametrize("sample_rate", [0.0, 0.5, 1.0])
 def test_sampling_decision_survives_real_otlp_encoding(sample_rate):
     """Collector retention must not depend on exporter support for OTLP flags."""
@@ -912,3 +967,20 @@ def test_sampling_decision_survives_real_otlp_encoding(sample_rate):
         assert all(decisions.values())
     else:
         assert any(decisions.values()) and not all(decisions.values())
+
+
+@pytest.mark.parametrize("queue,batch,delay,expected", [
+    ("8192", "512", "500", (8192, 512, 500)),
+    ("10", "256", "1000", (10, 10, 1000)),
+    ("invalid", "-1", "0", (2048, 256, 1000)),
+])
+def test_batch_export_settings_are_bounded_and_configurable(monkeypatch, queue, batch, delay, expected):
+    from tp_trace.exporter import batch_export_options
+
+    for name, value in zip(
+        ("OTEL_BSP_MAX_QUEUE_SIZE", "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "OTEL_BSP_SCHEDULE_DELAY"),
+        (queue, batch, delay),
+    ):
+        monkeypatch.setenv(name, value)
+    options = batch_export_options()
+    assert (options["max_queue_size"], options["max_export_batch_size"], options["schedule_delay_millis"]) == expected

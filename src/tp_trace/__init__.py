@@ -21,7 +21,7 @@ from opentelemetry.baggage.propagation import W3CBaggagePropagator
 from opentelemetry.propagate import set_global_textmap
 
 from tp_trace.config import SDKConfig
-from tp_trace.exporter import AllSpansBatchSpanProcessor, AllSpansSimpleSpanProcessor, SafeSpanExporter
+from tp_trace.exporter import AllSpansBatchSpanProcessor, AllSpansSimpleSpanProcessor, SafeSpanExporter, batch_export_options
 from tp_trace.route_context import RouteEnrichingSpanProcessor
 from tp_trace.integrations import BaseIntegration, get_integration_manager
 from tp_trace.sanitize import sanitize_query_string, sanitize_sql, sanitize_url
@@ -224,11 +224,12 @@ def init(
 
                 if span_processor is None:
                     if export_batch:
+                        batch_options = batch_export_options()
                         span_processor = AllSpansBatchSpanProcessor(
                             safe_exporter,
-                            max_queue_size=2048,
-                            max_export_batch_size=256,
-                            schedule_delay_millis=1000,
+                            max_queue_size=batch_options["max_queue_size"],
+                            max_export_batch_size=batch_options["max_export_batch_size"],
+                            schedule_delay_millis=batch_options["schedule_delay_millis"],
                         )
                     else:
                         span_processor = AllSpansSimpleSpanProcessor(safe_exporter)

@@ -7,7 +7,7 @@ unreachable collectors, DNS failures, timeouts) NEVER crash or disrupt the host 
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from opentelemetry.context import attach, detach, set_value
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import (
@@ -91,6 +91,26 @@ class SafeSpanExporter(SpanExporter):
             return False
 
 
+def batch_export_options() -> Dict[str, int]:
+    """Keep bounded defaults while honoring standard OTel queue tuning knobs."""
+    options = {}
+    for key, env, default in (
+        ("max_queue_size", "OTEL_BSP_MAX_QUEUE_SIZE", 2048),
+        ("max_export_batch_size", "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", 256),
+        ("schedule_delay_millis", "OTEL_BSP_SCHEDULE_DELAY", 1000),
+    ):
+        try:
+            value = int(os.environ.get(env, default))
+            if value <= 0:
+                raise ValueError("must be positive")
+        except (TypeError, ValueError):
+            logger.warning("tp_trace: Invalid %s; using %s", env, default)
+            value = default
+        options[key] = value
+    options["max_export_batch_size"] = min(options["max_export_batch_size"], options["max_queue_size"])
+    return options
+
+
 class AllSpansBatchSpanProcessor(BatchSpanProcessor):
     """BatchSpanProcessor that emits all ended spans to the batch exporter.
 
@@ -101,42 +121,50 @@ class AllSpansBatchSpanProcessor(BatchSpanProcessor):
     unsampled spans before exporting traces to Tempo.
     """
 
+    def _warn_queue_failure(self, reason: Any) -> None:
+        if not getattr(self, "_queue_failure_warned", False):
+            self._queue_failure_warned = True
+            logger.warning(
+                "tp_trace: Unable to queue all recording spans (%s); RED metrics may undercount. "
+                "Check Collector availability, export throughput, and SDK compatibility.",
+                reason,
+            )
+
     def on_end(self, span: ReadableSpan) -> None:
-        if getattr(self, "done", False):
-            return
-
-        if hasattr(self, "_batch_processor"):
-            # Modern OTel SDK (>= 1.34 / 1.35)
-            self._batch_processor.emit(span)
-            return
-
-        # OTel SDK 1.20 - 1.33: deque-based queue with worker thread and fork handling
+        # Both compatibility paths are fail-safe: processor failures must not
+        # escape span.end() into application code.
         try:
-            if hasattr(self, "_pid") and self._pid != os.getpid():
-                if hasattr(self, "_at_fork_reinit"):
-                    if _BSP_RESET_ONCE is not None:
-                        _BSP_RESET_ONCE.do_once(self._at_fork_reinit)
-                    else:
-                        self._at_fork_reinit()
+            if getattr(self, "done", False):
+                return
+            if hasattr(self, "_batch_processor"):
+                self._batch_processor.emit(span)
+                return
 
-            if hasattr(self, "queue"):
-                q = self.queue
-                if hasattr(q, "appendleft"):
-                    max_q = getattr(self, "max_queue_size", None)
-                    if max_q is not None and len(q) == max_q:
-                        if hasattr(self, "_spans_dropped") and not getattr(self, "_spans_dropped", False):
-                            setattr(self, "_spans_dropped", True)
-                    q.appendleft(span)
-                    max_batch = getattr(self, "max_export_batch_size", 0)
-                    if hasattr(self, "condition") and len(q) >= max_batch:
-                        with self.condition:
-                            self.condition.notify()
-                elif hasattr(q, "put_nowait"):
-                    q.put_nowait(span)
+            # OTel SDK 1.20–1.33: isolate private deque/fork integration here.
+            if hasattr(self, "_pid") and self._pid != os.getpid():
+                reset = getattr(self, "_at_fork_reinit")
+                if _BSP_RESET_ONCE is not None:
+                    _BSP_RESET_ONCE.do_once(reset)
+                else:
+                    reset()
+
+            q: Any = getattr(self, "queue", None)
+            if hasattr(q, "appendleft"):
+                if len(q) == getattr(self, "max_queue_size"):
+                    self._spans_dropped = True
+                    self._warn_queue_failure("bounded export queue is full")
+                q.appendleft(span)
+                if hasattr(self, "condition") and len(q) >= getattr(self, "max_export_batch_size"):
+                    with self.condition:
+                        self.condition.notify()
+            elif hasattr(q, "put_nowait"):
+                q.put_nowait(span)
             else:
-                super().on_end(span)
+                # Upstream on_end silently rejects RECORD_ONLY spans. Do not
+                # pretend that fallback preserves full-population metrics.
+                self._warn_queue_failure("unsupported OpenTelemetry batch queue")
         except Exception as exc:
-            logger.debug("tp_trace: Exception while queuing span: %s", exc)
+            self._warn_queue_failure(type(exc).__name__)
 
 
 class AllSpansSimpleSpanProcessor(SimpleSpanProcessor):
