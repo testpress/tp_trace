@@ -40,12 +40,12 @@
     {
       "asDropdown": false,
       "icon": "arrow-left",
-      "includeVars": false,
+      "includeVars": true,
       "keepTime": true,
       "targetBlank": false,
       "title": "\u2190 Back to Service Catalog",
       "type": "link",
-      "url": "/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}"
+      "url": "/d/tp-trace-project-catalog"
     },
     {
       "asDropdown": false,

@@ -1112,3 +1112,106 @@ def test_traced_span_status_failures_preserve_application(monkeypatch, failure, 
     else:
         assert application() is result
     assert calls == [True]
+
+
+def test_sampling_decision_protected_against_attribute_eviction():
+    """Ensure tp_trace.sampled is preserved on ended spans even when high attribute volume causes BoundedAttributes eviction."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from tp_trace.route_context import RouteEnrichingSpanProcessor
+
+    provider = TracerProvider()
+    processor = RouteEnrichingSpanProcessor()
+    provider.add_span_processor(processor)
+
+    tracer = provider.get_tracer("test_eviction")
+    with tracer.start_as_current_span("heavy_span") as span:
+        # Add attributes far exceeding default BoundedAttributes limit (128)
+        for i in range(250):
+            span.set_attribute(f"attr_{i}", f"val_{i}")
+
+    assert "tp_trace.sampled" in span.attributes
+    assert span.attributes["tp_trace.sampled"] is True
+
+
+def test_preserve_sampled_attribute_unsampled():
+    """Ensure tp_trace.sampled is preserved as False when trace is not sampled."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.sampling import Decision, Sampler, SamplingResult
+    from tp_trace.normalize import preserve_sampled_attribute
+    from tp_trace.route_context import RouteEnrichingSpanProcessor
+
+    class RecordOnlySampler(Sampler):
+        def should_sample(self, parent_context, trace_id, name, kind=None, attributes=None, links=None, trace_state=None):
+            return SamplingResult(Decision.RECORD_ONLY)
+
+        def get_description(self):
+            return "RecordOnlySampler"
+
+    provider = TracerProvider(sampler=RecordOnlySampler())
+    processor = RouteEnrichingSpanProcessor()
+    provider.add_span_processor(processor)
+
+    tracer = provider.get_tracer("test_unsampled")
+    with tracer.start_as_current_span("unsampled_span") as span:
+        pass
+
+    assert "tp_trace.sampled" in span.attributes
+    assert span.attributes["tp_trace.sampled"] is False
+
+    # Also test the shared helper directly on an unsampled mock span
+    class MockFlags:
+        sampled = False
+
+    class MockContext:
+        trace_flags = MockFlags()
+
+    class MockSpan:
+        context = MockContext()
+        _attributes = {}
+
+    mock_span = MockSpan()
+    preserve_sampled_attribute(mock_span)
+    assert mock_span._attributes.get("tp_trace.sampled") is False
+
+
+def test_preserve_sampled_attribute_fallback_when_get_mutable_attributes_returns_none(monkeypatch):
+    """Ensure preserve_sampled_attribute falls back to set_attribute_safe when mutable attributes are unavailable."""
+    from tp_trace import normalize
+
+    calls = {}
+
+    class MockFlags:
+        sampled = True
+
+    class MockContext:
+        trace_flags = MockFlags()
+
+    class MockSpan:
+        def is_recording(self):
+            return True
+
+        def get_span_context(self):
+            return MockContext()
+
+        def set_attribute(self, key, value):
+            calls[key] = value
+
+    monkeypatch.setattr(normalize, "get_mutable_attributes", lambda span: None)
+
+    span = MockSpan()
+    normalize.preserve_sampled_attribute(span)
+    assert calls.get("tp_trace.sampled") is True
+
+
+def test_preserve_sampled_attribute_safeguard_against_span_context_exceptions():
+    """Ensure preserve_sampled_attribute handles broken span context objects without raising."""
+    from tp_trace.normalize import preserve_sampled_attribute
+
+    class FlakySpan:
+        def get_span_context(self):
+            raise RuntimeError("broken span context")
+
+    flaky_span = FlakySpan()
+    # Must not raise despite get_span_context failing
+    preserve_sampled_attribute(flaky_span)
+

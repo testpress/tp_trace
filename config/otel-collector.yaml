@@ -50,6 +50,14 @@ processors:
       - key: telemetry.sdk.name
         action: delete
 
+  # Drop unsampled spans before export to Tempo; preserve error spans
+  filter/drop_unsampled:
+    error_mode: ignore
+    trace_conditions:
+      # tp_trace preserves the SDK decision explicitly: some OTLP exporters
+      # omit sampled bit 0. For other producers, fall back to the wire flags.
+      - '(span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0)) and span.status.code != STATUS_CODE_ERROR'
+
   batch:
     timeout: ${env:OTEL_COLLECTOR_BATCH_TIMEOUT:-500ms}
     send_batch_size: ${env:OTEL_COLLECTOR_BATCH_SEND_SIZE:-256}
@@ -119,6 +127,7 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
+        - filter/drop_unsampled
         - batch
       exporters:
         - otlp/tempo
