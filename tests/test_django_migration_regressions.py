@@ -318,8 +318,17 @@ def test_uninstrument_leaves_host_hooks_intact_when_never_composed():
         instrumentor.uninstrument()
 
 
-def test_sampled_out_request_records_spans_and_response_headers():
-    """Even when a request is sampled out (sample_rate=0.0), response headers and spans for Collector spanmetrics are still emitted."""
+def test_sampled_out_request_records_metrics_and_response_headers(monkeypatch):
+    """Even when a request is sampled out (sample_rate=0.0), response headers and request metrics are still emitted."""
+    recorded_metrics = []
+
+    def mock_record_request(**kwargs):
+        recorded_metrics.append(kwargs)
+
+    import tp_trace.metrics
+
+    monkeypatch.setattr(tp_trace.metrics, "record_request", mock_record_request)
+
     exporter = InMemorySpanExporter()
     tp_trace.init(project_name="sampled-out-svc", exporter=exporter, sample_rate=0.0, export_batch=False)
 
@@ -334,9 +343,10 @@ def test_sampled_out_request_records_spans_and_response_headers():
     # Trace headers must still be injected into response
     assert "X-Trace-ID" in resp
     assert "traceparent" in resp
-    # Spans are exported as RECORD_ONLY (flags == 0) to local Collector for spanmetrics
-    spans = exporter.get_finished_spans()
-    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
-    assert len(server_spans) == 1
-    assert server_spans[0].context.trace_flags.sampled is False
-    assert server_spans[0].attributes.get("http.route_template") == "/test/sample/"
+    # No spans should be exported by in-memory exporter when sampled out
+    assert len(exporter.get_finished_spans()) == 0
+    # Metrics must still be recorded unconditionally
+    assert len(recorded_metrics) == 1
+    assert recorded_metrics[0]["status_code"] == 200
+    assert recorded_metrics[0]["route"] == "/test/sample/"
+    assert recorded_metrics[0]["error"] is False
