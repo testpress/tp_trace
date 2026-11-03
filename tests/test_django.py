@@ -76,12 +76,18 @@ def create_drf_view_func(viewset_cls, action_name):
     return view_func
 
 
+def sample_abort_view(request, *args, **kwargs):
+    raise SystemExit(0)
+
+
 urlpatterns = [
     path("test/sample/", sample_view, name="sample-view"),
     path("test/template/", sample_template_view, name="template-view"),
     path("test/error/", sample_error_view, name="error-view"),
     path("test/throttled/", sample_throttled_view, name="throttled-view"),
     path("test/tagged/", sample_tagged_view, name="tagged-view"),
+    path("test/abort/", sample_abort_view, name="abort-view"),
+    path("items/<int:item_id>/abort/", sample_abort_view, name="items-abort"),
 ]
 
 
@@ -200,6 +206,93 @@ def test_error_500_marks_span():
     assert req_span.attributes["http.response.status_code"] == 500
     assert req_span.attributes["error"] is True
     assert req_span.status.status_code == StatusCode.ERROR
+
+
+def test_unhandled_system_exit_finalizes_root_span():
+    """Verify an unhandled BaseException (SystemExit from worker kill) finalizes root SERVER span with route."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
+
+    from django.core.handlers.wsgi import WSGIHandler
+
+    handler = WSGIHandler()
+    handler.load_middleware()
+
+    factory = RequestFactory()
+    request = factory.get("/test/abort/")
+
+    with pytest.raises(SystemExit) as exc_info:
+        handler.get_response(request)
+
+    assert exc_info.value.code == 0
+
+    spans = exporter.get_finished_spans()
+    req_span = next((s for s in spans if s.kind == SpanKind.SERVER), None)
+    assert req_span is not None, "Root SERVER span must be exported on unhandled BaseException"
+    assert req_span.name == "GET /test/abort/"
+    assert req_span.attributes["http.route"] == "/test/abort/"
+    assert req_span.attributes["http.route_template"] == "/test/abort/"
+    assert req_span.attributes["django.route"] == "/test/abort/"
+    assert req_span.attributes["normalized.operation"] == "GET /test/abort/"
+    assert req_span.attributes["error"] is True
+    assert req_span.attributes["normalized.service"] == "django"
+    assert req_span.status.status_code == StatusCode.ERROR
+
+
+def test_aborted_django_request_route_normalization():
+    """Verify aborted requests normalize parameterized routes with leading slash and fall back to bounded __unmatched__."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
+
+    from django.core.handlers.wsgi import WSGIHandler
+
+    handler = WSGIHandler()
+    handler.load_middleware()
+    factory = RequestFactory()
+
+    # 1. Parameterized requests /items/123/abort/ and /items/456/abort/ must normalize to the same route
+    for item_id in (123, 456):
+        exporter.clear()
+        req = factory.get(f"/items/{item_id}/abort/")
+        with pytest.raises(SystemExit):
+            handler.get_response(req)
+        spans = exporter.get_finished_spans()
+        server_span = next(s for s in spans if s.kind == SpanKind.SERVER)
+        # Must have leading slash, must NOT contain raw item_id in metric attributes
+        assert server_span.attributes["http.route"].startswith("/")
+        assert str(item_id) not in server_span.attributes["http.route"]
+        assert str(item_id) not in server_span.attributes["http.route_template"]
+        assert str(item_id) not in server_span.attributes["normalized.operation"]
+        assert server_span.attributes["http.route"] == "/items/<int:item_id>/abort/"
+        assert server_span.attributes["http.route_template"] == "/items/<int:item_id>/abort/"
+        assert server_span.attributes["normalized.operation"] == "GET /items/<int:item_id>/abort/"
+        assert server_span.name == "GET /items/<int:item_id>/abort/"
+
+    # 2. Unmatched path that aborts must fall back to bounded __unmatched__, never raw URL
+    exporter.clear()
+    unmatched_req = factory.get("/nonexistent/random/12345/")
+    # Simulate BaseException before or during routing
+    from tp_trace.integrations.django.middleware import _finalize_unended_root_span
+    from opentelemetry.trace import get_tracer
+
+    class MockOfficialMiddleware:
+        _environ_span_key = "opentelemetry-instrumentor-django.span_key"
+        _environ_activation_key = "opentelemetry-instrumentor-django.activation_key"
+
+    tracer = get_tracer("test")
+    with tracer.start_as_current_span("unmatched_root", kind=SpanKind.SERVER) as root_s:
+        # store span in META like OTel official middleware does
+        unmatched_req.META["opentelemetry-instrumentor-django.span_key"] = root_s
+        _finalize_unended_root_span(MockOfficialMiddleware(), unmatched_req, SystemExit(0))
+
+    finished = exporter.get_finished_spans()
+    unmatched_span = next(s for s in finished if s.kind == SpanKind.SERVER)
+    assert unmatched_span.attributes["http.route"] == "__unmatched__"
+    assert unmatched_span.attributes["http.route_template"] == "__unmatched__"
+    assert unmatched_span.attributes["normalized.operation"] == "GET __unmatched__"
+    assert unmatched_span.name == "GET __unmatched__"
+    assert "12345" not in unmatched_span.attributes["http.route"]
+    assert "12345" not in unmatched_span.attributes["normalized.operation"]
 
 
 def test_w3c_traceparent_propagation():
@@ -468,7 +561,7 @@ def test_on_request_span_captures_middleware_attributes():
     def _tag_institute_subdomain(span, request):
         institute = getattr(request, "institute", None)
         if institute and hasattr(institute, "subdomain"):
-            span.set_attribute("institute.subdomain", institute.subdomain)
+            span.set_attribute("institute", institute.subdomain)
 
     exporter = InMemorySpanExporter()
     tp_trace.init(
@@ -496,7 +589,7 @@ def test_on_request_span_captures_middleware_attributes():
 
     spans = exporter.get_finished_spans()
     req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
-    assert req_span.attributes.get("institute.subdomain") == "testpress"
+    assert req_span.attributes.get("institute") == "testpress"
 
 
 def test_on_request_span_with_response_argument():

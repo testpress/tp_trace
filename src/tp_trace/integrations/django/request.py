@@ -511,7 +511,7 @@ def _tp_trace_django_request_hook(span: Any, request: Any) -> None:
         if span is None:
             return
 
-        # 1. Reset and propagate tags
+# 1. Reset and propagate tags
         reset_request_tags()
         try:
             inst = getattr(request, "institute", None)

@@ -30,8 +30,8 @@ def _inspect_and_propagate_request_tags(request: Any) -> None:
             if subdomain:
                 from tp_trace.route_context import set_request_tag
 
-                set_request_tag("institute.subdomain", str(subdomain))
                 set_request_tag("institute", str(subdomain))
+                set_request_tag("institute.subdomain", str(subdomain))
     except Exception:
         pass
 
@@ -120,6 +120,95 @@ _active_middleware_integration: ContextVar[Optional[Any]] = ContextVar("active_m
 _orig_handler_base_import_string: Optional[Callable] = None
 
 
+def _finalize_unended_root_span(official_middleware: Any, request: Any, exc: BaseException) -> None:
+    """Ensure root SERVER span is finalized and exported if an unhandled BaseException escapes.
+
+    Must never prevent exception propagation, alter application data, or modify the request.
+    """
+    try:
+        meta = getattr(request, "META", None)
+        if not isinstance(meta, dict):
+            return
+
+        span_key = getattr(official_middleware, "_environ_span_key", None)
+        activation_key = getattr(official_middleware, "_environ_activation_key", None)
+
+        span = meta.pop(span_key, None) if span_key else None
+        activation = meta.pop(activation_key, None) if activation_key else None
+
+        if span is not None and getattr(span, "is_recording", lambda: False)():
+            from opentelemetry.trace import Status, StatusCode
+            from tp_trace.safety import safe_record_exception, safe_set_attribute
+
+            safe_record_exception(span, exc)
+            safe_set_attribute(span, "error", True)
+            try:
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+            except Exception:
+                pass
+
+            from tp_trace.integrations.django.request import _normalize_route
+            from tp_trace.route_context import get_current_route
+
+            method = getattr(request, "method", "HTTP")
+            path = getattr(request, "path", "")
+
+            norm_route = attempt(_normalize_route, request, path, default="__unmatched__", _label="normalize_route")
+            if not norm_route or norm_route == "__unmatched__":
+                current_ctx_route = get_current_route()
+                if current_ctx_route and current_ctx_route != "__unmatched__":
+                    norm_route = current_ctx_route
+
+            final_route = norm_route if (norm_route and norm_route != "__unmatched__") else "__unmatched__"
+            final_name = f"{method} {final_route}"
+
+            if hasattr(span, "update_name"):
+                span.update_name(final_name)
+
+            safe_set_attribute(span, "http.route", final_route)
+            safe_set_attribute(span, "http.route_template", final_route)
+            if final_route != "__unmatched__":
+                safe_set_attribute(span, "django.route", final_route)
+            safe_set_attribute(span, "normalized.service", "django")
+            safe_set_attribute(span, "normalized.operation", final_name)
+            safe_set_attribute(span, "http.status_code", 500)
+            safe_set_attribute(span, "http.response.status_code", 500)
+
+        if activation is not None:
+            try:
+                activation.__exit__(type(exc), exc, getattr(exc, "__traceback__", None))
+            except Exception:
+                pass
+
+        if span is not None and getattr(span, "end_time", None) is None:
+            span.end()
+
+        # Clean up any in-flight context variables so they don't leak across requests
+        ctx = getattr(request, "_tp_request_context", None)
+        tracker_token = ctx[0] if ctx else None
+        route_token = ctx[1] if ctx else None
+        view_token = ctx[2] if ctx else None
+
+        from tp_trace.route_context import (
+            reset_request_db_tracker,
+            reset_request_route,
+            reset_request_tags,
+            reset_request_view,
+        )
+
+        reset_request_db_tracker(tracker_token)
+        reset_request_view(view_token)
+        reset_request_route(route_token)
+        reset_request_tags()
+        try:
+            delattr(request, "_tp_request_context")
+        except Exception:
+            pass
+    except Exception:
+        # Telemetry failures must never suppress or alter host exception
+        pass
+
+
 def _make_otel_middleware_factory(integration: Any, middleware_class: Any) -> Callable:
     """Keep OTel's middleware intact while scoping policy and owned-instance lifetime.
 
@@ -144,7 +233,11 @@ def _make_otel_middleware_factory(integration: Any, middleware_class: Any) -> Ca
             from tp_trace.propagator import django_extraction_context
 
             with django_extraction_context(request):
-                return official_middleware(request)
+                try:
+                    return official_middleware(request)
+                except BaseException as exc:
+                    _finalize_unended_root_span(official_middleware, request, exc)
+                    raise
 
         # Django registers these separately when it builds the handler chain.
         for name in ("process_view", "process_exception", "process_template_response"):
