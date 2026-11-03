@@ -1112,3 +1112,22 @@ def test_traced_span_status_failures_preserve_application(monkeypatch, failure, 
     else:
         assert application() is result
     assert calls == [True]
+
+
+def test_sampling_decision_protected_against_attribute_eviction():
+    """Ensure tp_trace.sampled is preserved on ended spans even when high attribute volume causes BoundedAttributes eviction."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from tp_trace.route_context import RouteEnrichingSpanProcessor
+
+    provider = TracerProvider()
+    processor = RouteEnrichingSpanProcessor()
+    provider.add_span_processor(processor)
+
+    tracer = provider.get_tracer("test_eviction")
+    with tracer.start_as_current_span("heavy_span") as span:
+        # Add attributes far exceeding default BoundedAttributes limit (128)
+        for i in range(250):
+            span.set_attribute(f"attr_{i}", f"val_{i}")
+
+    assert "tp_trace.sampled" in span.attributes
+    assert span.attributes["tp_trace.sampled"] is True
