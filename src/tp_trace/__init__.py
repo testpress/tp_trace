@@ -13,7 +13,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider, SpanProcessor
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import SpanExporter
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, Sampler
 from opentelemetry.trace import get_current_span, get_tracer
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
@@ -21,8 +21,7 @@ from opentelemetry.baggage.propagation import W3CBaggagePropagator
 from opentelemetry.propagate import set_global_textmap
 
 from tp_trace.config import SDKConfig
-from tp_trace.exporter import SafeSpanExporter
-from tp_trace.red import RedSpanProcessor, SampledOnlySpanProcessor
+from tp_trace.exporter import AllSpansBatchSpanProcessor, AllSpansSimpleSpanProcessor, SafeSpanExporter
 from tp_trace.route_context import RouteEnrichingSpanProcessor
 from tp_trace.integrations import BaseIntegration, get_integration_manager
 from tp_trace.sanitize import sanitize_query_string, sanitize_sql, sanitize_url
@@ -42,8 +41,6 @@ __all__ = [
     "BaseIntegration",
     "get_integration_manager",
     "RouteEnrichingSpanProcessor",
-    "RedSpanProcessor",
-    "SampledOnlySpanProcessor",
     "SafeSpanExporter",
 ]
 
@@ -200,18 +197,6 @@ def init(
         except Exception as exc:
             logger.debug("tp_trace: Failed to register RouteEnrichingSpanProcessor: %s", exc)
 
-        # Register RED metrics aggregator: computes 100% RED metrics for all dependencies
-        try:
-            provider.add_span_processor(
-                RedSpanProcessor(
-                    cardinality_limit_per_service=config.operation_cardinality_limit,
-                    route_limit=config.route_cardinality_limit,
-                    service_limit=config.service_cardinality_limit,
-                )
-            )
-        except Exception as exc:
-            logger.debug("tp_trace: Failed to register RedSpanProcessor: %s", exc)
-
         # Configure Exporter and Processor if not disabled
         if not config.disabled:
             if exporter is None:
@@ -239,17 +224,17 @@ def init(
 
                 if span_processor is None:
                     if export_batch:
-                        span_processor = BatchSpanProcessor(
+                        span_processor = AllSpansBatchSpanProcessor(
                             safe_exporter,
                             max_queue_size=2048,
                             max_export_batch_size=256,
                             schedule_delay_millis=1000,
                         )
                     else:
-                        span_processor = SimpleSpanProcessor(safe_exporter)
+                        span_processor = AllSpansSimpleSpanProcessor(safe_exporter)
 
-                # Gate exports: only spans with trace_flags.sampled=True are serialized/transmitted
-                provider.add_span_processor(SampledOnlySpanProcessor(span_processor))
+                # Export spans to local Collector (spanmetrics computes metrics; filter drops unsampled before Tempo)
+                provider.add_span_processor(span_processor)
 
         # Set as global tracer provider
         trace.set_tracer_provider(provider)
@@ -272,13 +257,13 @@ def init(
             except Exception as exc:
                 logger.debug("Failed to auto-apply integrations during init: %s", exc)
 
-        # Initialize independent RED metrics recorder
+        # Initialize custom metrics recorder
         try:
             from tp_trace.metrics import init_metrics
 
             init_metrics(config=config, metric_readers=metric_readers, resource=resource)
         except Exception as exc:
-            logger.debug("tp_trace: Failed to initialize independent RED metrics: %s", exc)
+            logger.debug("tp_trace: Failed to initialize custom metrics: %s", exc)
 
         # Register shutdown on process exit exactly once
         global _ATEXIT_REGISTERED

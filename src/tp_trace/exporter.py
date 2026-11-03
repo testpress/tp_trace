@@ -5,9 +5,27 @@ unreachable collectors, DNS failures, timeouts) NEVER crash or disrupt the host 
 """
 
 import logging
+import os
 import time
 from typing import Any, Optional
-from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.context import attach, detach, set_value
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
+)
+
+try:
+    from opentelemetry.sdk.trace.export import _BSP_RESET_ONCE  # type: ignore[attr-defined]
+except ImportError:
+    _BSP_RESET_ONCE = None  # type: ignore
+
+try:
+    from opentelemetry.sdk.trace.export import _SUPPRESS_INSTRUMENTATION_KEY
+except ImportError:
+    _SUPPRESS_INSTRUMENTATION_KEY = "suppress_instrumentation"
 
 from tp_trace.normalize import normalize_span_attributes
 
@@ -71,6 +89,76 @@ class SafeSpanExporter(SpanExporter):
             return self._exporter.force_flush(timeout_millis)
         except Exception:
             return False
+
+
+class AllSpansBatchSpanProcessor(BatchSpanProcessor):
+    """BatchSpanProcessor that emits all ended spans to the batch exporter.
+
+    Standard BatchSpanProcessor drops spans where not (span.context and span.context.trace_flags.sampled).
+    To support sampling-independent RED metrics in the OpenTelemetry Collector via spanmetrics,
+    this processor forwards both sampled spans and RECORD_ONLY unsampled spans.
+    The Collector aggregates 100% of finished spans into golden signals and statelessly drops
+    unsampled spans before exporting traces to Tempo.
+    """
+
+    def on_end(self, span: ReadableSpan) -> None:
+        if getattr(self, "done", False):
+            return
+
+        if hasattr(self, "_batch_processor"):
+            # Modern OTel SDK (>= 1.34 / 1.35)
+            self._batch_processor.emit(span)
+            return
+
+        # OTel SDK 1.20 - 1.33: deque-based queue with worker thread and fork handling
+        try:
+            if hasattr(self, "_pid") and self._pid != os.getpid():
+                if hasattr(self, "_at_fork_reinit"):
+                    if _BSP_RESET_ONCE is not None:
+                        _BSP_RESET_ONCE.do_once(self._at_fork_reinit)
+                    else:
+                        self._at_fork_reinit()
+
+            if hasattr(self, "queue"):
+                q = self.queue
+                if hasattr(q, "appendleft"):
+                    max_q = getattr(self, "max_queue_size", None)
+                    if max_q is not None and len(q) == max_q:
+                        if hasattr(self, "_spans_dropped") and not getattr(self, "_spans_dropped", False):
+                            setattr(self, "_spans_dropped", True)
+                    q.appendleft(span)
+                    max_batch = getattr(self, "max_export_batch_size", 0)
+                    if hasattr(self, "condition") and len(q) >= max_batch:
+                        with self.condition:
+                            self.condition.notify()
+                elif hasattr(q, "put_nowait"):
+                    q.put_nowait(span)
+            else:
+                super().on_end(span)
+        except Exception as exc:
+            logger.debug("tp_trace: Exception while queuing span: %s", exc)
+
+
+class AllSpansSimpleSpanProcessor(SimpleSpanProcessor):
+    """SimpleSpanProcessor that exports all ended spans synchronously."""
+
+    def on_end(self, span: ReadableSpan) -> None:
+        if getattr(self, "_shutdown", False):
+            return
+        token = attach(set_value(_SUPPRESS_INSTRUMENTATION_KEY, True))
+        try:
+            self.span_exporter.export((span,))
+        except Exception as exc:
+            logger.debug("tp_trace: Exception while exporting span: %s", exc)
+        finally:
+            if hasattr(self, "_metrics") and hasattr(self._metrics, "finish_items"):
+                try:
+                    finish_fn = getattr(self._metrics, "finish_items")
+                    finish_fn(1)
+                except Exception:
+                    pass
+            detach(token)
+
 
 
 try:

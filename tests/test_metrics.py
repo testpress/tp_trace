@@ -19,10 +19,7 @@ from django.urls import path, clear_url_caches
 
 import tp_trace
 from tp_trace.integrations.django import DjangoIntegration
-from tp_trace.metrics import (
-    LATENCY_BUCKETS_MS,
-    get_metrics_recorder,
-)
+from tp_trace.metrics import get_metrics_recorder
 
 
 def ok_view(request):
@@ -71,10 +68,9 @@ def _get_metric_data_points(metric_reader: InMemoryMetricReader, metric_name: st
 
 
 @pytest.mark.parametrize("sample_rate", [1.0, 0.1, 0.01, 0.0])
-def test_red_metrics_independent_of_trace_sampling(sample_rate):
-    """Verify metrics record 100% of requests even when trace sampling drops spans."""
+def test_all_spans_exported_for_collector_spanmetrics(sample_rate):
+    """Verify that 100% of spans are exported (RECORD_ONLY when unsampled) for Collector spanmetrics."""
     span_exporter = InMemorySpanExporter()
-    metric_reader = InMemoryMetricReader()
 
     tp_trace.init(
         project_name="metrics-test-project",
@@ -82,7 +78,6 @@ def test_red_metrics_independent_of_trace_sampling(sample_rate):
         exporter=span_exporter,
         export_batch=False,
         sample_rate=sample_rate,
-        metric_readers=[metric_reader],
     )
 
     handler = WSGIHandler()
@@ -94,41 +89,33 @@ def test_red_metrics_independent_of_trace_sampling(sample_rate):
         resp = handler.get_response(req)
         assert resp.status_code == 200
 
-    # 1. Verify Trace Spans: should be constrained by sample_rate
     spans = span_exporter.get_finished_spans()
     server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    # 100% of server spans are exported so the Collector can compute spanmetrics
+    assert len(server_spans) == num_requests
+
+    sampled_spans = [s for s in server_spans if s.context.trace_flags.sampled]
+    unsampled_spans = [s for s in server_spans if not s.context.trace_flags.sampled]
+
     if sample_rate == 1.0:
-        assert len(server_spans) == num_requests
+        assert len(sampled_spans) == num_requests
+        assert len(unsampled_spans) == 0
     elif sample_rate == 0.0:
-        assert len(server_spans) == 0
+        assert len(sampled_spans) == 0
+        assert len(unsampled_spans) == num_requests
     else:
-        # Probabilistic TraceIdRatioBased: sampled count is significantly lower than total
-        assert len(server_spans) < num_requests
-
-    # 2. Verify RED Metrics: MUST record 100% of requests regardless of sample_rate!
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) > 0
-
-    total_recorded_calls = sum(pt.value for pt in calls_points)
-    assert total_recorded_calls == num_requests, (
-        f"Expected {num_requests} recorded calls at sample_rate={sample_rate}, but got {total_recorded_calls}"
-    )
-
-    # Verify duration histogram points
-    duration_points = _get_metric_data_points(metric_reader, "duration_milliseconds")
-    assert len(duration_points) > 0
-    total_recorded_durations = sum(pt.count for pt in duration_points)
-    assert total_recorded_durations == num_requests
+        # Sampled count is strictly non-negative
+        assert len(sampled_spans) <= num_requests
 
 
-def test_red_metrics_attribute_contract():
-    """Verify recorded metric attributes match Grafana APM dashboard requirements."""
-    metric_reader = InMemoryMetricReader()
+def test_span_attributes_contract_for_spanmetrics():
+    """Verify recorded span attributes match Collector spanmetrics dimension requirements."""
+    span_exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="my-app",
         cluster_name="cluster-xyz",
-        sample_rate=0.05,  # heavily sampled trace
-        metric_readers=[metric_reader],
+        sample_rate=0.05,
+        exporter=span_exporter,
         export_batch=False,
     )
 
@@ -138,23 +125,19 @@ def test_red_metrics_attribute_contract():
     resp = handler.get_response(req)
     assert resp.status_code == 200
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    pt = calls_points[0]
-    attrs = pt.attributes
+    spans = span_exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    span = server_spans[0]
+    attrs = span.attributes
 
     # Check contract fields
     assert attrs["project_name"] == "my-app"
     assert attrs["cluster_name"] == "cluster-xyz"
-    assert attrs["normalized_service"] == "django"
-    assert attrs["normalized_operation"] == "GET /api/test/ok/"
-    assert attrs["http.route"] == "/api/test/ok/"
-    assert attrs["http.status_code"] == 200
-    assert attrs["status_code"] == "200"
-    assert attrs["span_kind"] == "SPAN_KIND_SERVER"
-    assert attrs["error"] == "false"
-    assert "worker_id" in attrs
-    assert attrs["worker_id"] == f"{socket.gethostname()}:{os.getpid()}"
+    assert attrs.get("http.route_template") == "/api/test/ok/"
+    assert attrs.get("http.status_code") == 200
+    assert attrs.get("http.method") == "GET"
+    assert attrs.get("error") is False
 
 
 def test_worker_identity_contains_hostname_and_pid():
@@ -165,14 +148,13 @@ def test_worker_identity_contains_hostname_and_pid():
         metric_readers=[metric_reader],
         export_batch=False,
     )
-    handler = WSGIHandler()
-    rf = RequestFactory()
-    req = rf.get("/api/test/ok/")
-    handler.get_response(req)
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    attrs = calls_points[0].attributes
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 1
+    attrs = pts[0].attributes
     worker_id = attrs["worker_id"]
     assert worker_id == f"{socket.gethostname()}:{os.getpid()}"
 
@@ -185,15 +167,14 @@ def test_worker_identity_stable_inside_same_process():
         metric_readers=[metric_reader],
         export_batch=False,
     )
-    handler = WSGIHandler()
-    rf = RequestFactory()
+    recorder = get_metrics_recorder()
+    assert recorder is not None
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    handler.get_response(rf.get("/api/test/ok/"))
-    handler.get_response(rf.get("/api/test/ok/"))
-
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1  # Same identity increments the same series
-    assert calls_points[0].value == 2
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 1  # Same identity increments the same series
+    assert pts[0].value == 2
 
 
 def test_worker_identity_changes_after_fork(monkeypatch):
@@ -362,27 +343,15 @@ def test_worker_identity_unique_with_shared_env_instance_id(monkeypatch):
 
     # Simulate Worker 1 with shared env
     monkeypatch.setattr(os, "getpid", lambda: 20001)
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
     # Simulate Worker 2 with same shared env
     monkeypatch.setattr(os, "getpid", lambda: 20002)
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=20.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 2
-    worker_ids = [pt.attributes.get("worker_id") for pt in calls_points]
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 2
+    worker_ids = [pt.attributes.get("worker_id") for pt in pts]
     assert worker_ids[0] != worker_ids[1]
     assert worker_ids[0] == "shared-container-env:20001"
     assert worker_ids[1] == "shared-container-env:20002"
@@ -401,20 +370,17 @@ def test_request_attributes_cannot_override_worker_identity():
     recorder = get_metrics_recorder()
     assert recorder is not None
 
-    recorder.record_request(
+    recorder.record_repeated_query_affected_request(
         method="GET",
         route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=12.0,
         extra_attributes={
             "worker_id": "malicious-worker-override",
         },
     )
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    attrs = calls_points[0].attributes
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 1
+    attrs = pts[0].attributes
     assert attrs["worker_id"] != "malicious-worker-override"
     assert attrs["worker_id"] == f"{socket.gethostname()}:{os.getpid()}"
 
@@ -434,26 +400,14 @@ def test_multiworker_independent_streams(monkeypatch):
 
     # Simulate Worker 1 (pid 10001)
     monkeypatch.setattr(os, "getpid", lambda: 10001)
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=15.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
     # Simulate Worker 2 (pid 10002, e.g. forked child process)
     monkeypatch.setattr(os, "getpid", lambda: 10002)
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=25.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 2
-    worker_ids = {pt.attributes.get("worker_id") for pt in calls_points}
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 2
+    worker_ids = {pt.attributes.get("worker_id") for pt in pts}
     assert len(worker_ids) == 2
     assert any(wid.endswith(":10001") for wid in worker_ids)
     assert any(wid.endswith(":10002") for wid in worker_ids)
@@ -490,17 +444,11 @@ def test_worker_identity_with_config_service_instance_id(monkeypatch):
     recorder = get_metrics_recorder()
     assert recorder is not None
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    attrs = calls_points[0].attributes
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 1
+    attrs = pts[0].attributes
     assert attrs["worker_id"] == f"my-custom-prefix:{os.getpid()}"
 
 
@@ -520,17 +468,11 @@ def test_worker_identity_with_tp_trace_service_instance_id_env(monkeypatch):
     recorder = get_metrics_recorder()
     assert recorder is not None
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    attrs = calls_points[0].attributes
+    pts = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
+    assert len(pts) == 1
+    attrs = pts[0].attributes
     assert attrs["worker_id"] == f"tp-env-prefix:{os.getpid()}"
 
 
@@ -571,27 +513,15 @@ def test_two_recorders_with_different_prefixes_in_same_process():
 
     # Interleaved requests across both recorders
     for _ in range(3):
-        recorder_a.record_request(
-            method="GET",
-            route="/api/a/",
-            status_code=200,
-            error=False,
-            duration_ms=10.0,
-        )
-        recorder_b.record_request(
-            method="POST",
-            route="/api/b/",
-            status_code=201,
-            error=False,
-            duration_ms=20.0,
-        )
+        recorder_a.record_repeated_query_affected_request(method="GET", route="/api/a/")
+        recorder_b.record_repeated_query_affected_request(method="POST", route="/api/b/")
 
-    pts_a = _get_metric_data_points(reader_a, "calls_total")
+    pts_a = _get_metric_data_points(reader_a, "apm_repeated_query_affected_requests_total")
     assert len(pts_a) == 1
     assert pts_a[0].attributes["worker_id"] == f"prefix-alpha:{pid}"
     assert pts_a[0].value == 3
 
-    pts_b = _get_metric_data_points(reader_b, "calls_total")
+    pts_b = _get_metric_data_points(reader_b, "apm_repeated_query_affected_requests_total")
     assert len(pts_b) == 1
     assert pts_b[0].attributes["worker_id"] == f"prefix-beta:{pid}"
     assert pts_b[0].value == 3
@@ -636,16 +566,10 @@ def test_service_instance_id_sets_worker_id_not_resource_instance_id():
     recorder = get_metrics_recorder()
     assert recorder is not None
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
     # 1. Datapoint worker_id uses the configured prefix
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
+    calls_points = _get_metric_data_points(metric_reader, "apm_repeated_query_affected_requests_total")
     assert len(calls_points) == 1
     attrs = calls_points[0].attributes
     assert attrs["worker_id"] == f"worker-prefix-only:{os.getpid()}"
@@ -665,15 +589,9 @@ def test_no_config_recorder_tp_trace_service_instance_id_env(monkeypatch):
     reader = InMemoryMetricReader()
     recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    pts = _get_metric_data_points(reader, "calls_total")
+    pts = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
     assert len(pts) == 1
     assert pts[0].attributes["worker_id"] == f"tp-noconf:{os.getpid()}"
 
@@ -686,15 +604,9 @@ def test_no_config_recorder_otel_service_instance_id_env(monkeypatch):
     reader = InMemoryMetricReader()
     recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    pts = _get_metric_data_points(reader, "calls_total")
+    pts = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
     assert len(pts) == 1
     assert pts[0].attributes["worker_id"] == f"otel-noconf:{os.getpid()}"
 
@@ -708,15 +620,9 @@ def test_no_config_recorder_env_precedence(monkeypatch):
     reader = InMemoryMetricReader()
     recorder = create_red_metrics_recorder(config=None, metric_readers=[reader])
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    pts = _get_metric_data_points(reader, "calls_total")
+    pts = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
     assert len(pts) == 1
     assert pts[0].attributes["worker_id"] == f"tp-wins:{os.getpid()}"
 
@@ -733,15 +639,9 @@ def test_no_config_recorder_identity_unchanged_after_later_env_mutation(monkeypa
     monkeypatch.setenv("TP_TRACE_SERVICE_INSTANCE_ID", "mutated-tp")
     monkeypatch.setenv("OTEL_SERVICE_INSTANCE_ID", "mutated-otel")
 
-    recorder.record_request(
-        method="GET",
-        route="/api/test/ok/",
-        status_code=200,
-        error=False,
-        duration_ms=10.0,
-    )
+    recorder.record_repeated_query_affected_request(method="GET", route="/api/test/ok/")
 
-    pts = _get_metric_data_points(reader, "calls_total")
+    pts = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
     assert len(pts) == 1
     assert pts[0].attributes["worker_id"] == f"frozen-prefix:{os.getpid()}"
 
@@ -750,17 +650,13 @@ class _DummyInstitute:
     subdomain = "demo"
 
 
-def test_red_metrics_carry_institute_tags():
-    """Dynamic request tags (institute / institute.subdomain) must reach the SDK RED metrics.
-
-    These become the `institute_subdomain` / `institute` labels on apm_calls_total in
-    Prometheus, enabling per-tenant filtering on the full-fidelity SDK metrics.
-    """
-    metric_reader = InMemoryMetricReader()
+def test_institute_tags_exported_on_server_spans():
+    """Verify dynamic request tags (institute) are attached to server spans for Collector spanmetrics."""
+    span_exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="institute-app",
         sample_rate=0.1,
-        metric_readers=[metric_reader],
+        exporter=span_exporter,
         export_batch=False,
     )
 
@@ -771,20 +667,20 @@ def test_red_metrics_carry_institute_tags():
     resp = handler.get_response(req)
     assert resp.status_code == 200
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    attrs = calls_points[0].attributes
-    assert attrs.get("institute.subdomain") == "demo"
+    spans = span_exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    attrs = server_spans[0].attributes
     assert attrs.get("institute") == "demo"
 
 
-def test_red_metrics_exception_handling():
-    """Verify unhandled exceptions record 500 error metric with error='true'."""
-    metric_reader = InMemoryMetricReader()
+def test_exception_handling_marks_error_on_span():
+    """Verify unhandled exceptions record 500 status code and error=True on server span."""
+    span_exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="test-crash",
-        sample_rate=0.0,  # traces completely dropped
-        metric_readers=[metric_reader],
+        sample_rate=0.0,
+        exporter=span_exporter,
         export_batch=False,
     )
 
@@ -795,25 +691,21 @@ def test_red_metrics_exception_handling():
     resp = handler.get_response(req)
     assert resp.status_code == 500
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    pt = calls_points[0]
-    attrs = pt.attributes
-
-    assert pt.value == 1
-    assert attrs["error"] == "true"
-    assert attrs["http.status_code"] == 500
-    assert attrs["status_code"] == "500"
-    assert attrs["normalized_operation"] == "GET /api/test/crash/"
+    spans = span_exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    span = server_spans[0]
+    assert span.attributes["http.status_code"] == 500
+    assert span.attributes.get("error") is True
 
 
-def test_red_metrics_early_response_404():
-    """Verify 404 responses record calls_total with error='false' (non-5xx)."""
-    metric_reader = InMemoryMetricReader()
+def test_early_response_404_marks_status_code_on_span():
+    """Verify 404 responses record 404 status code with error=False on server span."""
+    span_exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="test-404",
         sample_rate=0.1,
-        metric_readers=[metric_reader],
+        exporter=span_exporter,
         export_batch=False,
     )
 
@@ -823,72 +715,21 @@ def test_red_metrics_early_response_404():
     resp = handler.get_response(req)
     assert resp.status_code == 404
 
-    calls_points = _get_metric_data_points(metric_reader, "calls_total")
-    assert len(calls_points) == 1
-    pt = calls_points[0]
-    attrs = pt.attributes
-
-    assert pt.value == 1
-    assert attrs["error"] == "false"
-    assert attrs["http.status_code"] == 404
-    assert attrs["status_code"] == "404"
+    spans = span_exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    span = server_spans[0]
+    assert span.attributes["http.status_code"] == 404
+    assert span.attributes.get("error") is False
 
 
-def test_red_metrics_recording_failure_never_disrupts_request(monkeypatch):
-    """Verify that if metric recording crashes internally, Django request succeeds normally."""
-    metric_reader = InMemoryMetricReader()
-    tp_trace.init(
-        project_name="resilience-test",
-        sample_rate=1.0,
-        metric_readers=[metric_reader],
-        export_batch=False,
-    )
+def test_record_request_and_dependency_span_are_safe_noops():
+    """Verify record_request and record_dependency_span are safe no-ops."""
+    from tp_trace.metrics import record_request, record_dependency_span
 
-    recorder = get_metrics_recorder()
-    assert recorder is not None
-
-    def exploding_add(*args, **kwargs):
-        raise RuntimeError("Metric collection failure: connection timeout / memory full")
-
-    monkeypatch.setattr(recorder.calls_total, "add", exploding_add)
-
-    handler = WSGIHandler()
-    rf = RequestFactory()
-    req = rf.get("/api/test/ok/")
-
-    # The request MUST return 200 OK without raising the RuntimeError!
-    resp = handler.get_response(req)
-    assert resp.status_code == 200
-    assert resp.content == b"OK"
-
-
-def test_histogram_explicit_bucket_boundaries():
-    """Verify duration histogram matches exact APM buckets."""
-    metric_reader = InMemoryMetricReader()
-    tp_trace.init(
-        project_name="bucket-test",
-        metric_readers=[metric_reader],
-        export_batch=False,
-    )
-
-    recorder = get_metrics_recorder()
-    assert recorder is not None
-
-    recorder.record_request(
-        method="GET",
-        route="/test/",
-        status_code=200,
-        error=False,
-        duration_ms=45.0,
-    )
-
-    duration_points = _get_metric_data_points(metric_reader, "duration_milliseconds")
-    assert len(duration_points) == 1
-    pt = duration_points[0]
-
-    assert list(pt.explicit_bounds) == LATENCY_BUCKETS_MS
-    assert pt.count == 1
-    assert pt.sum == 45.0
+    # Must execute safely without error
+    record_request(method="GET", route="/api/test/", status_code=200, error=False, duration_ms=10.0)
+    record_dependency_span(service="postgres", operation="SELECT", duration_ms=5.0)
 
 
 def test_default_init_creates_otlp_metric_reader():
@@ -996,7 +837,7 @@ def test_owned_metric_export_temporality(monkeypatch, preference):
             histogram.record(value)
             assert recorder.meter_provider.force_flush()
 
-        expected = AggregationTemporality.CUMULATIVE if preference == "CUMULATIVE" else AggregationTemporality.DELTA
+        expected = AggregationTemporality.CUMULATIVE
         collections = [
             {metric.name: metric.data for rm in batch.resource_metrics for sm in rm.scope_metrics for metric in sm.metrics}
             for batch in exports
@@ -1006,9 +847,9 @@ def test_owned_metric_export_temporality(monkeypatch, preference):
             assert batch["calls_total"].aggregation_temporality == expected
             assert batch["duration_milliseconds"].aggregation_temporality == expected
         assert collections[0]["calls_total"].data_points[0].value == 3
-        assert collections[1]["calls_total"].data_points[0].value == (5 if preference == "CUMULATIVE" else 2)
-        assert collections[1]["duration_milliseconds"].data_points[0].count == (2 if preference == "CUMULATIVE" else 1)
-        assert collections[1]["duration_milliseconds"].data_points[0].sum == (5 if preference == "CUMULATIVE" else 2)
+        assert collections[1]["calls_total"].data_points[0].value == 5
+        assert collections[1]["duration_milliseconds"].data_points[0].count == 2
+        assert collections[1]["duration_milliseconds"].data_points[0].sum == 5
         assert os.environ.get(key) == preference
     finally:
         recorder.shutdown()

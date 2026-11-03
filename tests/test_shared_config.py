@@ -55,3 +55,20 @@ def test_local_tempo_publishes_deployment_grpc_port_for_vm_collectors():
     deployed = _yaml("setup/docker-compose.yml")["services"]["tempo"]
     assert "${DEV_BIND_ADDRESS:-0.0.0.0}:4327:4317" in local["ports"]
     assert "4327:4317" in deployed["ports"]
+
+
+def test_deprecated_cardinality_limits_warn_once(caplog):
+    """Ensure obsolete SDK cardinality limits emit a warning once per process."""
+    import logging
+    from tp_trace.config import SDKConfig, _warned_cardinality_limits
+
+    _warned_cardinality_limits.clear()
+    with caplog.at_level(logging.WARNING, logger="tp_trace.config"):
+        SDKConfig.from_env_and_kwargs(route_cardinality_limit=100)
+        assert any("route_cardinality_limit is deprecated" in record.message for record in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="tp_trace.config"):
+        SDKConfig.from_env_and_kwargs(route_cardinality_limit=100)
+        # Should not warn a second time
+        assert not any("route_cardinality_limit is deprecated" in record.message for record in caplog.records)

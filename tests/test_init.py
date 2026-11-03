@@ -792,3 +792,123 @@ def test_init_configures_composite_propagator():
         assert isinstance(prop, CompositePropagator)
     finally:
         tp_trace._reset_for_testing()
+
+
+def test_all_spans_batch_span_processor_exports_unsampled_spans():
+    """Verify AllSpansBatchSpanProcessor exports unsampled RECORD_ONLY spans on batch flush."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+    from tp_trace.sampler import TpTraceRuleBasedSampler
+
+    memory_exporter = InMemorySpanExporter()
+    processor = AllSpansBatchSpanProcessor(
+        memory_exporter,
+        schedule_delay_millis=10000,
+    )
+    sampler = TpTraceRuleBasedSampler(global_sample_rate=0.0)
+    provider = TracerProvider(sampler=sampler)
+    provider.add_span_processor(processor)
+
+    tracer = provider.get_tracer("batch.unsampled.test")
+    with tracer.start_as_current_span("unsampled_batch_operation") as span:
+        span.set_attribute("http.method", "GET")
+        span.set_attribute("http.route", "/api/test/")
+
+    assert span.get_span_context().trace_flags.sampled is False
+
+    flushed = processor.force_flush()
+    assert flushed is True
+
+    exported = memory_exporter.get_finished_spans()
+    assert len(exported) == 1
+    assert exported[0].name == "unsampled_batch_operation"
+    assert exported[0].get_span_context().trace_flags.sampled is False
+    assert exported[0].attributes["http.route"] == "/api/test/"
+    processor.shutdown()
+
+
+def test_all_spans_batch_span_processor_older_otel_queue_fallback():
+    """Verify AllSpansBatchSpanProcessor fallback for older OTel SDKs using deque or queue."""
+    import collections
+    import queue
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from opentelemetry.sdk.trace import ReadableSpan, SpanContext
+    from opentelemetry.trace import TraceFlags
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+
+    memory_exporter = InMemorySpanExporter()
+    processor = AllSpansBatchSpanProcessor(memory_exporter)
+
+    # Test collections.deque fallback (OTel 1.20 - 1.33)
+    if hasattr(processor, "_batch_processor"):
+        delattr(processor, "_batch_processor")
+    mock_deque: collections.deque = collections.deque([], 10)
+    processor.queue = mock_deque
+
+    span = ReadableSpan(
+        name="older_otel_deque_span",
+        context=SpanContext(trace_id=1, span_id=1, is_remote=False, trace_flags=TraceFlags(0)),
+    )
+    processor.on_end(span)
+
+    assert len(mock_deque) == 1
+    assert mock_deque[0].name == "older_otel_deque_span"
+
+    # Test queue.Queue fallback
+    mock_queue: queue.Queue = queue.Queue(maxsize=10)
+    processor.queue = mock_queue
+
+    span2 = ReadableSpan(
+        name="older_otel_queue_span",
+        context=SpanContext(trace_id=2, span_id=2, is_remote=False, trace_flags=TraceFlags(0)),
+    )
+    processor.on_end(span2)
+
+    assert not mock_queue.empty()
+    queued_span = mock_queue.get_nowait()
+    assert queued_span.name == "older_otel_queue_span"
+
+    processor.done = True
+    processor.on_end(span2)
+
+    processor.done = False
+    full_queue: queue.Queue = queue.Queue(maxsize=1)
+    full_queue.put_nowait(span2)
+    processor.queue = full_queue
+    processor.on_end(span2)
+
+
+@pytest.mark.parametrize("sample_rate", [0.0, 0.5, 1.0])
+def test_sampling_decision_survives_real_otlp_encoding(sample_rate):
+    """Collector retention must not depend on exporter support for OTLP flags."""
+    from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
+
+    exporter = InMemorySpanExporter()
+    provider = tp_trace.init(
+        project_name="retention-contract",
+        sample_rate=sample_rate,
+        exporter=exporter,
+        export_batch=True,
+        auto_patch=False,
+        metrics_enabled=False,
+    )
+    tracer = provider.get_tracer("retention-contract")
+    decisions = {}
+    for i in range(100):
+        with tracer.start_as_current_span("request-{}".format(i)) as span:
+            decisions[span.name] = span.get_span_context().trace_flags.sampled
+    assert provider.force_flush()
+    encoded = encode_spans(exporter.get_finished_spans())
+    spans = [s for r in encoded.resource_spans for scope in r.scope_spans for s in scope.spans]
+    assert len(spans) == 100
+    for span in spans:
+        attributes = {a.key: a.value for a in span.attributes}
+        assert "tp_trace.sampled" in attributes
+        assert attributes["tp_trace.sampled"].bool_value == decisions[span.name]
+    if sample_rate == 0.0:
+        assert not any(decisions.values())
+    elif sample_rate == 1.0:
+        assert all(decisions.values())
+    else:
+        assert any(decisions.values()) and not all(decisions.values())

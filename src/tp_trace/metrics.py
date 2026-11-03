@@ -1,7 +1,9 @@
-"""Independent RED Metrics recorder for tp_trace.
+"""Metrics recorder for tp_trace.
 
-Decouples request throughput (calls_total), error rates, and duration histograms
-from trace sampling, guaranteeing 100% metric fidelity even when traces are sampled down.
+Manages N+1 anomaly detection metrics and cardinality diagnostics.
+RED metrics (calls_total, duration_milliseconds) are now aggregated by the
+OpenTelemetry Collector's spanmetrics connector from 100% of finished spans,
+eliminating per-worker metric streams and in-process histogram overhead.
 """
 
 import logging
@@ -10,19 +12,19 @@ import socket
 import threading
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from opentelemetry.metrics import Counter, Histogram, Observation
+from opentelemetry.metrics import Counter, Observation
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import MetricReader
-from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
+from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import Resource
 
 from tp_trace.config import SDKConfig
 
 logger = logging.getLogger("tp_trace.metrics")
 
-# Explicit bucket boundaries in milliseconds, exactly matching the OTel Collector
-# spanmetrics configuration for backwards compatibility with Grafana APM dashboards.
-# Reduced from 11 to 8 explicit boundaries (12 to 9 total buckets including +Inf).
+# Retained for backward compatibility only; no longer used for in-SDK recording.
+# RED metrics (calls_total, duration_milliseconds) are now aggregated by the
+# OpenTelemetry Collector spanmetrics connector from 100% of finished spans.
 LATENCY_BUCKETS_MS: List[float] = [
     5.0,
     25.0,
@@ -76,7 +78,7 @@ _ACTIVE_RECORDER: Optional["RedMetricsRecorder"] = None
 
 
 class RedMetricsRecorder:
-    """Manages independent RED metric recording for HTTP requests."""
+    """Records custom N+1 and cardinality diagnostic metrics."""
 
     def __init__(
         self,
@@ -100,25 +102,11 @@ class RedMetricsRecorder:
         self.meter = meter_provider.get_meter("tp_trace")
         self.metric_cardinality_limit = max(1, int(getattr(config, "metric_cardinality_limit", 5000))) if config else 5000
         self._metric_series_lock = threading.RLock()
-        self._metric_series: Set[Tuple[Tuple[str, str], ...]] = set()
-        self._metric_owners: Set[Tuple[str, str]] = set()
         self._repeated_query_series: Set[Tuple[Tuple[str, str], ...]] = set()
         self._repeated_query_owners: Set[Tuple[str, str]] = set()
         self._admitted_diagnostic_services: Set[str] = set()
 
-        # Instrument contracts matching spanmetrics connector:
-        # - calls_total: Counter of completed requests
-        # - duration_milliseconds: Histogram of request execution times
-        self.calls_total: Counter = self.meter.create_counter(
-            name="calls_total",
-            description="Total HTTP request calls",
-            unit="1",
-        )
-        self.duration_milliseconds: Histogram = self.meter.create_histogram(
-            name="duration_milliseconds",
-            description="Duration of HTTP requests in milliseconds",
-            unit="ms",
-        )
+        # Instrument contracts for N+1 anomaly detection and cardinality diagnostics:
         self.repeated_query_affected_requests_total: Counter = self.meter.create_counter(
             name="apm_repeated_query_affected_requests_total",
             description="Total HTTP requests affected by detected repeated query (potential N+1) patterns",
@@ -172,7 +160,7 @@ class RedMetricsRecorder:
 
             # Metric series tracked
             with self._metric_series_lock:
-                series_count = len(self._metric_series)
+                series_count = len(self._repeated_query_series)
             yield Observation(
                 series_count,
                 {
@@ -184,53 +172,6 @@ class RedMetricsRecorder:
                     "metric_source": "tp_trace_sdk",
                 },
             )
-
-            # Query active span processor if available
-            proc = None
-            try:
-                from tp_trace.red import get_active_span_processor
-
-                proc = get_active_span_processor()
-            except Exception:
-                pass
-
-            if proc is not None:
-                stats = proc.get_cardinality_stats()
-                yield Observation(
-                    stats["route_count"],
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "all",
-                        "scope": "route",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                yield Observation(
-                    stats["service_count"],
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "all",
-                        "scope": "service",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                if stats["operation_counts"]:
-                    for svc, count in stats["operation_counts"].items():
-                        yield Observation(
-                            count,
-                            {
-                                "project_name": resolved_project,
-                                "cluster_name": resolved_cluster,
-                                "normalized_service": str(svc),
-                                "scope": "operation",
-                                "worker_id": worker_identity,
-                                "metric_source": "tp_trace_sdk",
-                            },
-                        )
         except Exception as exc:
             logger.debug("Failed to observe cardinality tracked: %s", exc)
 
@@ -258,52 +199,6 @@ class RedMetricsRecorder:
                     "metric_source": "tp_trace_sdk",
                 },
             )
-
-            proc = None
-            try:
-                from tp_trace.red import get_active_span_processor
-
-                proc = get_active_span_processor()
-            except Exception:
-                pass
-
-            if proc is not None:
-                stats = proc.get_cardinality_stats()
-                yield Observation(
-                    stats["route_limit"],
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "all",
-                        "scope": "route",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                yield Observation(
-                    stats["service_limit"],
-                    {
-                        "project_name": resolved_project,
-                        "cluster_name": resolved_cluster,
-                        "normalized_service": "all",
-                        "scope": "service",
-                        "worker_id": worker_identity,
-                        "metric_source": "tp_trace_sdk",
-                    },
-                )
-                if stats["operation_counts"]:
-                    for svc in stats["operation_counts"].keys():
-                        yield Observation(
-                            stats["operation_limit"],
-                            {
-                                "project_name": resolved_project,
-                                "cluster_name": resolved_cluster,
-                                "normalized_service": str(svc),
-                                "scope": "operation",
-                                "worker_id": worker_identity,
-                                "metric_source": "tp_trace_sdk",
-                            },
-                        )
         except Exception as exc:
             logger.debug("Failed to observe cardinality limit: %s", exc)
 
@@ -377,64 +272,10 @@ class RedMetricsRecorder:
         cluster_name: Optional[str] = None,
         extra_attributes: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Record RED metrics for a completed request.
+        """No-op: RED metrics are now aggregated by the Collector spanmetrics connector.
 
-        Fail-safe: Any error during recording is safely absorbed and never disrupts
-        the host application.
+        Retained for backward compatibility so callers do not need changes.
         """
-        try:
-            cfg = self.config
-            resolved_project = project_name or (cfg.project_name if cfg else None) or "default"
-            resolved_cluster = cluster_name or (cfg.cluster_name if cfg else None) or ""
-            norm_operation = operation or f"{method} {route}"
-            error_str = "true" if error else "false"
-
-            current_pid = os.getpid()
-            cached_ident = self._cached_identity
-            if cached_ident is not None and cached_ident[0] == current_pid:
-                worker_identity = cached_ident[1]
-            else:
-                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
-                self._cached_identity = (current_pid, worker_identity)
-
-            attributes: Dict[str, Any] = {
-                "project_name": str(resolved_project),
-                "cluster_name": str(resolved_cluster),
-                "normalized_service": str(service or "django"),
-                "normalized_operation": str(norm_operation),
-                "http.method": str(method or "GET"),
-                "http.route": str(route or str(status_code)),
-                "http.status_code": int(status_code),
-                "status_code": str(status_code),
-                "span_kind": "SPAN_KIND_SERVER",
-                "error": error_str,
-                "metric_source": "tp_trace_sdk",
-            }
-
-            subdomain = (
-                (extra_attributes.get("institute.subdomain") or extra_attributes.get("institute_subdomain") or extra_attributes.get("institute"))
-                if extra_attributes
-                else None
-            )
-            if subdomain:
-                attributes["institute.subdomain"] = str(subdomain)
-                attributes["institute"] = str(subdomain)
-                attributes["institute_subdomain"] = str(subdomain)
-
-            if extra_attributes:
-                for k, v in extra_attributes.items():
-                    if v is not None and k not in attributes:
-                        attributes[k] = str(v)
-
-            # Authoritatively set process/worker identity so request tags cannot override it.
-            # worker_id isolates independent worker metric streams in multi-process runtimes (Gunicorn).
-            attributes["worker_id"] = worker_identity
-            attributes = self._bound_metric_attributes(attributes)
-
-            self.calls_total.add(1, attributes)
-            self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
-        except Exception as exc:
-            logger.debug("Failed to record independent RED metrics: %s", exc)
 
     def record_dependency_span(
         self,
@@ -454,113 +295,10 @@ class RedMetricsRecorder:
         subdomain: Optional[str] = None,
         extra_attributes: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Record RED metrics for a completed dependency span (Postgres, Redis, Requests, Celery).
+        """No-op: RED metrics are now aggregated by the Collector spanmetrics connector.
 
-        Fail-safe: Any error during recording is safely absorbed and never disrupts
-        the host application.
+        Retained for backward compatibility so callers do not need changes.
         """
-        try:
-            cfg = self.config
-            resolved_project = project_name or (cfg.project_name if cfg else None) or "default"
-            resolved_cluster = cluster_name or (cfg.cluster_name if cfg else None) or ""
-            error_str = "true" if error else "false"
-
-            current_pid = os.getpid()
-            cached_ident = self._cached_identity
-            if cached_ident is not None and cached_ident[0] == current_pid:
-                worker_identity = cached_ident[1]
-            else:
-                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
-                self._cached_identity = (current_pid, worker_identity)
-
-            attributes: Dict[str, Any] = {
-                "project_name": str(resolved_project),
-                "cluster_name": str(resolved_cluster),
-                "normalized_service": str(service or "unknown"),
-                "normalized_operation": str(operation or "unknown"),
-                "span_kind": str(span_kind),
-                "error": error_str,
-                "metric_source": "tp_trace_sdk",
-            }
-
-            if route:
-                attributes["http.route"] = str(route)
-            if http_method:
-                attributes["http.method"] = str(http_method)
-            if status_code is not None:
-                try:
-                    attributes["http.status_code"] = int(status_code)
-                    attributes["status_code"] = str(status_code)
-                except (ValueError, TypeError):
-                    attributes["status_code"] = str(status_code)
-            if db_system:
-                attributes["db.system"] = str(db_system)
-            if db_instance:
-                attributes["db.instance"] = str(db_instance)
-
-            if subdomain:
-                attributes["institute.subdomain"] = str(subdomain)
-                attributes["institute"] = str(subdomain)
-                attributes["institute_subdomain"] = str(subdomain)
-            elif extra_attributes:
-                for k in ("institute.subdomain", "institute_subdomain", "institute"):
-                    val = extra_attributes.get(k)
-                    if val is not None:
-                        attributes["institute.subdomain"] = str(val)
-                        attributes["institute"] = str(val)
-                        attributes["institute_subdomain"] = str(val)
-                        break
-
-            attributes["worker_id"] = worker_identity
-            attributes = self._bound_metric_attributes(attributes)
-
-            self.calls_total.add(1, attributes)
-            self.duration_milliseconds.record(max(0.0, float(duration_ms)), attributes)
-        except Exception as exc:
-            logger.debug("Failed to record dependency RED metrics: %s", exc)
-
-    def _bound_metric_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
-        """Keep the total number of emitted label combinations bounded."""
-        key = tuple(sorted((str(k), str(v)) for k, v in attributes.items()))
-        owner = (str(attributes["project_name"]), str(attributes["cluster_name"]))
-        with self._metric_series_lock:
-            if key in self._metric_series:
-                return attributes
-            if len(self._metric_series) < self.metric_cardinality_limit:
-                self._metric_series.add(key)
-                self._metric_owners.add(owner)
-                return attributes
-            if owner not in self._metric_owners:
-                owner = ("__other__", "__other__")
-
-        # Never retain incoming label values or keys in overflow state. Even
-        # apparently stable dimensions (method, status, service) can vary without
-        # bound. Retain only admitted owners, with two error-split series per
-        # owner and a shared pair for owners arriving after budget exhaustion.
-        orig_svc = str(attributes.get("normalized_service", "__other__"))
-        self.record_cardinality_grouping(
-            service=orig_svc,
-            scope="metric_series",
-            cause="metric_series_limit",
-            project_name=owner[0],
-            cluster_name=owner[1],
-        )
-
-        return {
-            "project_name": owner[0],
-            "cluster_name": owner[1],
-            "worker_id": attributes["worker_id"],
-            "metric_source": "tp_trace_sdk",
-            "normalized_service": "__other__",
-            "normalized_operation": "__other__",
-            "span_kind": "__other__",
-            "http.route": "__other__",
-            "db.instance": "__other__",
-            "institute": "__other__",
-            "institute.subdomain": "__other__",
-            "institute_subdomain": "__other__",
-            "error": "true" if attributes.get("error") == "true" else "false",
-        }
 
     def record_repeated_query_affected_request(
         self,
@@ -577,7 +315,7 @@ class RedMetricsRecorder:
         Fail-safe: Any error during recording is safely absorbed and never disrupts
         the host application.
         Strict low-cardinality label allowlist: normalized service, http.route, http.method,
-        project_name, cluster_name, metric_source, worker_id, and optionally institute.subdomain.
+        project_name, cluster_name, metric_source, worker_id, and optionally institute.
         Never emits raw SQL, query text, or trace IDs. ``worker_id`` keeps independent
         process counters from being merged into one reset-prone stream by the Collector.
         The configured cardinality limit admits detailed series independently
@@ -599,12 +337,10 @@ class RedMetricsRecorder:
             }
 
             if extra_attributes:
-                # Strictly allow only institute.subdomain (or institute_subdomain)
-                for k in ("institute.subdomain", "institute_subdomain"):
-                    val = extra_attributes.get(k)
-                    if val is not None:
-                        attributes["institute.subdomain"] = str(val)
-                        break
+                # Strictly allow only institute
+                val = extra_attributes.get("institute")
+                if val is not None:
+                    attributes["institute"] = str(val)
 
             # Counter streams from forked workers must remain distinct. The dashboard
             # sums across this bounded identity label when calculating request totals.
@@ -644,7 +380,7 @@ class RedMetricsRecorder:
                             "http.route": "__other__",
                             "metric_source": "tp_trace_sdk",
                             "worker_id": worker_identity,
-                            "institute.subdomain": "__other__",
+                            "institute": "__other__",
                         }
             self.repeated_query_affected_requests_total.add(1, attributes)
         except Exception as exc:
@@ -656,7 +392,7 @@ def create_red_metrics_recorder(
     metric_readers: Optional[List[MetricReader]] = None,
     resource: Optional[Resource] = None,
 ) -> RedMetricsRecorder:
-    """Create and configure a RedMetricsRecorder with standardized histogram views."""
+    """Create the custom metrics recorder with bounded instrument views."""
     if metric_readers is None:
         readers: List[MetricReader] = []
         if config and not config.disabled and getattr(config, "metrics_enabled", True):
@@ -668,23 +404,17 @@ def create_red_metrics_recorder(
 
             try:
                 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-                from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+                from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, AggregationTemporality
                 from opentelemetry.sdk.metrics import Counter as SDKCounter, Histogram as SDKHistogram
-                from opentelemetry.sdk.metrics.export import AggregationTemporality
                 from tp_trace.exporter import SafeMetricExporter
-
-                # Default owned RED instruments to delta without changing the host
-                # environment. Explicit OTel preferences remain authoritative.
-                preferred_temporality: Optional[Dict[type, AggregationTemporality]] = None
-                if "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE" not in os.environ:
-                    preferred_temporality = {
-                        SDKCounter: AggregationTemporality.DELTA,
-                        SDKHistogram: AggregationTemporality.DELTA,
-                    }
                 raw_exporter = OTLPMetricExporter(
                     endpoint=otlp_metrics_ep,
                     headers=config.headers or None,
-                    preferred_temporality=preferred_temporality,
+                    # Remote write requires cumulative sums and histograms.
+                    preferred_temporality={
+                        SDKCounter: AggregationTemporality.CUMULATIVE,
+                        SDKHistogram: AggregationTemporality.CUMULATIVE,
+                    },
                 )
                 safe_exporter = SafeMetricExporter(raw_exporter, endpoint=otlp_metrics_ep)
                 interval_ms = getattr(config, "metrics_export_interval_millis", 60000)
@@ -720,15 +450,8 @@ def create_red_metrics_recorder(
     except Exception:
         pass
 
-    # Configure latency histogram view with explicit APM buckets
-    latency_view = View(
-        instrument_name="duration_milliseconds",
-        aggregation=ExplicitBucketHistogramAggregation(boundaries=LATENCY_BUCKETS_MS),
-        **view_kwargs,
-    )
-    views: List[View] = [latency_view]
+    views: List[View] = []
     if view_kwargs:
-        views.append(View(instrument_name="calls_total", **view_kwargs))
         views.append(View(instrument_name="apm_repeated_query_affected_requests_total", **view_kwargs))
         views.append(View(instrument_name="apm_cardinality_grouping_total", **view_kwargs))
 
