@@ -317,7 +317,77 @@ def test_aborted_django_request_sanitizes_query_secrets():
     spans = exporter.get_finished_spans()
     req_span = next(s for s in spans if s.kind == SpanKind.SERVER)
     assert "mysecrettoken123" not in req_span.attributes.get("http.url", "")
+    assert "mysecrettoken123" not in req_span.attributes.get("url.full", "")
+    assert "mysecrettoken123" not in req_span.attributes.get("http.target", "")
+    assert "mysecrettoken123" not in req_span.attributes.get("url.query", "")
     assert "REDACTED" in req_span.attributes.get("http.url", "")
+
+
+def test_aborted_django_request_single_exception_event_on_escaping_exception():
+    """Verify exactly one exception event is recorded when an Exception escapes."""
+    exporter = InMemorySpanExporter()
+    tp_trace.init(project_name="django-test-svc", exporter=exporter, export_batch=False)
+
+    from tp_trace.integrations.django.middleware import _finalize_unended_root_span
+    from opentelemetry.trace import get_tracer, use_span
+
+    class MockOfficialMiddleware:
+        _environ_span_key = "opentelemetry-instrumentor-django.span_key"
+        _environ_activation_key = "opentelemetry-instrumentor-django.activation_key"
+
+    tracer = get_tracer("test")
+    span = tracer.start_span("root_test", kind=SpanKind.SERVER)
+    activation = use_span(span, end_on_exit=True)
+    activation.__enter__()
+
+    factory = RequestFactory()
+    req = factory.get("/test/sample/")
+    req.META["opentelemetry-instrumentor-django.span_key"] = span
+    req.META["opentelemetry-instrumentor-django.activation_key"] = activation
+
+    exc = RuntimeError("unexpected-abort")
+    _finalize_unended_root_span(MockOfficialMiddleware(), req, exc)
+
+    finished = exporter.get_finished_spans()
+    root = next(s for s in finished if s.kind == SpanKind.SERVER)
+    exception_events = [e for e in root.events if e.name == "exception"]
+    assert len(exception_events) == 1
+    assert exception_events[0].attributes["exception.type"] == "RuntimeError"
+
+
+def test_finalize_unended_root_span_preserves_outer_context_when_untracked():
+    """Verify context is not clobbered when _tp_request_context is absent."""
+    from tp_trace.integrations.django.middleware import _finalize_unended_root_span
+    from tp_trace.route_context import (
+        get_current_route,
+        get_current_tags,
+        reset_request_route,
+        reset_request_tags,
+        set_request_route,
+        set_request_tag,
+    )
+    from opentelemetry.trace import get_tracer
+
+    token = set_request_route("/outer/route/", "GET")
+    set_request_tag("outer.tag", "preserved")
+
+    try:
+        class MockOfficialMiddleware:
+            _environ_span_key = "span_key"
+            _environ_activation_key = "act_key"
+
+        tracer = get_tracer("test")
+        span = tracer.start_span("outer_test", kind=SpanKind.SERVER)
+        req = RequestFactory().get("/test/sample/")
+
+        req.META["span_key"] = span
+        _finalize_unended_root_span(MockOfficialMiddleware(), req, SystemExit(0))
+
+        assert get_current_route() == "/outer/route/"
+        assert get_current_tags().get("outer.tag") == "preserved"
+    finally:
+        reset_request_route(token)
+        reset_request_tags()
 
 
 def test_w3c_traceparent_propagation():
