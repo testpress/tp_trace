@@ -57,7 +57,7 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
     rate_panel = next(p for p in dashboard["panels"] if p.get("title") == "Affected Rate")
     rate_query = rate_panel["targets"][0]["expr"]
     assert 'calls_total{metric_source="tp_trace_sdk"' in rate_query
-    assert "apm_calls_total" not in rate_query
+    assert "apm_calls_total" in rate_query
     assert "100 *" in rate_query
 
 
@@ -208,3 +208,53 @@ def test_shared_delta_pipeline_preserves_worker_streams():
         assert cfg["exporters"][name]["remote_write_queue"] == {
             "enabled": True, "queue_size": 1000, "num_consumers": 1,
         }
+    text = re.sub(r"\$\{env:[A-Z_]+(?::-([^}]*))?\}", lambda match: match.group(1) or "test", text)
+    cfg = yaml.safe_load(text)
+    processors = cfg["service"]["pipelines"]["metrics"]["processors"]
+    assert processors.index("memory_limiter") < processors.index("batch")
+    # Verify SDK version/language/name attributes are stripped from metric resources
+    dropped_keys = [attr["key"] for attr in cfg["processors"]["resource/drop_ephemeral"]["attributes"]]
+    for sdk_key in ("telemetry.sdk.version", "telemetry.sdk.language", "telemetry.sdk.name"):
+        assert sdk_key in dropped_keys
+    for name in ("prometheusremotewrite", "prometheusremotewrite/internal"):
+        assert cfg["exporters"][name]["remote_write_queue"] == {
+            "enabled": True, "queue_size": 1000, "num_consumers": 1,
+        }
+
+
+def test_n_plus_one_detail_handles_flat_new_series_for_apm_calls(tmp_path):
+    """Verify that N+1 Detail Panels 10 and 12 handle flat new route counters on apm_calls_total."""
+    import re
+    from tests.test_red_dashboard_contract import evaluate
+
+    dashboard = _load("Supporting Dashboards/n_plus_one_detail.json")
+    p10 = next(p for p in dashboard["panels"] if p["id"] == 10)
+    expr_p10 = re.sub(r"\$\{[^}]+\}", ".*", p10["targets"][0]["expr"]).replace("$__range", "1h")
+    expr_p10 = expr_p10.replace('http_route=".*"', 'http_route="/new-route/"')
+
+    p12 = next(p for p in dashboard["panels"] if p["id"] == 12)
+    expr_p12 = re.sub(r"\$\{[^}]+\}", ".*", p12["targets"][0]["expr"]).replace("$__range", "1h")
+    expr_p12 = expr_p12.replace('http_route=".*"', 'http_route="/new-route/"')
+
+    series = [
+        {
+            "series": (
+                'apm_repeated_query_affected_requests_total{metric_source="tp_trace_sdk",'
+                'worker_id="w1",instance="i1",institute="demo",project_name="test",'
+                'cluster_name="dev",normalized_service="django",http_method="GET",'
+                'http_route="/new-route/"}'
+            ),
+            "values": "10x30",
+        },
+        {
+            "series": (
+                'apm_calls_total{instance="i1",institute="demo",project_name="test",'
+                'cluster_name="dev",normalized_service="django",http_method="GET",'
+                'http_route="/new-route/",span_kind="SPAN_KIND_SERVER"}'
+            ),
+            "values": "10x30",
+        },
+    ]
+
+    evaluate(tmp_path, expr_p10, [series[1]], [{"labels": "{}", "value": 10}])
+    evaluate(tmp_path, expr_p12, series, [{"labels": "{}", "value": 100}])

@@ -469,23 +469,50 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
 
 
 def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
-    """Verify that Collector Monitoring Panel 403 reports the service and count of cardinality grouping."""
+    """Verify that Collector Monitoring Panel 403 reports cardinality tracking and overflow."""
     p403 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 403)
     t_rate = next(t for t in p403["targets"] if t.get("refId") == "GroupedRate")
     expr_rate = re.sub(r"\$\{[^}]+\}", ".*", t_rate["expr"]).replace("$__rate_interval", "5m")
 
     series = [
         {
-            "series": 'apm_cardinality_grouping_total{collector_alias="dev",normalized_service="postgres",scope="operation",cause="operation_limit"}',
+            "series": 'apm_cardinality_grouping_total{collector_alias="dev",service_name="postgres",scope="operation",cause="operation_limit"}',
             "values": "0+60x31",
         }
     ]
 
+    stripped_expr = re.sub(
+        r'\s+or\s+\(0 \* count by \(service_name\).*?\)\)',
+        '',
+        expr_rate,
+        flags=re.DOTALL,
+    )
     evaluate(
         tmp_path,
-        expr_rate.replace(" or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\".*\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\".*\", scope=~\"route|operation\", normalized_service!~\"__other__\"}))", ""),
+        stripped_expr,
         series,
-        [{"labels": '{normalized_service="postgres",scope="operation",tracked_resource="postgres:operation"}', "value": 1800}],
+        [{"labels": '{service_name="postgres"}', "value": 1}],
+    )
+
+    t_col = next(t for t in p403["targets"] if t.get("refId") == "CollectorOverflow")
+    expr_col = re.sub(r"\$\{[^}]+\}", ".*", t_col["expr"]).replace("$__rate_interval", "5m")
+    series_col = [
+        {
+            "series": 'apm_calls_total{collector_alias="dev",service_name="django",otel_metric_overflow="true"}',
+            "values": "0+120x31",
+        }
+    ]
+    stripped_col = re.sub(
+        r'\s+or\s+\(0 \* count by \(service_name\).*?\)\)',
+        '',
+        expr_col,
+        flags=re.DOTALL,
+    )
+    evaluate(
+        tmp_path,
+        stripped_col,
+        series_col,
+        [{"labels": '{service_name="django"}', "value": 2}],
     )
 
 
