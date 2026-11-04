@@ -29,16 +29,6 @@
   "links": [
     {
       "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "A/B Comparison (Old vs Fixed)",
-      "type": "link",
-      "url": "/d/tp-trace-collector-comparison"
-    },
-    {
-      "asDropdown": false,
       "icon": "arrow-left",
       "includeVars": true,
       "keepTime": true,
@@ -56,16 +46,6 @@
       "title": "Needs Attention",
       "type": "link",
       "url": "/d/tp-trace-needs-attention"
-    },
-    {
-      "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "Django Overview",
-      "type": "link",
-      "url": "/d/generic-service-overview?var-service=django"
     },
     {
       "asDropdown": false,
@@ -8076,34 +8056,6 @@
         "type": "query"
       },
       {
-        "current": {
-          "selected": true,
-          "text": "production",
-          "value": "production"
-        },
-        "hide": 0,
-        "includeAll": false,
-        "label": "Environment",
-        "multi": false,
-        "name": "environment",
-        "options": [
-          {
-            "selected": true,
-            "text": "production",
-            "value": "production"
-          },
-          {
-            "selected": false,
-            "text": "staging",
-            "value": "staging"
-          }
-        ],
-        "query": "production,staging",
-        "queryValue": "",
-        "skipUrlSync": false,
-        "type": "custom"
-      },
-      {
         "allValue": ".*",
         "current": {
           "selected": true,
@@ -8157,7 +8109,8 @@
         "regex": "/.*{.*job=\"([a-zA-Z0-9_\\/-]+)\".*}/",
         "regexApplyTo": "value",
         "sort": 1,
-        "type": "query"
+        "type": "query",
+        "hide": 2
       },
       {
         "allowCustomValue": true,
@@ -8183,7 +8136,8 @@
         ],
         "query": "Rate : rate, Count : increase",
         "type": "custom",
-        "valuesFormat": "csv"
+        "valuesFormat": "csv",
+        "hide": 2
       },
       {
         "auto": true,
@@ -8220,7 +8174,8 @@
         ],
         "query": "10s,30s,1m,5m",
         "refresh": 2,
-        "type": "interval"
+        "type": "interval",
+        "hide": 2
       },
       {
         "allValue": ".*",
@@ -8329,7 +8284,8 @@
         ],
         "query": "None (basic metrics) :  , By transport (detailed metrics) : \\,transport, By service_instance_id : \\,service_instance_id, By service.instance.id : \\,\"service.instance.id\"",
         "type": "custom",
-        "valuesFormat": "csv"
+        "valuesFormat": "csv",
+        "hide": 2
       },
       {
         "allowCustomValue": true,
@@ -8342,7 +8298,8 @@
         "filters": [],
         "label": "Ad Hoc",
         "name": "adhoc",
-        "type": "adhoc"
+        "type": "adhoc",
+        "hide": 2
       },
       {
         "allowCustomValue": true,
