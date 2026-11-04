@@ -562,11 +562,11 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "short"
+                "value": "locale"
               },
               {
                 "id": "decimals",
-                "value": 1
+                "value": 0
               },
               {
                 "id": "custom.width",
