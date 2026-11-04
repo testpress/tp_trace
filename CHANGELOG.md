@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] - 2026-11-04
+
+### Changed
+- Remove institute and institute subdomain from application metric dimensions and Collector spanmetrics aggregation to prevent high-cardinality Prometheus series.
+- Preserve institute metadata on trace spans so Tempo-based investigation and trace filtering continue to work.
+- Remove the institute filter from the operation-details dashboard, while retaining project, service, connection-pool, and operation drill-downs.
+
 ## [0.4.0] - 2026-11-04
 
 ### Changed
