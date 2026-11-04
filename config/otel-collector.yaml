@@ -66,7 +66,7 @@ connectors:
     # Stop exporting a resource's metrics once it stops sending spans (e.g. after deploy).
     metrics_expiration: 5m
     series_expiration: 5m
-    # Bound combinations per resource aggregation to guarantee memory bounds.
+    # Bound combinations within each resource aggregation (not a global series cap).
     aggregation_cardinality_limit: 5000
 
 processors:
@@ -121,12 +121,15 @@ processors:
           - set(attributes["http.route"], attributes["django.route"]) where attributes["http.route_template"] == nil and attributes["django.route"] != nil
           - set(attributes["http.route"], "__unmatched__") where attributes["http.route_template"] == nil and attributes["django.route"] == nil and attributes["http.route"] != nil
 
-  # DB attribute normalization for spanmetrics
+  # Metric-only error, HTTP status, and database normalization.
   transform/spanmetrics_sanitize:
     error_mode: ignore
     trace_statements:
       - context: span
         statements:
+          - set(attributes["error"], true) where attributes["error"] == nil and span.status.code == STATUS_CODE_ERROR
+          - set(attributes["error"], false) where attributes["error"] == nil
+          - set(attributes["http.status_code"], attributes["http.response.status_code"]) where attributes["http.status_code"] == nil and attributes["http.response.status_code"] != nil
           - delete_key(attributes, "http.route") where attributes["db.system"] != nil
           - delete_key(attributes, "http.method") where attributes["db.system"] != nil
           - set(attributes["normalized.operation"], attributes["db.query.summary"]) where attributes["normalized.operation"] == nil and attributes["db.query.summary"] != nil and attributes["db.system"] != nil

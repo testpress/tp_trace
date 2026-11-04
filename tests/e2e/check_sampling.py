@@ -130,17 +130,20 @@ def check_sdk_export():
     sampled = 0
     try:
         tracer = provider.get_tracer("sdk-sampling-probe")
-        for i in range(21):
-            error = i == 20
+        for i in range(22):
+            error = i >= 20
             with tracer.start_as_current_span("request", kind=SpanKind.SERVER) as span:
                 decision = bool(span.get_span_context().trace_flags.sampled)
                 sampled += int(decision)
                 # Storage filtering preserves errors even when head sampling
                 # selected RECORD_ONLY; all spans still feed spanmetrics.
                 expected[format(span.get_span_context().trace_id, "032x")] = decision or error
+                span.set_attribute("http.response.status_code", 500 if i == 20 else (404 if i == 21 else 200))
+                if i == 21:
+                    span.set_attribute("error", False)  # Explicit policy overrides error status for metrics.
                 span.set_status(Status(StatusCode.ERROR if error else StatusCode.OK))
         assert provider.force_flush()
-        assert 0 < sampled < 21, "Probe needs both sampled and unsampled decisions"
+        assert 0 < sampled < 22, "Probe needs both sampled and unsampled decisions"
 
         def stored(trace_id):
             try:
@@ -154,9 +157,18 @@ def check_sdk_export():
             def counted():
                 query = 'sum(apm_calls_total{project_name="' + project + '"})'
                 rows = request(prometheus + "/api/v1/query?" + urlencode({"query": query}))["data"]["result"]
-                return bool(rows) and float(rows[0]["value"][1]) == 21
+                return bool(rows) and float(rows[0]["value"][1]) == 22
 
-            eventually("real SDK: all 21 spans counted at sample_rate=0.5", counted)
+            eventually("real SDK: all 22 spans counted at sample_rate=0.5", counted)
+
+            def classified_errors():
+                query = 'sum by (error, http_status_code) (apm_calls_total{project_name="' + project + '"})'
+                rows = request(prometheus + "/api/v1/query?" + urlencode({"query": query}))["data"]["result"]
+                return {(r["metric"].get("error"), r["metric"].get("http_status_code")): float(r["value"][1]) for r in rows} == {
+                    ("false", "200"): 20, ("true", "500"): 1, ("false", "404"): 1,
+                }
+
+            eventually("real SDK: RED error/status labels honor explicit false", classified_errors)
 
         eventually("real SDK: selected traces reached Tempo", lambda: all(stored(t) for t, keep in expected.items() if keep))
         for trace_id, keep in expected.items():

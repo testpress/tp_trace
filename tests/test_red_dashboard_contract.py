@@ -505,7 +505,7 @@ def test_collector_monitoring_breaks_down_components_without_inventing_budgets(t
         {"series": 'apm_cardinality_grouping_total{' + labels + ',normalized_service="django",scope="repeated_queries",cause="repeated_query_series_limit"}', "values": "0+60x31"},
     ]
     def result(service, value):
-        return {"labels": '{normalized_service="' + service + '",project_name="testpress"}', "value": value}
+        return {"labels": '{normalized_service="' + service + '"}', "value": value}
 
     evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked"), series, [
         result("django", 3), result("postgres", 1),
@@ -517,22 +517,11 @@ def test_collector_monitoring_breaks_down_components_without_inventing_budgets(t
         result("django", 5000), result("postgres", 5000),
     ])
     columns = set(components["transformations"][-1]["options"]["renameByName"].values())
-    assert "Shared Limit per Resource" in columns
+    assert columns == {"Service", "Current Cardinality", "Total Cap", "Overflow Count"}
     assert "UsagePct" not in targets
 
 
 
-def test_collector_overflow_summary_preserves_unattributed_overflow(tmp_path):
-    summary = panel("Supporting Dashboards/collector_monitoring.json", 404)
-    assert "normalized_service" not in next(t["expr"] for t in summary["targets"] if t["refId"] == "CollectorOverflow")
-    series = [{
-        "series": 'apm_calls_total{collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod",otel_metric_overflow="true"}',
-        "values": "0+120x31",
-    }]
-    labels = '{project_name="testpress"}'
-    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 404, "CollectorOverflow"), series, [{"labels": labels, "value": 3600}])
-    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 404, "Limit"), series, [{"labels": labels, "value": 5000}])
-    assert "UsagePct" not in {t["refId"] for t in summary["targets"]}
 
 
 def test_collector_monitoring_distinguishes_grouping_from_stream_cap_drops(tmp_path):
@@ -606,10 +595,11 @@ def test_catalog_keeps_zero_error_rows_for_collector_only_services(tmp_path):
 def test_cardinality_project_filter_and_simple_columns(tmp_path):
     dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
     project = next(v for v in dashboard["templating"]["list"] if v["name"] == "project")
+    assert not any(p["id"] == 404 for p in dashboard["panels"])
     assert project["includeAll"] and project["multi"]
     assert project["allValue"] == ".*"
     for item in dashboard["panels"]:
-        if item["id"] not in (403, 404):
+        if item["id"] != 403:
             continue
         assert all('project_name=~"${project:regex}"' in t["expr"] for t in item["targets"])
         columns = set(item["transformations"][-1]["options"]["renameByName"].values())
@@ -619,23 +609,22 @@ def test_cardinality_project_filter_and_simple_columns(tmp_path):
         {"series": 'apm_calls_total{project_name="testpress",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
         {"series": 'apm_calls_total{project_name="other",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
     ]
-    evaluate(tmp_path, expr, series, [{"labels": '{normalized_service="django",project_name="testpress"}', "value": 1}])
+    evaluate(tmp_path, expr, series, [{"labels": '{normalized_service="django"}', "value": 1}])
 
 
 
 @pytest.mark.parametrize("panel_id,ref,metric,component", [
     (403, "GroupedTotal", "apm_cardinality_grouping_total", ',normalized_service="django"'),
-    (404, "CollectorOverflow", "apm_calls_total", ',otel_metric_overflow="true"'),
 ])
 def test_cardinality_overflow_is_window_total_including_new_series(tmp_path, panel_id, ref, metric, component):
     expr = expression("Supporting Dashboards/collector_monitoring.json", panel_id, ref).replace("1h", "5m")
-    label = '{project_name="testpress"' + (',normalized_service="django"' if panel_id == 403 else '') + '}'
+    label = '{normalized_service="django"}'
     name = metric + '{project_name="testpress",collector_alias="dev"' + component + '}'
     # Established counters count the selected five-minute window, not lifetime.
     evaluate(tmp_path, expr, [{"series": name, "values": "0+60x31"}], [{"labels": label, "value": 300}])
     # A new flat counter's first export must not become zero via increase().
     evaluate(tmp_path, expr, [{"series": name, "values": "_x28 10x2"}], [{"labels": label, "value": 10}])
     item = panel("Supporting Dashboards/collector_monitoring.json", panel_id)
-    field = "SDK Overflow" if panel_id == 403 else "Collector Overflow"
+    field = "Overflow Count"
     override = next(o for o in item["fieldConfig"]["overrides"] if o["matcher"]["options"] == field)
     assert {p["id"]: p["value"] for p in override["properties"]}["unit"] == "none"
