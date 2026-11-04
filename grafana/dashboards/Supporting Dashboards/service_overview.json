@@ -210,6 +210,34 @@
         "allValue": ".*",
         "current": {
           "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "description": "Filter database queries by connection pool. All includes direct connections and spans without a pool attribute.",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Connection Pool",
+        "multi": false,
+        "name": "db_pool",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "PgBouncer",
+            "value": "pgbouncer"
+          }
+        ],
+        "query": "PgBouncer : pgbouncer",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
           "text": [
             "All"
           ],
@@ -221,7 +249,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values({__name__=~\"apm_calls_total\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\"}, db_instance)",
+        "definition": "label_values({__name__=~\"apm_calls_total\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_connection_pool=~\"${db_pool:regex}\"}, db_instance)",
         "hide": 0,
         "includeAll": true,
         "label": "DB Instance",
@@ -234,7 +262,7 @@
             "value": "$__all"
           }
         ],
-        "query": "label_values({__name__=~\"apm_calls_total\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\"}, db_instance)",
+        "query": "label_values({__name__=~\"apm_calls_total\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=~\"${service:regex}\", db_connection_pool=~\"${db_pool:regex}\"}, db_instance)",
         "refresh": 2,
         "sort": 1,
         "type": "query"
@@ -254,7 +282,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
+        "definition": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
         "hide": 0,
         "includeAll": true,
         "label": "Operation",
@@ -267,7 +295,7 @@
             "value": "$__all"
           }
         ],
-        "query": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
+        "query": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
         "refresh": 2,
         "regex": "/normalized_operation=\"(.*)\"\\s*\\}/",
         "sort": 1,
@@ -431,7 +459,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or vector(0))",
+          "expr": "(sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or vector(0))",
           "interval": "1m",
           "legendFormat": "Hits",
           "range": true,
@@ -444,7 +472,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or vector(0))",
+          "expr": "((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or vector(0))",
           "interval": "1m",
           "legendFormat": "Errors",
           "range": true,
@@ -503,7 +531,7 @@
           "links": [
             {
               "title": "\ud83d\udd0d Inspect Error Traces for ${service}",
-              "url": "/d/generic-service-errors?var-service=${service}&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}",
+              "url": "/d/generic-service-errors?var-service=${service}&${db_pool:queryparam}&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}",
               "targetBlank": true
             }
           ],
@@ -561,7 +589,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "((100 * (((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0))) / (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0))))",
+          "expr": "((100 * (((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0))) / (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0))))",
           "legendFormat": "Error Rate %",
           "range": true,
           "refId": "A",
@@ -708,7 +736,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.5, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))) or vector(0)",
+          "expr": "(histogram_quantile(0.5, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))) or vector(0)",
           "legendFormat": "P50 Latency",
           "range": true,
           "refId": "A",
@@ -721,7 +749,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))) or vector(0)",
+          "expr": "(histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))) or vector(0)",
           "legendFormat": "P95 Latency",
           "range": true,
           "refId": "B",
@@ -734,7 +762,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.99, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))) or vector(0)",
+          "expr": "(histogram_quantile(0.99, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))) or vector(0)",
           "legendFormat": "P99 Latency",
           "range": true,
           "refId": "C",
@@ -857,7 +885,7 @@
                 "value": [
                   {
                     "title": "Open Operation Details: ${__data.fields.Operation}",
-                    "url": "/d/generic-operation-details?var-service=${service}&var-operation=${__data.fields.Operation:percentencode}&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}",
+                    "url": "/d/generic-operation-details?var-service=${service}&var-operation=${__data.fields.Operation:percentencode}&${db_pool:queryparam}&${project:queryparam}&${cluster:queryparam}&${institute:queryparam}&${__url_time_range}",
                     "targetBlank": false
                   }
                 ]
@@ -1044,7 +1072,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (normalized_operation) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0",
+          "expr": "(sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0",
           "format": "table",
           "instant": true,
           "legendFormat": "RPS",
@@ -1058,7 +1086,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (normalized_operation) (((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range)) or ((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) - (apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range)) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) == 0)))) or sum by (normalized_operation) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0",
+          "expr": "(sum by (normalized_operation) (((last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) and (resets(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) == 0) unless (apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range)) or ((last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) - (apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range)) and (resets(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) == 0)))) or sum by (normalized_operation) (increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0",
           "format": "table",
           "instant": true,
           "legendFormat": "Total Calls",
@@ -1072,7 +1100,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "((100 * (((sum by (normalized_operation) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) or (0 * (sum by (normalized_operation) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))))) or (0 * (sum by (normalized_operation) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) > 0))) / (sum by (normalized_operation) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) > 0))))",
+          "expr": "((100 * (((sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) or (0 * (sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))))) or (0 * (sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) > 0))) / (sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) > 0))))",
           "format": "table",
           "instant": true,
           "legendFormat": "Error Rate",
@@ -1086,7 +1114,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(histogram_quantile(0.5, sum by (le, normalized_operation) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
+          "expr": "(histogram_quantile(0.5, sum by (le, normalized_operation) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
           "format": "table",
           "instant": true,
           "legendFormat": "P50",
@@ -1100,7 +1128,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(histogram_quantile(0.95, sum by (le, normalized_operation) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
+          "expr": "(histogram_quantile(0.95, sum by (le, normalized_operation) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
           "format": "table",
           "instant": true,
           "legendFormat": "P95",
@@ -1114,7 +1142,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(histogram_quantile(0.99, sum by (le, normalized_operation) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
+          "expr": "(histogram_quantile(0.99, sum by (le, normalized_operation) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=~\"${operation:regex}\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
           "format": "table",
           "instant": true,
           "legendFormat": "P99",
