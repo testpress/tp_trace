@@ -33,6 +33,7 @@ def main():
             "spanId": uuid.uuid4().hex[:16],
             "name": "large-batch-probe",
             "kind": 2,
+            "flags": 1,
             "startTimeUnixNano": str(now - 1000000),
             "endTimeUnixNano": str(now),
             "attributes": [{"key": "probe.padding", "value": {"stringValue": "x" * 900}}],

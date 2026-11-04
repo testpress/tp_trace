@@ -20,6 +20,7 @@ def panel(filename, panel_id):
 
 def expression(filename, panel_id, ref):
     expr = next(t["expr"] for t in panel(filename, panel_id)["targets"] if t["refId"] == ref)
+    expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
     return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m").replace("$__range", "1h")
 
 
@@ -28,6 +29,25 @@ def promtool():
     if not executable:
         pytest.skip("promtool is required for offline PromQL evaluation")
     return executable
+
+
+def collector_fixture(series):
+    """Supply Collector identity/kind labels on synthetic RED populations."""
+    result = []
+    for item in series:
+        item = dict(item)
+        name = item["series"]
+        if name.startswith(("apm_calls_total{", "apm_duration_milliseconds")):
+            labels = []
+            if 'instance=' not in name:
+                labels.append('instance="collector"')
+            if 'normalized_service="django"' in name and 'span_kind=' not in name:
+                labels.append('span_kind="SPAN_KIND_SERVER"')
+            if labels:
+                name = name.replace("{", "{" + ",".join(labels) + ",", 1)
+        item["series"] = name
+        result.append(item)
+    return result
 
 
 def evaluate(tmp_path, expr, series, expected, interval="1m"):
@@ -40,7 +60,7 @@ def evaluate(tmp_path, expr, series, expected, interval="1m"):
                 "tests": [
                     {
                         "interval": interval,
-                        "input_series": series,
+                        "input_series": collector_fixture(series),
                         "promql_expr_test": [{"expr": expr, "eval_time": "30m", "exp_samples": expected}],
                     }
                 ],
@@ -53,11 +73,12 @@ def evaluate(tmp_path, expr, series, expected, interval="1m"):
 
 def test_all_migrated_dashboard_queries_parse(tmp_path):
     rules = []
-    for filename in FILES:
+    for path in DASHBOARDS.rglob("*.json"):
+        filename = str(path.relative_to(DASHBOARDS))
         dashboard = json.loads((DASHBOARDS / filename).read_text())
-        for item in dashboard["panels"]:
+        for item in dashboard.get("panels", []):
             for target in item.get("targets", []):
-                if "expr" in target:
+                if "apm_calls_total" in target.get("expr", "") or "apm_duration_milliseconds" in target.get("expr", ""):
                     rules.append(
                         {
                             "record": "review_query_" + str(len(rules)),
@@ -71,7 +92,7 @@ def test_all_migrated_dashboard_queries_parse(tmp_path):
 
 
 @pytest.mark.parametrize("native_errors", [False, True])
-def test_native_errors_do_not_fall_back_to_overlapping_legacy_errors(tmp_path, native_errors):
+def test_collector_errors_ignore_obsolete_native_population(tmp_path, native_errors):
     labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django",span_kind="SPAN_KIND_SERVER",http_route="/test/",http_method="GET"'
     series = [
         {
@@ -90,10 +111,10 @@ def test_native_errors_do_not_fall_back_to_overlapping_legacy_errors(tmp_path, n
                 "values": "0+1x31",
             }
         )
-    evaluate(tmp_path, expression(FILES[1], 11, "A"), series, [{"labels": "{}", "value": 0}])
+    evaluate(tmp_path, expression(FILES[1], 11, "A"), series, [{"labels": "{}", "value": 1}])
 
 
-def test_legacy_error_ratio_remains_available_without_native_metrics(tmp_path):
+def test_collector_error_ratio_without_native_metrics(tmp_path):
     labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django",span_kind="SPAN_KIND_SERVER",http_route="/test/",http_method="GET",instance="collector",error="true"'
     evaluate(
         tmp_path,
@@ -105,7 +126,7 @@ def test_legacy_error_ratio_remains_available_without_native_metrics(tmp_path):
     )
 
 
-def test_catalog_zero_error_native_requests_do_not_inherit_historical_errors(tmp_path):
+def test_catalog_uses_collector_errors_despite_old_native_requests(tmp_path):
     labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django",span_kind="SPAN_KIND_SERVER"'
     expr = expression(FILES[0], 5, "B")
     evaluate(
@@ -115,7 +136,7 @@ def test_catalog_zero_error_native_requests_do_not_inherit_historical_errors(tmp
             {"series": "calls_total{" + labels + ',worker_id="host:1",error="false"}', "values": "0+100x31"},
             {"series": "apm_calls_total{" + labels + ',instance="collector",error="true"}', "values": "0+10x31"},
         ],
-        [{"labels": "{}", "value": 0}],
+        [{"labels": "{}", "value": 1}],
     )
 
 
@@ -132,31 +153,31 @@ def test_sampled_dependency_latency_warning_survives_unsampled_request_volume(tm
     native = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django",span_kind="SPAN_KIND_SERVER",worker_id="host:1"'
     for boundary in ["1000", "+Inf"]:
         series.append(
-            {"series": "duration_milliseconds_bucket{" + native + ',le="' + boundary + '"}', "values": "0+10000x31"}
+            {"series": "apm_duration_milliseconds_bucket{" + native + ',le="' + boundary + '"}', "values": "0+10000x31"}
         )
-    series.append({"series": "duration_milliseconds_sum{" + native + "}", "values": "0+10000000x31"})
+    series.append({"series": "apm_duration_milliseconds_sum{" + native + "}", "values": "0+10000000x31"})
     evaluate(tmp_path, expression(FILES[1], 12, "A"), series, [{"labels": "{}", "value": 1}])
 
 
-def test_native_dependency_latency_warning_fires_without_apm_metrics(tmp_path):
+def test_collector_dependency_latency_warning(tmp_path):
     labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",db_system="postgresql"'
     series = [
-        {"series": "duration_milliseconds_bucket{" + labels + ',le="100"}', "values": "0+1x25 25+0x5"},
-        {"series": "duration_milliseconds_bucket{" + labels + ',le="1000"}', "values": "0+1x31"},
-        {"series": "duration_milliseconds_bucket{" + labels + ',le="+Inf"}', "values": "0+1x31"},
-        {"series": "duration_milliseconds_sum{" + labels + "}", "values": "0+100x31"},
+        {"series": "apm_duration_milliseconds_bucket{" + labels + ',le="100"}', "values": "0+1x25 25+0x5"},
+        {"series": "apm_duration_milliseconds_bucket{" + labels + ',le="1000"}', "values": "0+1x31"},
+        {"series": "apm_duration_milliseconds_bucket{" + labels + ',le="+Inf"}', "values": "0+1x31"},
+        {"series": "apm_duration_milliseconds_sum{" + labels + "}", "values": "0+100x31"},
     ]
     evaluate(tmp_path, expression(FILES[1], 12, "A"), series, [{"labels": "{}", "value": 1}])
 
 
-def test_dependency_chart_reports_sampled_latency_instead_of_request_share():
+def test_dependency_chart_reports_all_span_latency_instead_of_request_share():
     item = panel(FILES[0], 10)
     assert item["fieldConfig"]["defaults"]["unit"] == "ms"
     assert item["fieldConfig"]["defaults"]["custom"]["stacking"]["mode"] == "none"
-    assert "Sampled" in item["title"]
+    assert "All Recorded Spans" in item["title"]
     for target in item["targets"]:
         assert "histogram_quantile(0.95" in target["expr"]
-        assert "duration_milliseconds_bucket" in target["expr"]
+        assert "apm_duration_milliseconds_bucket" in target["expr"]
     for filename, panel_id in [(FILES[0], 160), (FILES[1], 20)]:
         assert not any(t["refId"].endswith("_contrib") for t in panel(filename, panel_id)["targets"])
 
@@ -164,9 +185,9 @@ def test_dependency_chart_reports_sampled_latency_instead_of_request_share():
 def test_catalog_total_calls_handles_single_sample_and_flat_new_workers(tmp_path):
     labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django"'
     series = [
-        {"series": "calls_total{" + labels + ',worker_id="w1"}', "values": "_x59 1"},
-        {"series": "calls_total{" + labels + ',worker_id="w2"}', "values": "_x50 5x10"},
-        {"series": "calls_total{" + labels + ',worker_id="w3"}', "values": "20x61"},
+        {"series": "apm_calls_total{" + labels + ',instance="collector-1"}', "values": "_x59 1"},
+        {"series": "apm_calls_total{" + labels + ',instance="collector-2"}', "values": "_x50 5x10"},
+        {"series": "apm_calls_total{" + labels + ',instance="collector-3"}', "values": "20x61"},
     ]
     expr = expression(FILES[0], 5, "D")
     fixture = tmp_path / "catalog_total_calls.yml"
@@ -178,7 +199,7 @@ def test_catalog_total_calls_handles_single_sample_and_flat_new_workers(tmp_path
                 "tests": [
                     {
                         "interval": "1m",
-                        "input_series": series,
+                        "input_series": collector_fixture(series),
                         "promql_expr_test": [
                             {
                                 "expr": expr,
@@ -198,7 +219,7 @@ def test_catalog_total_calls_handles_single_sample_and_flat_new_workers(tmp_path
 def test_catalog_total_calls_handles_counter_resets(tmp_path):
     labels = 'project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_service="django"'
     series = [
-        {"series": "calls_total{" + labels + ',worker_id="restarted"}', "values": "_x10 10 0 2 5x47"},
+        {"series": "apm_calls_total{" + labels + ',instance="restarted"}', "values": "_x10 10 0 2 5x47"},
     ]
     expr = expression(FILES[0], 5, "D")
     fixture = tmp_path / "catalog_resets.yml"
@@ -210,7 +231,7 @@ def test_catalog_total_calls_handles_counter_resets(tmp_path):
                 "tests": [
                     {
                         "interval": "1m",
-                        "input_series": series,
+                        "input_series": collector_fixture(series),
                         "promql_expr_test": [
                             {
                                 "expr": expr,
@@ -237,7 +258,7 @@ def test_service_overview_and_n_plus_one_total_calls_handle_new_workers(tmp_path
     labels = 'normalized_service="django",project_name="test",cluster_name="dev",institute_subdomain="demo",normalized_operation="GET /test/"'
     series = [
         {
-            "series": "calls_total{"
+            "series": "apm_calls_total{"
             + labels
             + ',worker_id="w1",metric_source="tp_trace_sdk",instance="host:1",http_method="GET",http_route=".*",span_kind="SPAN_KIND_SERVER"}',
             "values": "_x59 3",
@@ -252,7 +273,7 @@ def test_service_overview_and_n_plus_one_total_calls_handle_new_workers(tmp_path
                 "tests": [
                     {
                         "interval": "1m",
-                        "input_series": series,
+                        "input_series": collector_fixture(series),
                         "promql_expr_test": [
                             {
                                 "expr": expr_overview,
@@ -313,7 +334,7 @@ def test_variable_queries_parse_and_resolve_single_samples(tmp_path):
                 "tests": [
                     {
                         "interval": "1m",
-                        "input_series": [{"series": "calls_total{" + labels + "}", "values": "_x59 1"}],
+                        "input_series": collector_fixture([{"series": "apm_calls_total{" + labels + "}", "values": "_x59 1"}]),
                         "promql_expr_test": [
                             {
                                 "expr": expr_so_service,
@@ -385,7 +406,7 @@ def test_n_plus_one_counts_sparse_workers_and_excludes_colliding_legacy_stream(t
     for worker in range(12):
         series.append(
             {
-                "series": "calls_total{" + labels + ',span_kind="SPAN_KIND_SERVER",worker_id="w%d"}' % worker,
+                "series": "apm_calls_total{" + labels + ',span_kind="SPAN_KIND_SERVER",worker_id="w%d"}' % worker,
                 "values": values,
             }
         )
@@ -437,9 +458,9 @@ def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, exp
     )
     # OTLP exports once per minute; there are no intervening scrape samples.
     values = " ".join(str(i // 4) if i % 4 == 0 else "_" for i in range(121))
-    series = [{"series": "calls_total{" + labels + "}", "values": values}]
+    series = [{"series": "apm_calls_total{" + labels + "}", "values": values}]
     for le in ["100", "+Inf"]:
-        series.append({"series": "duration_milliseconds_bucket{" + labels + ',le="' + le + '"}', "values": values})
+        series.append({"series": "apm_duration_milliseconds_bucket{" + labels + ',le="' + le + '"}', "values": values})
     result_labels = '{http_status_code="500",status_label="HTTP 500"}' if panel_id == 202 else "{}"
     evaluate(
         tmp_path,
@@ -462,31 +483,45 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
         'instance="collector",worker_id="w1",span_kind="SPAN_KIND_SERVER"'
     )
     series = [
-        {"series": "calls_total{" + labels + ',error="false"}', "values": "0+60x30"},
-        {"series": "calls_total{" + labels + ',error="true"}', "values": "0x27 60x2"},
+        {"series": "apm_calls_total{" + labels + ',error="false"}', "values": "0+60x30"},
+        {"series": "apm_calls_total{" + labels + ',error="true"}', "values": "0x27 60x2"},
     ]
     evaluate(tmp_path, "round((" + expr + "), 0.000001)", series, [{"labels": "{}", "value": expected}])
 
 
-def test_collector_monitoring_cardinality_diagnostics_table(tmp_path):
-    """Verify that Collector Monitoring Panel 403 reports the service and count of cardinality grouping."""
-    p403 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 403)
-    t_rate = next(t for t in p403["targets"] if t.get("refId") == "GroupedRate")
-    expr_rate = re.sub(r"\$\{[^}]+\}", ".*", t_rate["expr"]).replace("$__rate_interval", "5m")
-
+def test_collector_monitoring_breaks_down_components_without_inventing_budgets(tmp_path):
+    components = panel("Supporting Dashboards/collector_monitoring.json", 403)
+    targets = {t["refId"] for t in components["targets"]}
+    assert targets == {"Tracked", "Limit", "GroupedTotal"}
+    labels = 'collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod"'
     series = [
-        {
-            "series": 'apm_cardinality_grouping_total{collector_alias="dev",normalized_service="postgres",scope="operation",cause="operation_limit"}',
-            "values": "0+60x31",
-        }
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="django",normalized_operation="GET /courses",error="false"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="django",normalized_operation="GET /courses",error="true"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="postgres",normalized_operation="SELECT courses"}', "values": "0+60x31"},
+        # Real Collector overflow loses the component dimensions; never
+        # attribute it to Django or PostgreSQL using a fabricated label.
+        {"series": 'apm_calls_total{' + labels + ',otel_metric_overflow="true"}', "values": "0+120x31"},
+        {"series": 'apm_calls_total{collector_alias="c2",service_name="testpress",project_name="testpress",cluster_name="prod",normalized_service="django"}', "values": "0+60x31"},
+        {"series": 'apm_cardinality_grouping_total{' + labels + ',normalized_service="django",scope="repeated_queries",cause="repeated_query_series_limit"}', "values": "0+60x31"},
     ]
+    def result(service, value):
+        return {"labels": '{normalized_service="' + service + '"}', "value": value}
 
-    evaluate(
-        tmp_path,
-        expr_rate.replace(" or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\".*\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\".*\", scope=~\"route|operation\", normalized_service!~\"__other__\"}))", ""),
-        series,
-        [{"labels": '{normalized_service="postgres",scope="operation",tracked_resource="postgres:operation"}', "value": 1800}],
-    )
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked"), series, [
+        result("django", 3), result("postgres", 1),
+    ])
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "GroupedTotal"), series, [
+        result("django", 1800), result("postgres", 0),
+    ])
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Limit"), series, [
+        result("django", 5000), result("postgres", 5000),
+    ])
+    columns = set(components["transformations"][-1]["options"]["renameByName"].values())
+    assert columns == {"Service", "Current Cardinality", "Total Cap", "Overflow Count"}
+    assert "UsagePct" not in targets
+
+
+
 
 
 def test_collector_monitoring_distinguishes_grouping_from_stream_cap_drops(tmp_path):
@@ -544,3 +579,52 @@ def test_collector_status_reports_up_state(tmp_path):
         series,
         [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": 1}],
     )
+
+
+
+def test_catalog_keeps_zero_error_rows_for_collector_only_services(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",db_system="postgresql",db_instance="defaultdb",error="false",span_kind="SPAN_KIND_CLIENT"'
+    evaluate(
+        tmp_path, expression(FILES[0], 5, "B"),
+        [{"series": "apm_calls_total{" + labels + "}", "values": "0+10x31"}],
+        [{"labels": '{Service="defaultdb"}', "value": 0}],
+    )
+
+
+
+def test_cardinality_project_filter_and_simple_columns(tmp_path):
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    project = next(v for v in dashboard["templating"]["list"] if v["name"] == "project")
+    assert not any(p["id"] == 404 for p in dashboard["panels"])
+    assert project["includeAll"] and project["multi"]
+    assert project["allValue"] == ".*"
+    for item in dashboard["panels"]:
+        if item["id"] != 403:
+            continue
+        assert all('project_name=~"${project:regex}"' in t["expr"] for t in item["targets"])
+        columns = set(item["transformations"][-1]["options"]["renameByName"].values())
+        assert not columns.intersection({"Application", "Cluster", "Collector"})
+    expr = expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked").replace('project_name=~".*"', 'project_name=~"testpress"')
+    series = [
+        {"series": 'apm_calls_total{project_name="testpress",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{project_name="other",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
+    ]
+    evaluate(tmp_path, expr, series, [{"labels": '{normalized_service="django"}', "value": 1}])
+
+
+
+@pytest.mark.parametrize("panel_id,ref,metric,component", [
+    (403, "GroupedTotal", "apm_cardinality_grouping_total", ',normalized_service="django"'),
+])
+def test_cardinality_overflow_is_window_total_including_new_series(tmp_path, panel_id, ref, metric, component):
+    expr = expression("Supporting Dashboards/collector_monitoring.json", panel_id, ref).replace("1h", "5m")
+    label = '{normalized_service="django"}'
+    name = metric + '{project_name="testpress",collector_alias="dev"' + component + '}'
+    # Established counters count the selected five-minute window, not lifetime.
+    evaluate(tmp_path, expr, [{"series": name, "values": "0+60x31"}], [{"labels": label, "value": 300}])
+    # A new flat counter's first export must not become zero via increase().
+    evaluate(tmp_path, expr, [{"series": name, "values": "_x28 10x2"}], [{"labels": label, "value": 10}])
+    item = panel("Supporting Dashboards/collector_monitoring.json", panel_id)
+    field = "Overflow Count"
+    override = next(o for o in item["fieldConfig"]["overrides"] if o["matcher"]["options"] == field)
+    assert {p["id"]: p["value"] for p in override["properties"]}["unit"] == "none"

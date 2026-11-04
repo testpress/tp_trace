@@ -207,7 +207,7 @@ def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
             method="method-{}".format(i),
             route="/route-{}/".format(i),
             service="service-{}".format(i),
-            extra_attributes={"institute.subdomain": "tenant-{}".format(i)},
+            extra_attributes={"institute": "tenant-{}".format(i)},
         )
         record_repeated_query_affected_request(
             method="GET",
@@ -220,7 +220,7 @@ def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
         method="method-0",
         route="/route-0/",
         service="service-0",
-        extra_attributes={"institute.subdomain": "tenant-0"},
+        extra_attributes={"institute": "tenant-0"},
     )
     points = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
     assert len(points) == 3  # One detailed series, one admitted-owner overflow, one new-owner overflow.
@@ -239,7 +239,7 @@ def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
             "http.route",
             "metric_source",
             "worker_id",
-            "institute.subdomain",
+            "institute",
         }
 
 
@@ -256,7 +256,7 @@ def test_repeated_query_metric_allowlist():
         route="/api/v1/checkout/",
         service="django",
         extra_attributes={
-            "institute.subdomain": "acme-corp",
+            "institute": "acme-corp",
             "forbidden_worker_id": "9999",
             "sql_query": "SELECT * FROM users",
             "trace_id": "abc123",
@@ -274,7 +274,7 @@ def test_repeated_query_metric_allowlist():
     assert attrs["http.method"] == "POST"
     assert attrs["http.route"] == "/api/v1/checkout/"
     assert attrs["metric_source"] == "tp_trace_sdk"
-    assert attrs["institute.subdomain"] == "acme-corp"
+    assert attrs["institute"] == "acme-corp"
 
     # Strictly forbidden labels (cardinality explosion prevention):
     assert "forbidden_worker_id" not in attrs
@@ -626,7 +626,6 @@ def test_repeated_query_counters_keep_gunicorn_workers_separate(monkeypatch, ove
     for worker in range(12):
         monkeypatch.setattr(metrics.os, "getpid", lambda worker=worker: 1000 + worker)
         for _ in range(worker + 1):
-            recorder.record_request(method="GET", route="/courses/<pk>/", status_code=200, error=False, duration_ms=1)
             recorder.record_repeated_query_affected_request(
                 method="GET",
                 route="/courses/<pk>/",
@@ -634,9 +633,8 @@ def test_repeated_query_counters_keep_gunicorn_workers_separate(monkeypatch, ove
             )
     affected = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
     affected = [p for p in affected if p.attributes["http.route"] != "/admitted/"]
-    calls = _get_metric_data_points(reader, "calls_total")
-    assert len(affected) == len(calls) == 12
-    assert {p.attributes["worker_id"]: p.value for p in affected} == {p.attributes["worker_id"]: p.value for p in calls}
+    # 12 workers must each emit a distinct stream keyed by worker_id
+    assert len(affected) == 12
     assert sorted(p.value for p in affected) == list(range(1, 13))
 
 

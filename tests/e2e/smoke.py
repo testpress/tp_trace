@@ -85,7 +85,7 @@ def main():
         # Prometheus sanitizes "http.route" attribute dots to underscores on ingest.
         res = request(
             prometheus + "/api/v1/query?" + urlencode(
-                {"query": 'sum(calls_total{normalized_service="django", http_route="/api/multi-db/"})'}
+                {"query": 'sum(apm_calls_total{normalized_service="django", span_kind="SPAN_KIND_SERVER", http_route="/api/multi-db/"})'}
             )
         )
         results = res.get("data", {}).get("result", [])
@@ -132,6 +132,7 @@ def main():
                                     "spanId": uuid.uuid4().hex[:16],
                                     "name": "host-smoke",
                                     "kind": 2,
+                                    "flags": 1,
                                     "startTimeUnixNano": str(now - 10000000),
                                     "endTimeUnixNano": str(now),
                                     "status": {"code": 1},

@@ -24,7 +24,7 @@ def test_prometheus_query_pins_time_and_rejects_api_errors(monkeypatch):
 
     monkeypatch.setattr(comparison, "urlopen", open_response)
     with pytest.raises(RuntimeError, match="invalid query"):
-        comparison.query_prometheus("http://prometheus", "sum(calls_total)", 123.5)
+        comparison.query_prometheus("http://prometheus", "sum(apm_calls_total)", 123.5)
     assert "time=123.5" in urls[0]
 
 
@@ -56,7 +56,7 @@ def test_benchmark_uses_reset_aware_queries_and_closed_window(monkeypatch, capsy
     monkeypatch.setattr(comparison.time, "time", lambda: 1000 + clock[0])
     comparison.run_benchmark("locust", "prometheus", 'project"name', 10, export_interval=5)
 
-    assert "sum(increase(calls_total{" in queries[0][0]
+    assert "sum(increase(apm_calls_total{" in queries[0][0]
     assert "[11000ms]" in queries[0][0]
     assert 'project_name="project\\"name"' in queries[0][0]
     assert all(timestamp == 1012 and observed == 17 for _, timestamp, observed in queries)

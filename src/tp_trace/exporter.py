@@ -5,9 +5,28 @@ unreachable collectors, DNS failures, timeouts) NEVER crash or disrupt the host 
 """
 
 import logging
+import os
+import threading
 import time
-from typing import Any, Optional
-from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from typing import Any, Dict, Optional
+from opentelemetry.context import attach, detach, set_value
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
+)
+
+try:
+    from opentelemetry.sdk.trace.export import _BSP_RESET_ONCE  # type: ignore[attr-defined]
+except ImportError:
+    _BSP_RESET_ONCE = None  # type: ignore
+
+try:
+    from opentelemetry.sdk.trace.export import _SUPPRESS_INSTRUMENTATION_KEY
+except ImportError:
+    _SUPPRESS_INSTRUMENTATION_KEY = "suppress_instrumentation"
 
 from tp_trace.normalize import normalize_span_attributes
 
@@ -71,6 +90,123 @@ class SafeSpanExporter(SpanExporter):
             return self._exporter.force_flush(timeout_millis)
         except Exception:
             return False
+
+
+def batch_export_options() -> Dict[str, int]:
+    """Keep bounded defaults while honoring standard OTel queue tuning knobs."""
+    options = {}
+    for key, env, default in (
+        ("max_queue_size", "OTEL_BSP_MAX_QUEUE_SIZE", 2048),
+        ("max_export_batch_size", "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", 256),
+        ("schedule_delay_millis", "OTEL_BSP_SCHEDULE_DELAY", 1000),
+    ):
+        try:
+            value = int(os.environ.get(env, default))
+            if value <= 0:
+                raise ValueError("must be positive")
+        except (TypeError, ValueError):
+            logger.warning("tp_trace: Invalid %s; using %s", env, default)
+            value = default
+        options[key] = value
+    options["max_export_batch_size"] = min(options["max_export_batch_size"], options["max_queue_size"])
+    return options
+
+
+class AllSpansBatchSpanProcessor(BatchSpanProcessor):
+    """BatchSpanProcessor that emits all ended spans to the batch exporter.
+
+    Standard BatchSpanProcessor drops spans where not (span.context and span.context.trace_flags.sampled).
+    To support sampling-independent RED metrics in the OpenTelemetry Collector via spanmetrics,
+    this processor forwards both sampled spans and RECORD_ONLY unsampled spans.
+    The Collector aggregates 100% of finished spans into golden signals and statelessly drops
+    unsampled spans before exporting traces to Tempo.
+    """
+
+    def _warn_queue_failure(self, reason: Any) -> None:
+        if not getattr(self, "_queue_failure_warned", False):
+            self._queue_failure_warned = True
+            logger.warning(
+                "tp_trace: Unable to queue all recording spans (%s); RED metrics may undercount. "
+                "Check Collector availability, export throughput, and SDK compatibility.",
+                reason,
+            )
+
+    def _restart_legacy_worker_after_fork(self) -> None:
+        """Rebuild known deque-worker state if the SDK has no reset hook.
+
+        Reusing an inherited Condition can deadlock the child; its parent's
+        worker thread also does not survive fork. Unknown layouts fail safely
+        through on_end's warning rather than touching inherited locks.
+        """
+        queue: Any = getattr(self, "queue", None)
+        worker = getattr(self, "worker", None)
+        if not hasattr(queue, "appendleft") or not callable(worker):
+            raise RuntimeError("Unsupported legacy batch worker after fork")
+        self.condition = threading.Condition(threading.Lock())
+        queue.clear()
+        self.worker_thread = threading.Thread(name="OtelBatchSpanProcessor", target=worker, daemon=True)
+        self._pid = os.getpid()
+        self.worker_thread.start()
+
+    def on_end(self, span: ReadableSpan) -> None:
+        # Both compatibility paths are fail-safe: processor failures must not
+        # escape span.end() into application code.
+        try:
+            if getattr(self, "done", False):
+                return
+            if hasattr(self, "_batch_processor"):
+                self._batch_processor.emit(span)
+                return
+
+            # OTel SDK 1.20–1.33: isolate private deque/fork integration here.
+            if hasattr(self, "_pid") and self._pid != os.getpid():
+                reset = getattr(self, "_at_fork_reinit", None)
+                if reset is None:
+                    self._restart_legacy_worker_after_fork()
+                elif _BSP_RESET_ONCE is not None:
+                    _BSP_RESET_ONCE.do_once(reset)
+                else:
+                    reset()
+
+            q: Any = getattr(self, "queue", None)
+            if hasattr(q, "appendleft"):
+                if len(q) == getattr(self, "max_queue_size"):
+                    self._spans_dropped = True
+                    self._warn_queue_failure("bounded export queue is full")
+                q.appendleft(span)
+                if hasattr(self, "condition") and len(q) >= getattr(self, "max_export_batch_size"):
+                    with self.condition:
+                        self.condition.notify()
+            elif hasattr(q, "put_nowait"):
+                q.put_nowait(span)
+            else:
+                # Upstream on_end silently rejects RECORD_ONLY spans. Do not
+                # pretend that fallback preserves full-population metrics.
+                self._warn_queue_failure("unsupported OpenTelemetry batch queue")
+        except Exception as exc:
+            self._warn_queue_failure(type(exc).__name__)
+
+
+class AllSpansSimpleSpanProcessor(SimpleSpanProcessor):
+    """SimpleSpanProcessor that exports all ended spans synchronously."""
+
+    def on_end(self, span: ReadableSpan) -> None:
+        if getattr(self, "_shutdown", False):
+            return
+        token = attach(set_value(_SUPPRESS_INSTRUMENTATION_KEY, True))
+        try:
+            self.span_exporter.export((span,))
+        except Exception as exc:
+            logger.debug("tp_trace: Exception while exporting span: %s", exc)
+        finally:
+            if hasattr(self, "_metrics") and hasattr(self._metrics, "finish_items"):
+                try:
+                    finish_fn = getattr(self._metrics, "finish_items")
+                    finish_fn(1)
+                except Exception:
+                    pass
+            detach(token)
+
 
 
 try:

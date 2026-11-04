@@ -29,16 +29,6 @@
   "links": [
     {
       "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "A/B Comparison (Old vs Fixed)",
-      "type": "link",
-      "url": "/d/tp-trace-collector-comparison"
-    },
-    {
-      "asDropdown": false,
       "icon": "arrow-left",
       "includeVars": true,
       "keepTime": true,
@@ -56,16 +46,6 @@
       "title": "Needs Attention",
       "type": "link",
       "url": "/d/tp-trace-needs-attention"
-    },
-    {
-      "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "Django Overview",
-      "type": "link",
-      "url": "/d/generic-service-overview?var-service=django"
     },
     {
       "asDropdown": false,
@@ -831,7 +811,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum by (net_host_name, collector_alias) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) or rate(calls_total{normalized_operation=\"__other__\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
+          "expr": "sum by (net_host_name, collector_alias) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) or rate(apm_calls_total{normalized_operation=\"__other__\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
           "format": "table",
           "instant": true,
           "range": false,
@@ -1525,7 +1505,7 @@
       },
       "id": 400,
       "panels": [],
-      "title": "Application Cardinality Safeguards & Limits",
+      "title": "Service Cardinality & Collector Safeguards",
       "type": "row"
     },
     {
@@ -1533,7 +1513,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Shows distinct HTTP route templates and service operations against per-worker budgets. Current Count is the maximum tracked count across workers; Active Overflow is the total count of observations grouped into __other__.",
+      "description": "Current Cardinality counts non-overflow RED label combinations visible in Prometheus for each service across the selected projects. Total Cap is the shared 5,000-combination cap per Collector resource, not an independent service allowance or a combined project cap. Overflow Count estimates SDK repeated-query grouping observations in the selected time range, including initial exports. Collector overflow loses service labels and cannot be attributed to these rows. Only services with telemetry are shown.",
       "fieldConfig": {
         "defaults": {
           "noValue": "0"
@@ -1551,28 +1531,28 @@
                   {
                     "options": {
                       "aws-s3": {
-                        "text": "AWS S3 Storage (Boto3)"
+                        "text": "Boto"
                       },
                       "boto3": {
-                        "text": "AWS S3 Storage (Boto3)"
+                        "text": "Boto"
                       },
                       "boto": {
-                        "text": "AWS S3 Storage (Boto3)"
+                        "text": "Boto"
                       },
                       "s3": {
-                        "text": "AWS S3 Storage"
+                        "text": "Boto"
                       },
                       "celery": {
-                        "text": "Celery Worker"
+                        "text": "Celery"
                       },
                       "django": {
-                        "text": "Django Web Application"
+                        "text": "Django"
                       },
                       "postgres": {
-                        "text": "PostgreSQL Database"
+                        "text": "PostgreSQL"
                       },
                       "redis": {
-                        "text": "Redis Cache"
+                        "text": "Redis"
                       },
                       "all": {
                         "text": "All services"
@@ -1587,109 +1567,12 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Tracked Resource"
-            },
-            "properties": [
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "all:route": {
-                        "text": "HTTP route templates"
-                      },
-                      "postgres:operation": {
-                        "text": "SQL query patterns"
-                      },
-                      "django:operation": {
-                        "text": "Request operations / handlers"
-                      },
-                      "redis:operation": {
-                        "text": "Redis command patterns"
-                      },
-                      "celery:operation": {
-                        "text": "Celery task operations"
-                      },
-                      "aws-s3:operation": {
-                        "text": "S3 (Boto3) operations"
-                      },
-                      "boto3:operation": {
-                        "text": "S3 (Boto3) operations"
-                      },
-                      "boto:operation": {
-                        "text": "S3 (Boto3) operations"
-                      },
-                      "s3:operation": {
-                        "text": "S3 operations"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": ".*:operation$",
-                      "result": {
-                        "text": "Service operations"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": ".*:metric_series$",
-                      "result": {
-                        "text": "Metric label combinations"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": ".*:repeated_queries$",
-                      "result": {
-                        "text": "Affected-request label combinations"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": ".*:service$",
-                      "result": {
-                        "text": "Service names"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": ".*:route$",
-                      "result": {
-                        "text": "HTTP route templates"
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Budget Used"
+              "options": "Overflow Count"
             },
             "properties": [
               {
                 "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge"
-                }
+                "value": "none"
               },
               {
                 "id": "thresholds",
@@ -1701,50 +1584,15 @@
                       "value": null
                     },
                     {
-                      "color": "#f59e0b",
-                      "value": 75
-                    },
-                    {
-                      "color": "#ef4444",
-                      "value": 95
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total Overflow"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "transparent",
-                      "value": null
-                    },
-                    {
-                      "color": "#f59e0b",
+                      "color": "yellow",
                       "value": 1
                     }
                   ]
                 }
+              },
+              {
+                "id": "decimals",
+                "value": 0
               }
             ]
           }
@@ -1763,7 +1611,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Total Overflow"
+            "displayName": "Current Cardinality"
           }
         ]
       },
@@ -1774,7 +1622,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((label_replace((((max by (normalized_service) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"operation\", normalized_service!~\"__other__\"})) > (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))) or (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))), \"scope\", \"operation\", \"\", \".*\") or (max by (normalized_service, scope) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"route\", normalized_service!~\"__other__\"}))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "count by (normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"})",
           "format": "table",
           "instant": true,
           "refId": "Tracked"
@@ -1785,7 +1633,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"})), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "(0 * count by (normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"})) + 5000",
           "format": "table",
           "instant": true,
           "refId": "Limit"
@@ -1796,24 +1644,13 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_join((100 * (label_replace((((max by (normalized_service) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"operation\", normalized_service!~\"__other__\"})) > (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))) or (count by (normalized_service) (count by (normalized_service, normalized_operation) (calls_total{collector_alias=~\"(${instance:pipe})\", normalized_operation!~\"__other__\"})))), \"scope\", \"operation\", \"\", \".*\") or (max by (normalized_service, scope) (apm_cardinality_tracked{collector_alias=~\"(${instance:pipe})\", scope=\"route\", normalized_service!~\"__other__\"})))) / (max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"})), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
+          "expr": "round(sum by (normalized_service) ((last_over_time(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__range]) and (resets(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__range]) == 0) unless (apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"} offset $__range)) or increase(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\"}[$__range]))) or (0 * count by (normalized_service) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}))",
           "format": "table",
           "instant": true,
-          "refId": "UsagePct"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "label_join(((sum by (normalized_service, scope) (apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"})) or (0 * max by (normalized_service, scope) (apm_cardinality_limit{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"} or apm_cardinality_limit_ratio{collector_alias=~\"(${instance:pipe})\", scope=~\"route|operation\", normalized_service!~\"__other__\"}))), \"tracked_resource\", \":\", \"normalized_service\", \"scope\")",
-          "format": "table",
-          "instant": true,
-          "refId": "GroupedRate"
+          "refId": "GroupedTotal"
         }
       ],
-      "title": "Application Cardinality Safeguards & Overflow Status",
+      "title": "Service Cardinality & Overflow",
       "transformations": [
         {
           "id": "merge",
@@ -1823,30 +1660,19 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true,
-              "scope": true
+              "Time": true
             },
             "indexByName": {
-              "Budget Cap": 3,
-              "Budget Used": 4,
-              "Current Count": 2,
-              "Service": 0,
-              "Total Overflow": 5,
-              "Tracked Resource": 1,
-              "Value #GroupedRate": 5,
-              "Value #Limit": 3,
-              "Value #Tracked": 2,
-              "Value #UsagePct": 4,
               "normalized_service": 0,
-              "tracked_resource": 1
+              "Value #Tracked": 1,
+              "Value #Limit": 2,
+              "Value #GroupedTotal": 3
             },
             "renameByName": {
-              "Value #GroupedRate": "Total Overflow",
-              "Value #Limit": "Budget Cap",
-              "Value #Tracked": "Current Count",
-              "Value #UsagePct": "Budget Used",
               "normalized_service": "Service",
-              "tracked_resource": "Tracked Resource"
+              "Value #Tracked": "Current Cardinality",
+              "Value #Limit": "Total Cap",
+              "Value #GroupedTotal": "Overflow Count"
             }
           }
         }
@@ -4239,7 +4065,7 @@
           "refId": "C"
         }
       ],
-      "title": "Metric Points ${metric:text} (OTLP / legacy)",
+      "title": "Metric Points ${metric:text} (OTLP)",
       "type": "timeseries"
     },
     {
@@ -8200,32 +8026,34 @@
   "templating": {
     "list": [
       {
+        "allValue": ".*",
         "current": {
           "selected": true,
-          "text": "production",
-          "value": "production"
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "_IY366MMk"
+        },
+        "definition": "label_values({__name__=~\"apm_calls_total|apm_cardinality_grouping_total\",project_name!=\"\"}, project_name)",
+        "description": "Filters the application cardinality tables. Collector infrastructure panels use the Collector filter.",
         "hide": 0,
-        "includeAll": false,
-        "label": "Environment",
-        "multi": false,
-        "name": "environment",
-        "options": [
-          {
-            "selected": true,
-            "text": "production",
-            "value": "production"
-          },
-          {
-            "selected": false,
-            "text": "staging",
-            "value": "staging"
-          }
-        ],
-        "query": "production,staging",
-        "queryValue": "",
+        "includeAll": true,
+        "label": "Project",
+        "multi": true,
+        "name": "project",
+        "options": [],
+        "query": "label_values({__name__=~\"apm_calls_total|apm_cardinality_grouping_total\",project_name!=\"\"}, project_name)",
+        "refresh": 2,
+        "regex": "",
         "skipUrlSync": false,
-        "type": "custom"
+        "sort": 1,
+        "type": "query"
       },
       {
         "allValue": ".*",
@@ -8281,7 +8109,8 @@
         "regex": "/.*{.*job=\"([a-zA-Z0-9_\\/-]+)\".*}/",
         "regexApplyTo": "value",
         "sort": 1,
-        "type": "query"
+        "type": "query",
+        "hide": 2
       },
       {
         "allowCustomValue": true,
@@ -8307,7 +8136,8 @@
         ],
         "query": "Rate : rate, Count : increase",
         "type": "custom",
-        "valuesFormat": "csv"
+        "valuesFormat": "csv",
+        "hide": 2
       },
       {
         "auto": true,
@@ -8344,7 +8174,8 @@
         ],
         "query": "10s,30s,1m,5m",
         "refresh": 2,
-        "type": "interval"
+        "type": "interval",
+        "hide": 2
       },
       {
         "allValue": ".*",
@@ -8453,7 +8284,8 @@
         ],
         "query": "None (basic metrics) :  , By transport (detailed metrics) : \\,transport, By service_instance_id : \\,service_instance_id, By service.instance.id : \\,\"service.instance.id\"",
         "type": "custom",
-        "valuesFormat": "csv"
+        "valuesFormat": "csv",
+        "hide": 2
       },
       {
         "allowCustomValue": true,
@@ -8466,7 +8298,8 @@
         "filters": [],
         "label": "Ad Hoc",
         "name": "adhoc",
-        "type": "adhoc"
+        "type": "adhoc",
+        "hide": 2
       },
       {
         "allowCustomValue": true,

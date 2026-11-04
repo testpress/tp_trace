@@ -141,11 +141,11 @@ def run_benchmark(
     def value(expr):
         return metric_value(query_prometheus(prom_url, expr, evaluation_time))
 
-    calls = value(f"sum(increase(calls_total{{{selector}}}[{window}]))")
+    calls = value(f"sum(increase(apm_calls_total{{{selector}}}[{window}]))")
     server_rps = calls / elapsed if calls is not None else None
     ratio = calls / requests * 100 if calls is not None and requests > 0 else None
-    p50 = value(f"histogram_quantile(0.50, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))")
-    p95 = value(f"histogram_quantile(0.95, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))")
+    p50 = value(f"histogram_quantile(0.50, sum by (le) (rate(apm_duration_milliseconds_bucket{{{selector}}}[{window}])))")
+    p95 = value(f"histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{{{selector}}}[{window}])))")
     print(f"APPROXIMATE BENCHMARK ({elapsed:.2f}s, evaluated at {evaluation_time:.3f})")
     print(
         format_table(
@@ -176,9 +176,9 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     def value(expr):
         return metric_value(query_prometheus(prom_url, expr, evaluation_time))
 
-    calls = value(f"sum(increase(calls_total{{{selector}}}[{window}]))")
-    rps = value(f"sum(rate(calls_total{{{selector}}}[{window}]))")
-    errors = value(f'sum(increase(calls_total{{{selector}, error="true"}}[{window}]))')
+    calls = value(f"sum(increase(apm_calls_total{{{selector}}}[{window}]))")
+    rps = value(f"sum(rate(apm_calls_total{{{selector}}}[{window}]))")
+    errors = value(f'sum(increase(apm_calls_total{{{selector}, error="true"}}[{window}]))')
     print(f"RED METRICS OBSERVATIONS ({project_name}, Prometheus window {window})")
     print("Locust run totals and percentiles cover a different interval; no match percentage is inferred.")
     rows = [
@@ -192,13 +192,13 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
         (0.99, "response_time_percentile_0.99"),
     ]:
         latency = value(
-            f"histogram_quantile({quantile}, sum by (le) (rate(duration_milliseconds_bucket{{{selector}}}[{window}])))"
+            f"histogram_quantile({quantile}, sum by (le) (rate(apm_duration_milliseconds_bucket{{{selector}}}[{window}])))"
         )
         rows.append([f"P{int(quantile * 100)}", display(client.get(key), " ms"), display(latency, " ms")])
     print(format_table(["Metric", "Locust run", f"Prometheus [{window}] estimate"], rows))
     routes = query_prometheus(
         prom_url,
-        f"sum by (http_method, http_route) (increase(calls_total{{{selector}}}[{window}]))",
+        f"sum by (http_method, http_route) (increase(apm_calls_total{{{selector}}}[{window}]))",
         evaluation_time,
     )
     rows = match_endpoints(locust.get("stats", []), routes)

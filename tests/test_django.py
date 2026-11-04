@@ -1070,15 +1070,16 @@ def test_load_middleware_ensures_otel_middleware_at_position_zero():
         settings.MIDDLEWARE = orig_mw
 
 
-def test_django_view_tag_survives_on_request_metrics_with_zero_sampling():
-    """A tag set inside a real Django view survives on request metrics with trace sampling zero."""
-    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+def test_django_view_tag_survives_on_request_span_with_zero_sampling():
+    """A tag set inside a real Django view survives on request spans with trace sampling zero."""
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-    reader = InMemoryMetricReader()
+    exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="django-metric-test",
         sample_rate=0.0,
-        metric_readers=[reader],
+        exporter=exporter,
+        export_batch=False,
     )
 
     from django.core.handlers.wsgi import WSGIHandler
@@ -1092,26 +1093,12 @@ def test_django_view_tag_survives_on_request_metrics_with_zero_sampling():
     response = handler.get_response(request)
     assert response.status_code == 200
 
-    metric_data = reader.get_metrics_data()
-    assert metric_data is not None
-
-    calls = []
-    durations = []
-    for rm in metric_data.resource_metrics:
-        for sm in rm.scope_metrics:
-            for m in sm.metrics:
-                if m.name == "calls_total":
-                    for dp in m.data.data_points:
-                        calls.append(dp)
-                elif m.name == "duration_milliseconds":
-                    for dp in m.data.data_points:
-                        durations.append(dp)
-
-    assert len(calls) == 1
-    assert calls[0].value == 1
-    assert calls[0].attributes["deployment_group"] == "blue"
-    assert calls[0].attributes["http.route"] == "/test/tagged/"
-
-    assert len(durations) == 1
-    assert durations[0].count == 1
-    assert durations[0].attributes["deployment_group"] == "blue"
+    spans = exporter.get_finished_spans()
+    server_spans = [s for s in spans if s.kind == SpanKind.SERVER]
+    assert len(server_spans) == 1
+    span = server_spans[0]
+    # Spans are exported as RECORD_ONLY (flags == 0) for Collector spanmetrics
+    assert span.context.trace_flags.sampled is False
+    assert span.attributes["tp_trace.metric.deployment_group"] == "blue"
+    assert span.attributes.get("http.route_template") == "/test/tagged/"
+    assert "/test/tagged/" in span.attributes["http.route"]

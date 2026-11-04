@@ -792,3 +792,221 @@ def test_init_configures_composite_propagator():
         assert isinstance(prop, CompositePropagator)
     finally:
         tp_trace._reset_for_testing()
+
+
+def test_all_spans_batch_span_processor_exports_unsampled_spans():
+    """Verify AllSpansBatchSpanProcessor exports unsampled RECORD_ONLY spans on batch flush."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+    from tp_trace.sampler import TpTraceRuleBasedSampler
+
+    memory_exporter = InMemorySpanExporter()
+    processor = AllSpansBatchSpanProcessor(
+        memory_exporter,
+        schedule_delay_millis=10000,
+    )
+    sampler = TpTraceRuleBasedSampler(global_sample_rate=0.0)
+    provider = TracerProvider(sampler=sampler)
+    provider.add_span_processor(processor)
+
+    tracer = provider.get_tracer("batch.unsampled.test")
+    with tracer.start_as_current_span("unsampled_batch_operation") as span:
+        span.set_attribute("http.method", "GET")
+        span.set_attribute("http.route", "/api/test/")
+
+    assert span.get_span_context().trace_flags.sampled is False
+
+    flushed = processor.force_flush()
+    assert flushed is True
+
+    exported = memory_exporter.get_finished_spans()
+    assert len(exported) == 1
+    assert exported[0].name == "unsampled_batch_operation"
+    assert exported[0].get_span_context().trace_flags.sampled is False
+    assert exported[0].attributes["http.route"] == "/api/test/"
+    processor.shutdown()
+
+
+def test_all_spans_batch_span_processor_older_otel_queue_fallback():
+    """Verify AllSpansBatchSpanProcessor fallback for older OTel SDKs using deque or queue."""
+    import collections
+    import queue
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from opentelemetry.sdk.trace import ReadableSpan, SpanContext
+    from opentelemetry.trace import TraceFlags
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+
+    memory_exporter = InMemorySpanExporter()
+    processor = AllSpansBatchSpanProcessor(memory_exporter)
+
+    processor.shutdown()
+    processor.done = False
+    processor.max_queue_size = 10
+    processor.max_export_batch_size = 5
+
+    # Test collections.deque fallback (OTel 1.20 - 1.33)
+    if hasattr(processor, "_batch_processor"):
+        delattr(processor, "_batch_processor")
+    mock_deque: collections.deque = collections.deque([], 10)
+    processor.queue = mock_deque
+
+    span = ReadableSpan(
+        name="older_otel_deque_span",
+        context=SpanContext(trace_id=1, span_id=1, is_remote=False, trace_flags=TraceFlags(0)),
+    )
+    processor.on_end(span)
+
+    assert len(mock_deque) == 1
+    assert mock_deque[0].name == "older_otel_deque_span"
+
+    # Test queue.Queue fallback
+    mock_queue: queue.Queue = queue.Queue(maxsize=10)
+    processor.queue = mock_queue
+
+    span2 = ReadableSpan(
+        name="older_otel_queue_span",
+        context=SpanContext(trace_id=2, span_id=2, is_remote=False, trace_flags=TraceFlags(0)),
+    )
+    processor.on_end(span2)
+
+    assert not mock_queue.empty()
+    queued_span = mock_queue.get_nowait()
+    assert queued_span.name == "older_otel_queue_span"
+
+    processor.done = True
+    processor.on_end(span2)
+
+    processor.done = False
+    full_queue: queue.Queue = queue.Queue(maxsize=1)
+    full_queue.put_nowait(span2)
+    processor.queue = full_queue
+    processor.on_end(span2)
+
+
+
+@pytest.mark.parametrize("modern", [False, True])
+def test_all_spans_queue_failures_warn_once_without_breaking_application(modern, caplog):
+    import logging
+    from types import SimpleNamespace
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+
+    processor = object.__new__(AllSpansBatchSpanProcessor)
+
+    def fail(span):
+        raise RuntimeError("queue unavailable")
+
+    if modern:
+        processor._batch_processor = SimpleNamespace(emit=fail)
+    # The legacy object deliberately has no queue: upstream on_end would
+    # silently discard RECORD_ONLY spans if used as a compatibility fallback.
+    with caplog.at_level(logging.WARNING, logger="tp_trace.exporter"):
+        processor.on_end(object())
+        processor.on_end(object())
+    warnings = [record for record in caplog.records if "RED metrics may undercount" in record.message]
+    assert len(warnings) == 1
+
+
+def test_legacy_batch_queue_notifies_worker_and_handles_fork(monkeypatch):
+    import os
+    import threading
+    from collections import deque
+    from tp_trace import exporter
+
+    processor = object.__new__(exporter.AllSpansBatchSpanProcessor)
+    processor.queue = deque(maxlen=2)
+    processor.max_queue_size = 2
+    processor.max_export_batch_size = 1
+    processor.condition = threading.Condition()
+    processor._pid = -1
+    resets = []
+    processor._at_fork_reinit = lambda: resets.append(True)
+    monkeypatch.setattr(exporter, "_BSP_RESET_ONCE", None)
+    # Use a real unsampled span, including the fork-reset and worker wakeup path.
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.trace import SpanContext, TraceFlags
+    span = ReadableSpan("legacy", context=SpanContext(1, 1, False, TraceFlags(0)))
+    processor.on_end(span)
+    assert resets == [True]
+    assert processor.queue[0] is span
+    processor._pid = os.getpid()
+    processor.done = True
+    processor.on_end(span)
+    assert len(processor.queue) == 1
+
+@pytest.mark.parametrize("sample_rate", [0.0, 0.5, 1.0])
+def test_sampling_decision_survives_real_otlp_encoding(sample_rate):
+    """Collector retention must not depend on exporter support for OTLP flags."""
+    from opentelemetry.exporter.otlp.proto.common.trace_encoder import encode_spans
+
+    exporter = InMemorySpanExporter()
+    provider = tp_trace.init(
+        project_name="retention-contract",
+        sample_rate=sample_rate,
+        exporter=exporter,
+        export_batch=True,
+        auto_patch=False,
+        metrics_enabled=False,
+    )
+    tracer = provider.get_tracer("retention-contract")
+    decisions = {}
+    for i in range(100):
+        with tracer.start_as_current_span("request-{}".format(i)) as span:
+            decisions[span.name] = span.get_span_context().trace_flags.sampled
+    assert provider.force_flush()
+    encoded = encode_spans(exporter.get_finished_spans())
+    spans = [s for r in encoded.resource_spans for scope in r.scope_spans for s in scope.spans]
+    assert len(spans) == 100
+    for span in spans:
+        attributes = {a.key: a.value for a in span.attributes}
+        assert "tp_trace.sampled" in attributes
+        assert attributes["tp_trace.sampled"].bool_value == decisions[span.name]
+    if sample_rate == 0.0:
+        assert not any(decisions.values())
+    elif sample_rate == 1.0:
+        assert all(decisions.values())
+    else:
+        assert any(decisions.values()) and not all(decisions.values())
+
+
+@pytest.mark.parametrize("queue,batch,delay,expected", [
+    ("8192", "512", "500", (8192, 512, 500)),
+    ("10", "256", "1000", (10, 10, 1000)),
+    ("invalid", "-1", "0", (2048, 256, 1000)),
+])
+def test_batch_export_settings_are_bounded_and_configurable(monkeypatch, queue, batch, delay, expected):
+    from tp_trace.exporter import batch_export_options
+
+    for name, value in zip(
+        ("OTEL_BSP_MAX_QUEUE_SIZE", "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "OTEL_BSP_SCHEDULE_DELAY"),
+        (queue, batch, delay),
+    ):
+        monkeypatch.setenv(name, value)
+    options = batch_export_options()
+    assert (options["max_queue_size"], options["max_export_batch_size"], options["schedule_delay_millis"]) == expected
+
+
+def test_legacy_missing_fork_hook_restarts_worker_without_losing_new_spans():
+    """Exercise the real deque SDK after its worker has stopped, as after fork."""
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from opentelemetry.trace import SpanContext, TraceFlags
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+
+    exporter = InMemorySpanExporter()
+    processor = AllSpansBatchSpanProcessor(exporter, schedule_delay_millis=10000)
+    processor.shutdown()
+    if hasattr(processor, "_batch_processor"):
+        pytest.skip("Requires the real deque SDK (tested with OpenTelemetry 1.33.1)")
+    exporter = InMemorySpanExporter()
+    processor.span_exporter = exporter
+    processor.done = False
+    processor._pid = -1
+    processor._at_fork_reinit = None
+    span = ReadableSpan("child-unsampled", context=SpanContext(1, 1, False, TraceFlags(0)))
+    try:
+        processor.on_end(span)
+        assert processor.force_flush(timeout_millis=1000)
+        assert [s.name for s in exporter.get_finished_spans()] == ["child-unsampled"]
+    finally:
+        processor.shutdown()
