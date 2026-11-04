@@ -30,6 +30,7 @@ WORKER_ID=0
 # Service selection flags
 BURST_MODE=0
 BURST_SIZE=50
+TENANT_COUNT=50
 SERVICE_PRODUCT=0
 SERVICE_REDIS=0
 SERVICE_HTTP=0
@@ -134,6 +135,15 @@ while [[ "$#" -gt 0 ]]; do
     fi
     BURST_SIZE=$((10#$BURST_SIZE))
     BURST_MODE=1
+    shift
+    ;;
+  --tenants)
+    TENANT_COUNT="${2:-}"
+    if [[ ! "$TENANT_COUNT" =~ ^[0-9]{1,9}$ ]] || [ "$((10#$TENANT_COUNT))" -eq 0 ]; then
+      echo "--tenants requires a positive integer (maximum 999999999)" >&2
+      exit 1
+    fi
+    TENANT_COUNT=$((10#$TENANT_COUNT))
     shift
     ;;
 
@@ -402,7 +412,7 @@ run_burst_cycle() {
     fi
 
     local rnd=$((RANDOM % 9000 + 1000))
-    local tenant="X-Tenant-ID: tenant-$((RANDOM % 50 + 1))"
+    local tenant="X-Tenant-ID: tenant-$((RANDOM % TENANT_COUNT + 1))"
     local sel=$(( (i + RANDOM) % 18 ))
 
     case $sel in
