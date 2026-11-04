@@ -61,8 +61,6 @@ connectors:
         default: ""
       - name: normalized.operation
         default: ""
-      - name: institute
-        default: ""
     exclude_dimensions:
       - span.name
     # Stop exporting a resource's metrics once it stops sending spans (e.g. after deploy).
@@ -97,6 +95,14 @@ processors:
       - key: telemetry.sdk.language
         action: delete
       - key: telemetry.sdk.name
+        action: delete
+
+  # Remove tenant resource labels only on metric paths; keep them in Tempo.
+  resource/drop_metric_institute:
+    attributes:
+      - key: institute
+        action: delete
+      - key: institute.subdomain
         action: delete
 
   # Drop internal framework spans from spanmetrics to prevent duplicate RED signals
@@ -217,6 +223,7 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
+        - resource/drop_metric_institute
         - filter/spanmetrics_drop_internal
         - transform/spanmetrics_route
         - transform/spanmetrics_sanitize
@@ -231,6 +238,7 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
+        - resource/drop_metric_institute
         - deltatocumulative
         - batch
       exporters:

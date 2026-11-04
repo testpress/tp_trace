@@ -315,7 +315,8 @@ class RedMetricsRecorder:
         Fail-safe: Any error during recording is safely absorbed and never disrupts
         the host application.
         Strict low-cardinality label allowlist: normalized service, http.route, http.method,
-        project_name, cluster_name, metric_source, worker_id, and optionally institute.
+        project_name, cluster_name, metric_source, and worker_id. Request tags,
+        including institute, remain trace attributes and never split metric series.
         Never emits raw SQL, query text, or trace IDs. ``worker_id`` keeps independent
         process counters from being merged into one reset-prone stream by the Collector.
         The configured cardinality limit admits detailed series independently
@@ -335,12 +336,6 @@ class RedMetricsRecorder:
                 "http.route": str(route),
                 "metric_source": "tp_trace_sdk",
             }
-
-            if extra_attributes:
-                # Strictly allow only institute
-                val = extra_attributes.get("institute")
-                if val is not None:
-                    attributes["institute"] = str(val)
 
             # Counter streams from forked workers must remain distinct. The dashboard
             # sums across this bounded identity label when calculating request totals.
@@ -380,7 +375,6 @@ class RedMetricsRecorder:
                             "http.route": "__other__",
                             "metric_source": "tp_trace_sdk",
                             "worker_id": worker_identity,
-                            "institute": "__other__",
                         }
             self.repeated_query_affected_requests_total.add(1, attributes)
         except Exception as exc:
@@ -467,6 +461,12 @@ def create_red_metrics_recorder(
                 res_attrs["deployment.environment"] = config.environment
         resource = Resource.create(res_attrs)
 
+    # Institute tags stay on traces but must not split SDK metric resources.
+    resource = Resource(
+        {key: value for key, value in resource.attributes.items()
+         if key not in {"institute", "institute.subdomain"}},
+        schema_url=resource.schema_url,
+    )
     provider = MeterProvider(
         resource=resource,
         metric_readers=readers,

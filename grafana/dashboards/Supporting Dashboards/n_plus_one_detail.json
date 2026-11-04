@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Investigate repeated database query candidates for a Django endpoint. Prometheus reports affected request count and rate; sampled Tempo traces provide example query shapes and timing.",
+  "description": "Investigate repeated database query candidates for a Django endpoint. Prometheus reports affected request count and rate; sampled Tempo traces provide example query shapes and timing. Metrics aggregate all institutes; Trace institute filters only stored trace evidence.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -74,7 +74,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "round(sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or vector(0))",
+          "expr": "round(sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or vector(0))",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -142,7 +142,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "round(sum((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\", institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\", institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\", institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\", institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]))) or vector(0)",
+          "expr": "round(sum((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]))) or vector(0)",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -214,7 +214,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "100 * (sum((last_over_time(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range])) or vector(0)) / clamp_min(sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1)",
+          "expr": "100 * (sum((last_over_time(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range])) or vector(0)) / clamp_min(sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1)",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -285,7 +285,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 20,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (\"${institute:raw}\" = \".*\" || resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -333,7 +333,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 1,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (\"${institute:raw}\" = \".*\" || resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -582,7 +582,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 10,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (\"${institute:raw}\" = \".*\" || resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -728,31 +728,18 @@
         "type": "datasource"
       },
       {
-        "allValue": ".*",
+        "name": "institute",
+        "label": "Trace institute",
+        "type": "textbox",
+        "hide": 0,
+        "query": ".*",
         "current": {
           "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "text": ".*",
+          "value": ".*"
         },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "_IY366MMk"
-        },
-        "definition": "label_values({__name__=~\"apm_calls_total|apm_repeated_query_affected_requests_total\"}, institute)",
-        "hide": 0,
-        "includeAll": true,
-        "label": "Institute",
-        "multi": true,
-        "name": "institute",
         "options": [],
-        "query": "label_values({__name__=~\"apm_calls_total|apm_repeated_query_affected_requests_total\"}, institute)",
-        "refresh": 1,
-        "sort": 1,
-        "type": "query"
+        "description": "Trace-only institute filter. Enter a subdomain, or .* for all institutes. Metric panels always aggregate all institutes."
       },
       {
         "allValue": ".*",
@@ -769,14 +756,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\"}, project_name)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{}, project_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Project",
         "multi": true,
         "name": "project",
         "options": [],
-        "query": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\"}, project_name)",
+        "query": "label_values(apm_repeated_query_affected_requests_total{}, project_name)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -796,14 +783,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\"}, cluster_name)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\"}, cluster_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Cluster",
         "multi": true,
         "name": "cluster",
         "options": [],
-        "query": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\"}, cluster_name)",
+        "query": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\"}, cluster_name)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -825,8 +812,8 @@
         "multi": false,
         "name": "service",
         "options": [],
-        "query": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
-        "definition": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "query": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\"}, normalized_service)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -848,8 +835,8 @@
         "multi": false,
         "name": "route",
         "options": [],
-        "query": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\"}, http_route)",
-        "definition": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\"}, http_route)",
+        "query": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\"}, http_route)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\"}, http_route)",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -865,14 +852,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
+        "definition": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
         "hide": 0,
         "includeAll": true,
         "label": "Method",
         "multi": false,
         "name": "method",
         "options": [],
-        "query": "label_values(apm_repeated_query_affected_requests_total{institute=~\"${institute:regex}\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
+        "query": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", http_route=\"${route:raw}\"}, http_method)",
         "refresh": 1,
         "sort": 1,
         "type": "query"

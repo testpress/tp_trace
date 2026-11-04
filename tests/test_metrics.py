@@ -651,7 +651,7 @@ class _DummyInstitute:
 
 
 def test_institute_tags_exported_on_server_spans():
-    """Verify dynamic request tags (institute) are attached to server spans for Collector spanmetrics."""
+    """Verify institute tags remain on server spans for Tempo investigation."""
     span_exporter = InMemorySpanExporter()
     tp_trace.init(
         project_name="institute-app",
@@ -853,3 +853,42 @@ def test_owned_metric_export_temporality(monkeypatch, preference):
         assert os.environ.get(key) == preference
     finally:
         recorder.shutdown()
+
+
+def test_metric_resources_exclude_only_institute_without_changing_trace_resources():
+    reader = InMemoryMetricReader()
+    exporter = InMemorySpanExporter()
+    provider = tp_trace.init(
+        project_name="resource-bounds", cluster_name="prod", exporter=exporter,
+        export_batch=False, metric_readers=[reader],
+        tags={"institute": "tenant-a", "institute.subdomain": "tenant-a", "customer_id": "customer-a"},
+        resource_attributes={"request_id": "request-a", "host.name": "app-host"},
+    )
+    recorder = get_metrics_recorder()
+    recorder.record_repeated_query_affected_request(method="GET", route="/items/")
+    data = reader.get_metrics_data()
+    for rm in data.resource_metrics:
+        assert "institute" not in rm.resource.attributes
+        assert "institute.subdomain" not in rm.resource.attributes
+        assert rm.resource.attributes["customer_id"] == "customer-a"
+        assert rm.resource.attributes["request_id"] == "request-a"
+        assert rm.resource.attributes["project_name"] == "resource-bounds"
+        assert rm.resource.attributes["host.name"] == "app-host"
+    with provider.get_tracer("resource-bounds-test").start_as_current_span("trace"):
+        pass
+    resource = exporter.get_finished_spans()[-1].resource.attributes
+    assert resource["institute"] == "tenant-a"
+    assert resource["customer_id"] == "customer-a"
+    assert resource["request_id"] == "request-a"
+
+
+def test_cardinality_diagnostic_services_remain_bounded():
+    reader = InMemoryMetricReader()
+    tp_trace.init(project_name="diagnostic-bounds", metric_readers=[reader], export_batch=False)
+    recorder = get_metrics_recorder()
+    for i in range(1000):
+        recorder.record_cardinality_grouping(service=str(i), scope=str(i), cause=str(i))
+    points = _get_metric_data_points(reader, "apm_cardinality_grouping_total")
+    assert len(points) == 65  # 64 admitted service names and a shared overflow.
+    assert sum(p.value for p in points) == 1000
+    assert all(p.attributes["scope"] == p.attributes["cause"] == "unknown" for p in points)

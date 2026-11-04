@@ -159,7 +159,7 @@ def test_collector_spanmetrics_pipeline_and_filters():
     assert metrics["receivers"] == ["otlp"]
     assert metrics["exporters"] == ["spanmetrics"]
     assert metrics["processors"] == [
-        "memory_limiter", "resource/drop_ephemeral", "filter/spanmetrics_drop_internal",
+        "memory_limiter", "resource/drop_ephemeral", "resource/drop_metric_institute", "filter/spanmetrics_drop_internal",
         "transform/spanmetrics_route", "transform/spanmetrics_sanitize", "batch",
     ]
     assert "filter/drop_unsampled" not in metrics["processors"]
@@ -172,7 +172,7 @@ def test_collector_spanmetrics_pipeline_and_filters():
     assert connector["metrics_expiration"] == connector["series_expiration"] == "5m"
     assert connector["aggregation_cardinality_limit"] == 5000
     assert "span.name" in connector["exclude_dimensions"]
-    assert "institute" in [dimension["name"] for dimension in connector["dimensions"]]
+    assert "institute" not in [dimension["name"] for dimension in connector["dimensions"]]
     assert cfg["processors"]["filter/spanmetrics_drop_internal"]["trace_conditions"] == [
         "span.kind == SPAN_KIND_INTERNAL",
     ]
@@ -288,3 +288,18 @@ def test_dashboards_only_query_collector_red_metrics():
         for _, target in _all_targets(json.loads(text)):
             if "apm_calls_total" in target.get("expr", ""):
                 assert "span_name" not in target["expr"], path
+
+
+def test_institute_is_trace_only_and_does_not_filter_metric_queries():
+    for path in DASHBOARDS.rglob("*.json"):
+        dashboard = json.loads(path.read_text())
+        for _, target in _all_targets(dashboard):
+            expr = target.get("expr", "")
+            assert "institute" not in expr, path
+        for variable in dashboard.get("templating", {}).get("list", []):
+            if variable["name"] == "institute":
+                assert variable["type"] == "textbox"
+                assert variable["label"] == "Trace institute"
+    cfg = __import__("yaml").safe_load((ROOT / "config/otel-collector.yaml").read_text())
+    assert "resource/drop_metric_institute" not in cfg["service"]["pipelines"]["traces"]["processors"]
+    assert "resource/drop_metric_institute" in cfg["service"]["pipelines"]["metrics"]["processors"]
