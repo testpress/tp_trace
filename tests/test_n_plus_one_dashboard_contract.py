@@ -302,3 +302,24 @@ def test_institute_is_trace_only_and_does_not_filter_metric_queries():
     cfg = __import__("yaml").safe_load((ROOT / "config/otel-collector.yaml").read_text())
     assert "resource/drop_metric_institute" not in cfg["service"]["pipelines"]["traces"]["processors"]
     assert "resource/drop_metric_institute" in cfg["service"]["pipelines"]["metrics"]["processors"]
+
+
+def test_celery_dashboard_lists_execution_metrics_and_focuses_selected_span():
+    overview = _load("Supporting Dashboards/service_overview.json")
+    operations = next(p for p in overview["panels"] if p["id"] == 9)
+    for target in operations["targets"]:
+        assert 'normalized_service="celery",span_kind="SPAN_KIND_CONSUMER"' in target["expr"]
+        assert 'normalized_service!="celery"' in target["expr"]
+    details = _load("Supporting Dashboards/operation_details.json")
+    panel = next(p for p in details["panels"] if p["id"] == 301)
+    operation = next(v for v in details["templating"]["list"] if v["name"] == "operation")
+    assert 'normalized_service="celery",span_kind="SPAN_KIND_CONSUMER"' in operation["query"]
+    assert "apply_async" not in operation["query"]
+    for transform in panel["transformations"]:
+        if transform["id"] == "organize":
+            assert not transform["options"]["excludeByName"].get("spanID", False)
+    assert any(
+        override["matcher"] == {"id": "byName", "options": "spanID"}
+        and {"id": "custom.hidden", "value": True} in override["properties"]
+        for override in panel["fieldConfig"]["overrides"]
+    )

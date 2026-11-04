@@ -382,10 +382,20 @@ def test_all_explore_urls_expand_to_valid_json():
                         test_v = test_v.replace("${project:regex}", ".*").replace("${cluster:regex}", ".*")
                         test_v = test_v.replace("${method:regex}", "GET").replace("${route:raw}", "/test/")
                         test_v = test_v.replace("${__value.raw}", "1234567890abcdef")
+                        test_v = test_v.replace("${__data.fields.spanID}", "0123456789abcdef")
                         qs = urllib.parse.parse_qs(test_v.split("?")[1])
                         left_json = qs["left"][0]
                         parsed = json.loads(left_json)
-                        assert isinstance(parsed, list), f"Expected list in {p.name}, got {type(parsed)}"
+                        if isinstance(parsed, dict):
+                            assert parsed["datasource"] == "tempo"
+                            assert parsed["queries"][0]["query"] == "1234567890abcdef"
+                            # Older Tempo editors have no standalone Trace ID mode.
+                            # TraceQL recognizes a bare trace ID and fetches the full trace.
+                            assert parsed["queries"][0]["queryType"] == "traceql"
+                            assert parsed["panelsState"]["trace"]["spanId"] == "0123456789abcdef"
+                            assert parsed["range"] == {"from": "now-1h", "to": "now"}
+                        else:
+                            assert isinstance(parsed, list), f"Expected Explore state in {p.name}"
                     else:
                         check_urls(v)
             elif isinstance(obj, list):
@@ -711,3 +721,18 @@ def test_operation_details_has_no_institute_control_or_query_dependency():
     assert "institute" not in {v["name"] for v in dashboard["templating"]["list"]}
     assert "${institute" not in json.dumps(dashboard)
     assert "operation" in {v["name"] for v in dashboard["templating"]["list"]}
+
+
+def test_operation_table_uses_consumer_kind_not_celery_operation_name(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",normalized_operation="renamed.task"'
+    series = [
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="celery",span_kind="SPAN_KIND_PRODUCER"}', "values": "_x20 100x10"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="celery",span_kind="SPAN_KIND_CONSUMER"}', "values": "_x20 3x10"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="other",span_kind="SPAN_KIND_PRODUCER"}', "values": "_x20 5x10"},
+    ]
+    evaluate(
+        tmp_path,
+        expression("Supporting Dashboards/service_overview.json", 9, "B"),
+        series,
+        [{"labels": '{normalized_operation="renamed.task"}', "value": 8}],
+    )
