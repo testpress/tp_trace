@@ -104,7 +104,25 @@ class TenantStorageMiddleware:
         return self.process_response(request, response)
 
     def process_request(self, request):
-        request._tenant_id = request.headers.get("X-Tenant-ID", "default")
+        tenant_id = request.headers.get("X-Tenant-ID") or request.headers.get("X-Institute")
+        if not tenant_id:
+            host = request.get_host().split(":")[0]
+            parts = host.split(".")
+            if len(parts) > 1 and parts[0] not in ("localhost", "127"):
+                tenant_id = parts[0]
+            else:
+                tenant_id = "default"
+
+        request._tenant_id = tenant_id
+
+        class _Institute:
+            def __init__(self, sub):
+                self.subdomain = sub
+
+            def __str__(self):
+                return str(self.subdomain)
+
+        request.institute = _Institute(tenant_id)
         return None
 
     def process_response(self, request, response):
