@@ -239,7 +239,6 @@ def test_repeated_query_metric_cardinality_preserves_counts_and_owners():
             "http.route",
             "metric_source",
             "worker_id",
-            "institute",
         }
 
 
@@ -274,7 +273,7 @@ def test_repeated_query_metric_allowlist():
     assert attrs["http.method"] == "POST"
     assert attrs["http.route"] == "/api/v1/checkout/"
     assert attrs["metric_source"] == "tp_trace_sdk"
-    assert attrs["institute"] == "acme-corp"
+    assert "institute" not in attrs
 
     # Strictly forbidden labels (cardinality explosion prevention):
     assert "forbidden_worker_id" not in attrs
@@ -657,3 +656,21 @@ def test_repeated_query_evaluation_records_same_span_once():
         assert points[0].value == 1
     finally:
         reset_request_db_tracker(token)
+
+
+def test_repeated_query_tenants_and_custom_tags_share_one_series():
+    reader = InMemoryMetricReader()
+    recorder = init_metrics(
+        config=SDKConfig(project_name="tenant-test", cluster_name="prod", metric_cardinality_limit=2),
+        metric_readers=[reader],
+    )
+    for i in range(1200):
+        record_repeated_query_affected_request(
+            method="GET", route="/items/",
+            extra_attributes={"institute": str(i), "request_id": str(i), "user_id": str(i)},
+        )
+    points = _get_metric_data_points(reader, "apm_repeated_query_affected_requests_total")
+    assert len(points) == 1
+    assert points[0].value == 1200
+    assert not {"institute", "request_id", "user_id"}.intersection(points[0].attributes)
+    assert len(recorder._repeated_query_series) == 1
