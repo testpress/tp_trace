@@ -625,6 +625,150 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
+      "description": "Total requests and error rate (RPS) over time for $service $operation",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "req / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hits"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#38bdf8",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef4444",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 204,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))",
+          "legendFormat": "Hits",
+          "range": true,
+          "refId": "A",
+          "exemplar": false,
+          "interval": "1m"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "(sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))",
+          "legendFormat": "Errors",
+          "range": true,
+          "refId": "B",
+          "exemplar": false,
+          "interval": "1m"
+        }
+      ],
+      "title": "Requests/s and Errors/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
       "description": "Multi-percentile latency distribution (p50, p75, p90, p95, p99, p99.9, Max) with Exemplar trace dots linking to Tempo waterfalls Query min step is 1 minute to match the default SDK metrics export cadence; Grafana uses a rate window of at least 4 minutes. Increase the min step if metrics are exported less frequently.",
       "fieldConfig": {
         "defaults": {
@@ -741,8 +885,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
+        "w": 12,
+        "x": 12,
         "y": 9
       },
       "id": 203,

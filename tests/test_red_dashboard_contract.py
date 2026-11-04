@@ -436,7 +436,15 @@ def test_n_plus_one_counts_sparse_workers_and_excludes_colliding_legacy_stream(t
 
 
 @pytest.mark.parametrize(
-    "panel_id,ref,expected", [(201, "A", 1 / 60), (201, "B", 1 / 60), (202, "A", 4), (203, "A", 0.05)]
+    "panel_id,ref,expected",
+    [
+        (201, "A", 1 / 60),
+        (201, "B", 1 / 60),
+        (202, "A", 4),
+        (203, "A", 0.05),
+        (204, "A", 1 / 60),
+        (204, "B", 1 / 60),
+    ],
 )
 def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, expected):
     """Grafana's min step must keep rate windows above the SDK export cadence."""
@@ -471,7 +479,7 @@ def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, exp
     )
 
 
-@pytest.mark.parametrize("panel_id,expected", [(6, 1.25), (7, 20)])
+@pytest.mark.parametrize("panel_id,expected", [(6, 1.25), (7, 20), (10, 1.25)])
 def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected):
     target = panel("Supporting Dashboards/service_overview.json", panel_id)["targets"][0]
     min_step = 60 if target.get("interval") == "1m" else 15

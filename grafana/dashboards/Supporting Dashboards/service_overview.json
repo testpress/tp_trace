@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "tp_trace APM \u2014 Operational overview for Django projects: Golden signal KPIs, trends, interactive endpoint routing table, and backend dependency monitoring.",
+  "description": "tp_trace APM — Operational overview for Django projects: Golden signal KPIs, trends, interactive endpoint routing table, and backend dependency monitoring.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -13,7 +13,7 @@
       "includeVars": true,
       "keepTime": true,
       "targetBlank": false,
-      "title": "\u2190 Back to Service Catalog",
+      "title": "← Back to Service Catalog",
       "type": "link",
       "url": "/d/tp-trace-project-catalog"
     },
@@ -266,7 +266,7 @@
     "auto": true
   },
   "timezone": "browser",
-  "title": "Service Overview \u2014 Latency, Throughput & Errors",
+  "title": "Service Overview — Latency, Throughput & Errors",
   "uid": "generic-service-overview",
   "version": 1016,
   "panels": [
@@ -462,7 +462,7 @@
           "decimals": 2,
           "links": [
             {
-              "title": "\ud83d\udd0d Inspect Error Traces for ${service}",
+              "title": "🔍 Inspect Error Traces for ${service}",
               "url": "/d/generic-service-errors?var-service=${service}&${db_pool:queryparam}&${project:queryparam}&${cluster:queryparam}&${__url_time_range}",
               "targetBlank": true
             }
@@ -530,6 +530,151 @@
         }
       ],
       "title": "Error Rate Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Total requests and error rate (RPS) over time for ${service}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "req / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hits"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#38bdf8",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef4444",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 10,
+      "interval": "10s",
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "(sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or vector(0))",
+          "interval": "1m",
+          "legendFormat": "Hits",
+          "range": true,
+          "refId": "A",
+          "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or vector(0))",
+          "interval": "1m",
+          "legendFormat": "Errors",
+          "range": true,
+          "refId": "B",
+          "exemplar": false
+        }
+      ],
+      "title": "Requests/s and Errors/s",
       "type": "timeseries"
     },
     {
@@ -638,8 +783,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
+        "w": 12,
+        "x": 12,
         "y": 8
       },
       "id": 8,
