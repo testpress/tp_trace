@@ -984,3 +984,29 @@ def test_batch_export_settings_are_bounded_and_configurable(monkeypatch, queue, 
         monkeypatch.setenv(name, value)
     options = batch_export_options()
     assert (options["max_queue_size"], options["max_export_batch_size"], options["schedule_delay_millis"]) == expected
+
+
+def test_legacy_missing_fork_hook_restarts_worker_without_losing_new_spans():
+    """Exercise the real deque SDK after its worker has stopped, as after fork."""
+    from opentelemetry.sdk.trace import ReadableSpan
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from opentelemetry.trace import SpanContext, TraceFlags
+    from tp_trace.exporter import AllSpansBatchSpanProcessor
+
+    exporter = InMemorySpanExporter()
+    processor = AllSpansBatchSpanProcessor(exporter, schedule_delay_millis=10000)
+    processor.shutdown()
+    if hasattr(processor, "_batch_processor"):
+        pytest.skip("Requires the real deque SDK (tested with OpenTelemetry 1.33.1)")
+    exporter = InMemorySpanExporter()
+    processor.span_exporter = exporter
+    processor.done = False
+    processor._pid = -1
+    processor._at_fork_reinit = None
+    span = ReadableSpan("child-unsampled", context=SpanContext(1, 1, False, TraceFlags(0)))
+    try:
+        processor.on_end(span)
+        assert processor.force_flush(timeout_millis=1000)
+        assert [s.name for s in exporter.get_finished_spans()] == ["child-unsampled"]
+    finally:
+        processor.shutdown()

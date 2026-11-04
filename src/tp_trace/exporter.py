@@ -6,6 +6,7 @@ unreachable collectors, DNS failures, timeouts) NEVER crash or disrupt the host 
 
 import logging
 import os
+import threading
 import time
 from typing import Any, Dict, Optional
 from opentelemetry.context import attach, detach, set_value
@@ -130,6 +131,23 @@ class AllSpansBatchSpanProcessor(BatchSpanProcessor):
                 reason,
             )
 
+    def _restart_legacy_worker_after_fork(self) -> None:
+        """Rebuild known deque-worker state if the SDK has no reset hook.
+
+        Reusing an inherited Condition can deadlock the child; its parent's
+        worker thread also does not survive fork. Unknown layouts fail safely
+        through on_end's warning rather than touching inherited locks.
+        """
+        queue: Any = getattr(self, "queue", None)
+        worker = getattr(self, "worker", None)
+        if not hasattr(queue, "appendleft") or not callable(worker):
+            raise RuntimeError("Unsupported legacy batch worker after fork")
+        self.condition = threading.Condition(threading.Lock())
+        queue.clear()
+        self.worker_thread = threading.Thread(name="OtelBatchSpanProcessor", target=worker, daemon=True)
+        self._pid = os.getpid()
+        self.worker_thread.start()
+
     def on_end(self, span: ReadableSpan) -> None:
         # Both compatibility paths are fail-safe: processor failures must not
         # escape span.end() into application code.
@@ -142,8 +160,10 @@ class AllSpansBatchSpanProcessor(BatchSpanProcessor):
 
             # OTel SDK 1.20–1.33: isolate private deque/fork integration here.
             if hasattr(self, "_pid") and self._pid != os.getpid():
-                reset = getattr(self, "_at_fork_reinit")
-                if _BSP_RESET_ONCE is not None:
+                reset = getattr(self, "_at_fork_reinit", None)
+                if reset is None:
+                    self._restart_legacy_worker_after_fork()
+                elif _BSP_RESET_ONCE is not None:
                     _BSP_RESET_ONCE.do_once(reset)
                 else:
                     reset()

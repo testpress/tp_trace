@@ -87,6 +87,7 @@ processors:
         action: delete
       - key: process.pid
         action: delete
+      # This removes only the resource key. N+1 datapoint worker_id must stay.
       - key: worker_id
         action: delete
       - key: telemetry.sdk.version
