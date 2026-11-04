@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-11-04
+
+### Changed
+- Replace native SDK RED aggregation with cumulative Collector spanmetrics (`apm_calls_total` and `apm_duration_milliseconds_*`). Request, error, and duration metrics are calculated before trace-storage filtering; internal framework spans are excluded.
+- Export sampled and `RECORD_ONLY` spans from the SDK. The Collector honors the SDK sampling decision and preserves error spans before sending retained spans to Tempo; no tail sampling is introduced.
+- Move RED cardinality control to the Collector with a 5,000-combination cap per resource aggregation and five-minute metric/series expiration. Remove ephemeral worker resource attributes before RED aggregation while retaining worker identities on SDK diagnostic and N+1 counters.
+- Update Grafana dashboards for Collector-generated RED metrics, service-level cardinality and overflow counts, and service overviews covering all operations with endpoint drill-downs.
+
+### Added
+- Export the existing `db.connection.pool` span attribute as a spanmetrics dimension. PgBouncer catalog rows and detail pages isolate pooled PostgreSQL queries while retaining them in overall PostgreSQL query totals.
+- Add live probes for worker counter identity and PgBouncer metric/trace filtering, extend sampling coverage, and add an export-overhead benchmark.
+- Expand the development sample app with e-commerce, analytics, chaos workflows, and configurable tenant traffic.
+
+### Fixed
+- Preserve selected dashboard filters across navigation without duplicate URL parameters.
+- Finalize aborted Django requests with normalized routes.
+- Recover legacy OpenTelemetry batch workers after fork when the SDK reset hook is missing, and warn on export-queue failures instead of silently undercounting.
+- Derive missing metric error labels from span status while preserving explicit overrides, and normalize modern HTTP response status attributes for RED queries.
+
+---
+
 ## [0.3.0] - 2026-11-02
 
 ### Added
