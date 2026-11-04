@@ -236,7 +236,7 @@ def test_catalog_total_calls_handles_counter_resets(tmp_path):
                             {
                                 "expr": expr,
                                 "eval_time": "60m",
-                                "exp_samples": [{"labels": '{Service="Django"}', "value": 5.05}],
+                                "exp_samples": [{"labels": '{Service="Django"}', "value": 5}],
                             }
                         ],
                     }
