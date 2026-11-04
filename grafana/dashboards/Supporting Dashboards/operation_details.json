@@ -208,14 +208,14 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
+        "definition": "query_result((sum by (normalized_operation) ((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0)",
         "hide": 0,
         "includeAll": false,
         "label": "Operation",
         "multi": false,
         "name": "operation",
         "options": [],
-        "query": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
+        "query": "query_result((sum by (normalized_operation) ((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0)",
         "refresh": 2,
         "regex": "/normalized_operation=\"(.*)\"\\s*\\}/",
         "sort": 1,
@@ -880,8 +880,8 @@
                 "id": "links",
                 "value": [
                   {
-                    "title": "Open trace in Explore",
-                    "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22query%22:%22${__value.raw}%22%7D%5D",
+                    "title": "Open trace at selected span",
+                    "url": "/explore?left={%22datasource%22%3A%22${DS_TEMPO}%22%2C%22queries%22%3A%5B{%22refId%22%3A%22A%22%2C%22query%22%3A%22${__value.raw}%22%2C%22queryType%22%3A%22traceId%22%2C%22datasource%22%3A{%22type%22%3A%22tempo%22%2C%22uid%22%3A%22${DS_TEMPO}%22}}%5D%2C%22range%22%3A{%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22}%2C%22panelsState%22%3A{%22trace%22%3A{%22spanId%22%3A%22${__data.fields.spanID}%22}}}",
                     "targetBlank": true
                   }
                 ]
@@ -1006,6 +1006,18 @@
                 "value": "Command / Statement"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "spanID"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
           }
         ]
       },
@@ -1057,7 +1069,6 @@
           "options": {
             "excludeByName": {
               "traceIdHidden": true,
-              "spanID": true,
               "traceName": true,
               "name": true,
               "traceService": true,
