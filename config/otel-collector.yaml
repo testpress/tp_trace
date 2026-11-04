@@ -53,6 +53,8 @@ connectors:
         default: ""
       - name: db.instance
         default: ""
+      # SDK pool identity is bounded; leave direct connections without this label.
+      - name: db.connection.pool
       - name: error
         default: ""
       - name: normalized.service

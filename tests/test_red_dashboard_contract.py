@@ -628,3 +628,71 @@ def test_cardinality_overflow_is_window_total_including_new_series(tmp_path, pan
     field = "Overflow Count"
     override = next(o for o in item["fieldConfig"]["overrides"] if o["matcher"]["options"] == field)
     assert {p["id"]: p["value"] for p in override["properties"]}["unit"] == "none"
+
+
+def test_pgbouncer_catalog_counts_queries_without_connection_spans(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",db_system="postgresql",db_instance="defaultdb",error="false",span_kind="SPAN_KIND_CLIENT"'
+    series = [
+        {"series": "apm_calls_total{" + labels + "}", "values": "0+60x31"},
+        {"series": "apm_calls_total{" + labels + ',db_connection_pool="pgbouncer"}', "values": "0+120x31"},
+        {"series": "apm_calls_total{" + labels.replace('normalized_service="postgres"', 'normalized_service="pgbouncer"') + ',db_connection_pool="pgbouncer"}', "values": "0+5x31"},
+    ]
+    evaluate(tmp_path, expression(FILES[0], 5, "D"), series, [
+        {"labels": '{Service="PgBouncer"}', "value": 3600},
+        {"labels": '{Service="defaultdb",db_instance="defaultdb"}', "value": 5400},
+    ])
+    catalog = panel(FILES[0], 5)
+    assert any('var-service=postgres&var-db_pool=pgbouncer' in t["expr"] for t in catalog["targets"])
+
+
+@pytest.mark.parametrize("filename,panel_id,ref,expected", [
+    ("service_overview.json", 9, "B", 3600),
+    ("operation_details.json", 201, "A", 2),
+    ("service_errors.json", 102, "A", 100),
+])
+def test_pgbouncer_detail_queries_exclude_direct_connections(tmp_path, filename, panel_id, ref, expected):
+    rel = "Supporting Dashboards/" + filename
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",normalized_operation="GET /test/",db_instance="defaultdb",error="false",span_kind="SPAN_KIND_CLIENT"'
+    series = [
+        {"series": "apm_calls_total{" + labels + "}", "values": "0+60x31"},
+        {"series": "apm_calls_total{" + labels.replace('error="false"', 'error="true"') + ',db_connection_pool="pgbouncer"}', "values": "0+120x31"},
+    ]
+    expr = expression(rel, panel_id, ref).replace('db_connection_pool=~".*"', 'db_connection_pool=~"pgbouncer"')
+    result_labels = '{normalized_operation="GET /test/"}' if filename == "service_overview.json" else '{}'
+    evaluate(tmp_path, expr, series, [{"labels": result_labels, "value": expected}])
+
+
+def test_pgbouncer_latency_is_scoped_to_pooled_queries(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",normalized_operation="GET /test/",db_instance="defaultdb",span_kind="SPAN_KIND_CLIENT"'
+    series = []
+    for pool, values in [(False, (60, 60, 60)), (True, (0, 120, 120))]:
+        for bound, value in zip(("100", "200", "+Inf"), values):
+            extra = ',db_connection_pool="pgbouncer"' if pool else ''
+            series.append({"series": 'apm_duration_milliseconds_bucket{' + labels + extra + ',le="' + bound + '"}', "values": '0+' + str(value) + 'x31'})
+    expr = expression("Supporting Dashboards/service_overview.json", 8, "A")
+    evaluate(tmp_path, expr.replace('db_connection_pool=~".*"', 'db_connection_pool=~"pgbouncer"'), series, [{"labels": "{}", "value": 150}])
+    # The default All filter must retain direct connections without the new label.
+    evaluate(tmp_path, expr, series, [{"labels": "{}", "value": 125}])
+
+
+def test_service_overview_always_includes_all_operations(tmp_path):
+    overview = json.loads((DASHBOARDS / "Supporting Dashboards/service_overview.json").read_text())
+    assert "operation" not in {v["name"] for v in overview["templating"]["list"]}
+    for item in overview["panels"]:
+        for target in item.get("targets", []):
+            assert "${operation:" not in target.get("expr", "")
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="django",span_kind="SPAN_KIND_SERVER"'
+    series = [
+        {"series": 'apm_calls_total{' + labels + ',normalized_operation="GET /test/"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_operation="GET /other/"}', "values": "0+120x31"},
+    ]
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 6, "A"), series, [{"labels": "{}", "value": 3}])
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 9, "B"), series, [
+        {"labels": '{normalized_operation="GET /other/"}', "value": 3600},
+        {"labels": '{normalized_operation="GET /test/"}', "value": 1800},
+    ])
+    # Endpoint drill-downs must still select the clicked operation.
+    links = json.dumps(panel("Supporting Dashboards/service_overview.json", 9)["fieldConfig"])
+    assert "var-operation=${__data.fields.Operation:percentencode}" in links
+    details = json.loads((DASHBOARDS / "Supporting Dashboards/operation_details.json").read_text())
+    assert "operation" in {v["name"] for v in details["templating"]["list"]}

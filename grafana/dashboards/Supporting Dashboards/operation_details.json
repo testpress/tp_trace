@@ -25,7 +25,7 @@
       "targetBlank": true,
       "title": "Explore Traces",
       "type": "link",
-      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20(resource.service.name%20%3D%20%5C%22${service:raw}%5C%22%20%7C%7C%20span.normalized.service%20%3D%20%5C%22${service:raw}%5C%22)%20%26%26%20(name%20%3D%20%5C%22${operation:raw}%5C%22%20%7C%7C%20span.normalized.operation%20%3D%20%5C%22${operation:raw}%5C%22)%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
+      "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20%28%5C%22${db_pool:raw}%5C%22%20%3D%20%5C%22.%2A%5C%22%20%7C%7C%20span.db.connection.pool%20%3D~%20%5C%22${db_pool:regex}%5C%22%29%20%26%26%20(resource.service.name%20%3D%20%5C%22${service:raw}%5C%22%20%7C%7C%20span.normalized.service%20%3D%20%5C%22${service:raw}%5C%22)%20%26%26%20(name%20%3D%20%5C%22${operation:raw}%5C%22%20%7C%7C%20span.normalized.operation%20%3D%20%5C%22${operation:raw}%5C%22)%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
     }
   ],
   "refresh": "30s",
@@ -208,20 +208,48 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "description": "Filter database queries by connection pool. All includes direct connections and spans without a pool attribute.",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Connection Pool",
+        "multi": false,
+        "name": "db_pool",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "PgBouncer",
+            "value": "pgbouncer"
+          }
+        ],
+        "query": "PgBouncer : pgbouncer",
+        "type": "custom"
+      },
+      {
         "allValue": null,
         "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
+        "definition": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
         "hide": 0,
         "includeAll": false,
         "label": "Operation",
         "multi": false,
         "name": "operation",
         "options": [],
-        "query": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
+        "query": "query_result((sum by (normalized_operation) (last_over_time(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",institute=~\"${institute:regex}\",normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0)",
         "refresh": 2,
         "regex": "/normalized_operation=\"(.*)\"\\s*\\}/",
         "sort": 1,
@@ -396,7 +424,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))",
+          "expr": "sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))",
           "legendFormat": "Hits",
           "range": true,
           "refId": "A",
@@ -409,7 +437,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))",
+          "expr": "(sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))",
           "legendFormat": "Errors",
           "range": true,
           "refId": "B",
@@ -615,7 +643,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_replace(((sum by (http_status_code) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (http_status_code) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (vector(0) unless ((sum(increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) > 0))), \"status_label\", \"HTTP $1\", \"http_status_code\", \"(.+)\"), \"status_label\", \"Errors\", \"status_label\", \"^$\")",
+          "expr": "label_replace(label_replace(((sum by (http_status_code) (increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (http_status_code) (increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (vector(0) unless ((sum(increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",error=\"true\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) > 0))), \"status_label\", \"HTTP $1\", \"http_status_code\", \"(.+)\"), \"status_label\", \"Errors\", \"status_label\", \"^$\")",
           "legendFormat": "{{status_label}}",
           "range": true,
           "refId": "A",
@@ -777,7 +805,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.5, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
+          "expr": "(histogram_quantile(0.5, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
           "legendFormat": "p50",
           "range": true,
           "refId": "A",
@@ -790,7 +818,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.9, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
+          "expr": "(histogram_quantile(0.9, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
           "legendFormat": "p90",
           "range": true,
           "refId": "B",
@@ -803,7 +831,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
+          "expr": "(histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
           "legendFormat": "p95",
           "range": true,
           "refId": "C",
@@ -816,7 +844,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(histogram_quantile(0.99, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
+          "expr": "(histogram_quantile(0.99, sum by (le) (rate(apm_duration_milliseconds_bucket{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\",institute=~\"${institute:regex}\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) / 1000)",
           "legendFormat": "p99",
           "range": true,
           "refId": "D",
@@ -1042,7 +1070,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 100,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (name = ${operation:doublequote} || span.normalized.operation = ${operation:doublequote}) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
+          "query": "{ (\"${db_pool:raw}\" = \".*\" || span.db.connection.pool =~ \"${db_pool:regex}\") && resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (name = ${operation:doublequote} || span.normalized.operation = ${operation:doublequote}) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
