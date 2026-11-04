@@ -40,6 +40,9 @@ SERVICE_ERROR=0
 SERVICE_BOTO=0
 SERVICE_CELERY=0
 SERVICE_N_PLUS_ONE=0
+SERVICE_ECOMMERCE=0
+SERVICE_ANALYTICS=0
+SERVICE_CHAOS=0
 RUN_ALL=0
 
 # Intentional Slowdown Flags
@@ -186,6 +189,9 @@ while [[ "$#" -gt 0 ]]; do
   -y | --error) SERVICE_ERROR=1 ;;
   -b | --boto | --s3) SERVICE_BOTO=1 ;;
   -q | --celery) SERVICE_CELERY=1 ;;
+  -e | --ecommerce | --orders) SERVICE_ECOMMERCE=1 ;;
+  --analytics) SERVICE_ANALYTICS=1 ;;
+  --chaos) SERVICE_CHAOS=1 ;;
   --n-plus-one | --repeated-queries) SERVICE_N_PLUS_ONE=1 ;;
 
   -h | --help)
@@ -397,7 +403,7 @@ run_burst_cycle() {
 
     local rnd=$((RANDOM % 9000 + 1000))
     local tenant="X-Tenant-ID: tenant-$((RANDOM % 50 + 1))"
-    local sel=$(( (i + RANDOM) % 12 ))
+    local sel=$(( (i + RANDOM) % 18 ))
 
     case $sel in
     0)
@@ -495,6 +501,55 @@ run_burst_cycle() {
       3) send_req "GET" "/api/webhook/" "" "Burst Probe: 405 Method Not Allowed" "$tenant" ;;
       4) send_req "POST" "/api/multi-db/?db=nonexistent_db_${rnd}" "" "Burst Probe: 400 Invalid DB Parameter" "$tenant" ;;
       esac
+      ;;
+    12)
+      # E-Commerce: Multi-Tier Checkout Workflow (DB lock, payment, Celery, Redis, audit)
+      local cust_id=$((RANDOM % 4 + 1))
+      local prod_id=$((RANDOM % 5 + 1))
+      send_req "POST" "/api/orders/checkout/" "{\"customer_id\": ${cust_id}, \"items\": [{\"product_id\": ${prod_id}, \"quantity\": 1}], \"shipping_address\": \"Burst Suite #${rnd}\"}" "Burst: Checkout Workflow (Multi-Tier Order #${rnd})" "$tenant"
+      ;;
+    13)
+      # E-Commerce: Customer Metrics & Category Navigation
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        local cust_id=$((RANDOM % 4 + 1))
+        send_req "GET" "/api/customers/${cust_id}/stats/" "" "Burst: Customer Stats #${cust_id}" "$tenant"
+      else
+        local cat_id=$((RANDOM % 3 + 1))
+        send_req "GET" "/api/categories/${cat_id}/products/" "" "Burst: Category Products #${cat_id} (Cache)" "$tenant"
+      fi
+      ;;
+    14)
+      # Analytics: Sales Summary Join & Inventory Valuation
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        send_req "GET" "/api/analytics/sales-summary/" "" "Burst: Analytics Sales Aggregations" "$tenant"
+      else
+        send_req "GET" "/api/analytics/inventory-health/" "" "Burst: Inventory Health & Valuation" "$tenant"
+      fi
+      ;;
+    15)
+      # Redis Patterns: Cache Stampede Mutex & Batch Pipelining
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        send_req "GET" "/api/cache/stampede-demo/" "" "Burst: Redis Cache Stampede Lock" "$tenant"
+      else
+        send_req "POST" "/api/cache/pipeline/" "{\"count\": 8}" "Burst: Redis Batch Pipeline (8 items)" "$tenant"
+      fi
+      ;;
+    16)
+      # Chaos & APM Diagnostics (Handled Error, Validation 400, Security 401)
+      local chaos_sel=$((RANDOM % 3))
+      case $chaos_sel in
+      0) send_req "GET" "/api/chaos/handled-exception/" "" "Burst Chaos: Handled Error with OTel Span" "$tenant" ;;
+      1) send_req "GET" "/api/chaos/validation-error/" "" "Burst Chaos: Validation 400 Bad Request" "$tenant" ;;
+      2) send_req "GET" "/api/chaos/unauthorized/?code=401" "" "Burst Chaos: Security 401 Unauthorized" "$tenant" ;;
+      esac
+      ;;
+    17)
+      # S3 Invoice Generation & Celery Background Analytics
+      if [ $((RANDOM % 2)) -eq 0 ]; then
+        send_req "GET" "/api/orders/1/invoice/" "" "Burst: S3 Order Invoice Generation" "$tenant"
+      else
+        send_req "POST" "/api/celery/sales-report/" "{\"title\": \"Burst Report #${rnd}\", \"fail\": false}" "Burst: Celery Async Sales Report" "$tenant"
+      fi
       ;;
     esac
   done
@@ -630,7 +685,8 @@ run_traffic_cycle() {
   local no_service_selected=0
   if [ "$SERVICE_REDIS" -eq 0 ] && [ "$SERVICE_HTTP" -eq 0 ] && [ "$SERVICE_TEMPLATE" -eq 0 ] && \
      [ "$SERVICE_SQL" -eq 0 ] && [ "$SERVICE_THROTTLE" -eq 0 ] && [ "$SERVICE_ERROR" -eq 0 ] && \
-     [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ] && [ "$SERVICE_N_PLUS_ONE" -eq 0 ]; then
+     [ "$SERVICE_BOTO" -eq 0 ] && [ "$SERVICE_CELERY" -eq 0 ] && [ "$SERVICE_N_PLUS_ONE" -eq 0 ] && \
+     [ "$SERVICE_ECOMMERCE" -eq 0 ] && [ "$SERVICE_ANALYTICS" -eq 0 ] && [ "$SERVICE_CHAOS" -eq 0 ]; then
     no_service_selected=1
   fi
 
@@ -682,6 +738,14 @@ run_traffic_cycle() {
       send_req "GET" "/api/products/error/" "" "Server Error: Occasional 500 Test Probe"
       send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": true}" "Celery Error: Occasional Failing Task Probe"
     fi
+
+    # 10. E-Commerce Complex Workflow (Multi-Tier Order Checkout & Analytics)
+    send_req "POST" "/api/orders/checkout/" "{\"customer_id\": $((rnd % 4 + 1)), \"shipping_address\": \"Order #$rnd Lane\"}" "E-Commerce: Checkout Order (Multi-Tier Workflow)"
+    send_req "GET" "/api/orders/" "" "E-Commerce: List Orders"
+    send_req "GET" "/api/categories/" "" "E-Commerce: List Categories"
+    send_req "GET" "/api/customers/$((rnd % 4 + 1))/stats/" "" "E-Commerce: Customer Stats"
+    send_req "GET" "/api/analytics/sales-summary/" "" "Analytics: Sales Summary Multi-Table Join"
+    send_req "GET" "/api/cache/stampede-demo/" "" "Redis: Cache Stampede Protection"
   fi
 
   # Template endpoints
@@ -719,6 +783,30 @@ run_traffic_cycle() {
     if [ $((cycle_num % 4)) -eq 0 ]; then
       send_req "POST" "/api/celery/publish/" "{\"value\": $rnd, \"fail\": true}" "Celery: Dispatch failing demo_task (ValueError)"
     fi
+  fi
+
+  # E-Commerce endpoints
+  if [ "$SERVICE_ECOMMERCE" -eq 1 ]; then
+    send_req "POST" "/api/orders/checkout/" "{\"customer_id\": $((rnd % 4 + 1))}" "E-Commerce: Order Checkout"
+    send_req "GET" "/api/orders/" "" "E-Commerce: List Orders"
+    send_req "GET" "/api/customers/" "" "E-Commerce: List Customers"
+    send_req "GET" "/api/categories/" "" "E-Commerce: List Categories"
+    send_req "GET" "/api/orders/1/invoice/" "" "E-Commerce: S3 Order Invoice"
+  fi
+
+  # Analytics endpoints
+  if [ "$SERVICE_ANALYTICS" -eq 1 ]; then
+    send_req "GET" "/api/analytics/sales-summary/" "" "Analytics: Sales Summary"
+    send_req "GET" "/api/analytics/inventory-health/" "" "Analytics: Inventory Health"
+    send_req "GET" "/api/analytics/slow-report/?delay=0.3" "" "Analytics: Slow Report Query"
+  fi
+
+  # Chaos endpoints
+  if [ "$SERVICE_CHAOS" -eq 1 ]; then
+    send_req "GET" "/api/chaos/handled-exception/" "" "Chaos: Handled Exception"
+    send_req "GET" "/api/chaos/validation-error/" "" "Chaos: Validation 400"
+    send_req "GET" "/api/chaos/unauthorized/" "" "Chaos: Security 401"
+    send_req "GET" "/api/chaos/deadlock-simulation/" "" "Chaos: Rollback 409"
   fi
 
   # Repeated Database Queries (N+1) standalone
