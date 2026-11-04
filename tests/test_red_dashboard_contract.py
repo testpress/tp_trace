@@ -673,3 +673,26 @@ def test_pgbouncer_latency_is_scoped_to_pooled_queries(tmp_path):
     evaluate(tmp_path, expr.replace('db_connection_pool=~".*"', 'db_connection_pool=~"pgbouncer"'), series, [{"labels": "{}", "value": 150}])
     # The default All filter must retain direct connections without the new label.
     evaluate(tmp_path, expr, series, [{"labels": "{}", "value": 125}])
+
+
+def test_service_overview_always_includes_all_operations(tmp_path):
+    overview = json.loads((DASHBOARDS / "Supporting Dashboards/service_overview.json").read_text())
+    assert "operation" not in {v["name"] for v in overview["templating"]["list"]}
+    for item in overview["panels"]:
+        for target in item.get("targets", []):
+            assert "${operation:" not in target.get("expr", "")
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="django",span_kind="SPAN_KIND_SERVER"'
+    series = [
+        {"series": 'apm_calls_total{' + labels + ',normalized_operation="GET /test/"}', "values": "0+60x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_operation="GET /other/"}', "values": "0+120x31"},
+    ]
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 6, "A"), series, [{"labels": "{}", "value": 3}])
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 9, "B"), series, [
+        {"labels": '{normalized_operation="GET /other/"}', "value": 3600},
+        {"labels": '{normalized_operation="GET /test/"}', "value": 1800},
+    ])
+    # Endpoint drill-downs must still select the clicked operation.
+    links = json.dumps(panel("Supporting Dashboards/service_overview.json", 9)["fieldConfig"])
+    assert "var-operation=${__data.fields.Operation:percentencode}" in links
+    details = json.loads((DASHBOARDS / "Supporting Dashboards/operation_details.json").read_text())
+    assert "operation" in {v["name"] for v in details["templating"]["list"]}
