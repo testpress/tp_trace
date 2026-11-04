@@ -389,6 +389,9 @@ def test_all_explore_urls_expand_to_valid_json():
                         if isinstance(parsed, dict):
                             assert parsed["datasource"] == "tempo"
                             assert parsed["queries"][0]["query"] == "1234567890abcdef"
+                            # Older Tempo editors have no standalone Trace ID mode.
+                            # TraceQL recognizes a bare trace ID and fetches the full trace.
+                            assert parsed["queries"][0]["queryType"] == "traceql"
                             assert parsed["panelsState"]["trace"]["spanId"] == "0123456789abcdef"
                             assert parsed["range"] == {"from": "now-1h", "to": "now"}
                         else:

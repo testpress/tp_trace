@@ -881,7 +881,7 @@
                 "value": [
                   {
                     "title": "Open trace at selected span",
-                    "url": "/explore?left={%22datasource%22%3A%22${DS_TEMPO}%22%2C%22queries%22%3A%5B{%22refId%22%3A%22A%22%2C%22query%22%3A%22${__value.raw}%22%2C%22queryType%22%3A%22traceId%22%2C%22datasource%22%3A{%22type%22%3A%22tempo%22%2C%22uid%22%3A%22${DS_TEMPO}%22}}%5D%2C%22range%22%3A{%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22}%2C%22panelsState%22%3A{%22trace%22%3A{%22spanId%22%3A%22${__data.fields.spanID}%22}}}",
+                    "url": "/explore?left={%22datasource%22%3A%22${DS_TEMPO}%22%2C%22queries%22%3A%5B{%22refId%22%3A%22A%22%2C%22query%22%3A%22${__value.raw}%22%2C%22queryType%22%3A%22traceql%22%2C%22datasource%22%3A{%22type%22%3A%22tempo%22%2C%22uid%22%3A%22${DS_TEMPO}%22}}%5D%2C%22range%22%3A{%22from%22%3A%22${__from}%22%2C%22to%22%3A%22${__to}%22}%2C%22panelsState%22%3A{%22trace%22%3A{%22spanId%22%3A%22${__data.fields.spanID}%22}}}",
                     "targetBlank": true
                   }
                 ]
