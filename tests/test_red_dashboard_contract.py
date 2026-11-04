@@ -382,10 +382,17 @@ def test_all_explore_urls_expand_to_valid_json():
                         test_v = test_v.replace("${project:regex}", ".*").replace("${cluster:regex}", ".*")
                         test_v = test_v.replace("${method:regex}", "GET").replace("${route:raw}", "/test/")
                         test_v = test_v.replace("${__value.raw}", "1234567890abcdef")
+                        test_v = test_v.replace("${__data.fields.spanID}", "0123456789abcdef")
                         qs = urllib.parse.parse_qs(test_v.split("?")[1])
                         left_json = qs["left"][0]
                         parsed = json.loads(left_json)
-                        assert isinstance(parsed, list), f"Expected list in {p.name}, got {type(parsed)}"
+                        if isinstance(parsed, dict):
+                            assert parsed["datasource"] == "tempo"
+                            assert parsed["queries"][0]["query"] == "1234567890abcdef"
+                            assert parsed["panelsState"]["trace"]["spanId"] == "0123456789abcdef"
+                            assert parsed["range"] == {"from": "now-1h", "to": "now"}
+                        else:
+                            assert isinstance(parsed, list), f"Expected Explore state in {p.name}"
                     else:
                         check_urls(v)
             elif isinstance(obj, list):
