@@ -292,14 +292,13 @@ def test_dashboards_only_query_collector_red_metrics():
 
 def test_institute_is_trace_only_and_does_not_filter_metric_queries():
     for path in DASHBOARDS.rglob("*.json"):
-        dashboard = json.loads(path.read_text())
+        text = path.read_text()
+        dashboard = json.loads(text)
         for _, target in _all_targets(dashboard):
             expr = target.get("expr", "")
             assert "institute" not in expr, path
-        for variable in dashboard.get("templating", {}).get("list", []):
-            if variable["name"] == "institute":
-                assert variable["type"] == "textbox"
-                assert variable["label"] == "Trace institute"
+        assert "${institute" not in text, path
+        assert "institute" not in {v["name"] for v in dashboard.get("templating", {}).get("list", [])}, path
     cfg = __import__("yaml").safe_load((ROOT / "config/otel-collector.yaml").read_text())
     assert "resource/drop_metric_institute" not in cfg["service"]["pipelines"]["traces"]["processors"]
     assert "resource/drop_metric_institute" in cfg["service"]["pipelines"]["metrics"]["processors"]

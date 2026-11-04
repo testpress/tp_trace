@@ -696,3 +696,10 @@ def test_service_overview_always_includes_all_operations(tmp_path):
     assert "var-operation=${__data.fields.Operation:percentencode}" in links
     details = json.loads((DASHBOARDS / "Supporting Dashboards/operation_details.json").read_text())
     assert "operation" in {v["name"] for v in details["templating"]["list"]}
+
+
+def test_operation_details_has_no_institute_control_or_query_dependency():
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/operation_details.json").read_text())
+    assert "institute" not in {v["name"] for v in dashboard["templating"]["list"]}
+    assert "${institute" not in json.dumps(dashboard)
+    assert "operation" in {v["name"] for v in dashboard["templating"]["list"]}

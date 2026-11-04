@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "tp_trace APM — Deep-dive endpoint performance, error breakdown, latency percentiles, downstream dependencies, and distributed flamegraph. Metrics aggregate all institutes; Trace institute filters only stored trace evidence.",
+  "description": "tp_trace APM — Deep-dive endpoint performance, error breakdown, latency percentiles, downstream dependencies, and distributed flamegraph.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -75,20 +75,6 @@
         "regex": "",
         "skipUrlSync": false,
         "type": "datasource"
-      },
-      {
-        "name": "institute",
-        "label": "Trace institute",
-        "type": "textbox",
-        "hide": 0,
-        "query": ".*",
-        "current": {
-          "selected": true,
-          "text": ".*",
-          "value": ".*"
-        },
-        "options": [],
-        "description": "Trace-only institute filter. Enter a subdomain, or .* for all institutes. Metric panels always aggregate all institutes."
       },
       {
         "allValue": ".*",
@@ -1050,7 +1036,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 100,
-          "query": "{ (\"${institute:raw}\" = \".*\" || resource.institute =~ \"${institute:regex}\" || span.institute =~ \"${institute:regex}\") && (\"${db_pool:raw}\" = \".*\" || span.db.connection.pool =~ \"${db_pool:regex}\") && resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (name = ${operation:doublequote} || span.normalized.operation = ${operation:doublequote}) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
+          "query": "{ (\"${db_pool:raw}\" = \".*\" || span.db.connection.pool =~ \"${db_pool:regex}\") && resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (name = ${operation:doublequote} || span.normalized.operation = ${operation:doublequote}) } | select(span.http.status_code, span.url.full, span.url.query, span.db.statement)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
