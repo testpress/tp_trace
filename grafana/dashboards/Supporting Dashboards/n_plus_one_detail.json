@@ -230,7 +230,7 @@
       },
       "description": "Normalized SQL and its per-request execution count from a flagged request span in Tempo.",
       "gridPos": {
-        "h": 10,
+        "h": 22,
         "w": 24,
         "x": 0,
         "y": 4
@@ -471,7 +471,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 26
       },
       "id": 30,
       "links": [
