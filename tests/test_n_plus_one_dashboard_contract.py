@@ -323,3 +323,27 @@ def test_celery_dashboard_lists_execution_metrics_and_focuses_selected_span():
         and {"id": "custom.hidden", "value": True} in override["properties"]
         for override in panel["fieldConfig"]["overrides"]
     )
+
+
+def test_detail_route_options_use_positive_affected_counts():
+    dashboard = _load("Supporting Dashboards/n_plus_one_detail.json")
+    variables = {variable["name"]: variable for variable in dashboard["templating"]["list"]}
+    affected = next(panel for panel in dashboard["panels"] if panel["title"] == "Affected Requests")
+    expr = affected["targets"][0]["expr"]
+    grouped = expr.rsplit(" or vector(0)", 1)[0].replace("sum(", "sum by (http_route) (", 1)
+    grouped = grouped.replace('http_route="${route:raw}"', 'http_route!=""')
+    assert variables["route"]["query"] == f"query_result({grouped} > 0)"
+    assert variables["route"]["refresh"] == 2
+    assert "${route:" not in variables["method"]["query"]
+
+
+def test_operational_issue_endpoint_queries_apply_route_and_method():
+    dashboard = _load("Supporting Dashboards/operational_issues.json")
+    variables = {variable["name"] for variable in dashboard["templating"]["list"]}
+    assert {"route", "method"} <= variables
+
+    for _, target in _all_targets(dashboard):
+        expr = target.get("expr", "")
+        if "http_route" in expr:
+            assert 'http_route=~`${route:regex}`' in expr
+            assert 'http_method=~"${method:regex}"' in expr
