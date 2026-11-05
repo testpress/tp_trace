@@ -122,7 +122,7 @@ processors:
 
   # Give flagged, unsampled non-error spans a second chance at Tempo export.
   filter/repeated_query_evidence:
-    error_mode: propagate
+    error_mode: ignore
     trace_conditions:
       - 'span.attributes["repeated_query.detected"] != true'
       - 'not ((span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0)) and span.status.code != STATUS_CODE_ERROR)'
@@ -139,13 +139,13 @@ processors:
     hash_seed: 913
 
   filter/error_evidence:
-    error_mode: propagate
+    error_mode: ignore
     trace_conditions:
       - 'span.status.code != STATUS_CODE_ERROR'
 
   probabilistic_sampler/error_evidence:
     mode: hash_seed
-    sampling_percentage: 0.5
+    sampling_percentage: 50
     hash_seed: 914
 
   # Route normalization for spanmetrics
