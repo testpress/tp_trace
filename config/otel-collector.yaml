@@ -111,13 +111,42 @@ processors:
     trace_conditions:
       - 'span.kind == SPAN_KIND_INTERNAL'
 
-  # Drop unsampled spans before export to Tempo; preserve error spans
+  # Normal Tempo export keeps SDK-sampled non-error spans.
   filter/drop_unsampled:
     error_mode: ignore
     trace_conditions:
       # tp_trace preserves the SDK decision explicitly: some OTLP exporters
       # omit sampled bit 0. For other producers, fall back to the wire flags.
-      - '(span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0)) and span.status.code != STATUS_CODE_ERROR'
+      - '(span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0))'
+      - 'span.status.code == STATUS_CODE_ERROR'
+
+  # Give flagged, unsampled non-error spans a second chance at Tempo export.
+  filter/repeated_query_evidence:
+    error_mode: ignore
+    trace_conditions:
+      - 'span.attributes["repeated_query.detected"] != true'
+      - 'not ((span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0)) and span.status.code != STATUS_CODE_ERROR)'
+
+  attributes/clear_sampling_priority:
+    actions:
+      # Prevent an upstream priority from overriding the evidence sample rate.
+      - key: sampling.priority
+        action: delete
+
+  probabilistic_sampler/repeated_query_evidence:
+    mode: hash_seed
+    sampling_percentage: 1
+    hash_seed: 913
+
+  filter/error_evidence:
+    error_mode: ignore
+    trace_conditions:
+      - 'span.status.code != STATUS_CODE_ERROR'
+
+  probabilistic_sampler/error_evidence:
+    mode: hash_seed
+    sampling_percentage: 50
+    hash_seed: 914
 
   # Route normalization for spanmetrics
   transform/spanmetrics_route:
@@ -213,6 +242,32 @@ service:
         - memory_limiter
         - resource/drop_ephemeral
         - filter/drop_unsampled
+        - batch
+      exporters:
+        - otlp/tempo
+
+    traces/repeated_query_evidence:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - filter/repeated_query_evidence
+        - attributes/clear_sampling_priority
+        - probabilistic_sampler/repeated_query_evidence
+        - resource/drop_ephemeral
+        - batch
+      exporters:
+        - otlp/tempo
+
+    traces/error_evidence:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - filter/error_evidence
+        - attributes/clear_sampling_priority
+        - probabilistic_sampler/error_evidence
+        - resource/drop_ephemeral
         - batch
       exporters:
         - otlp/tempo
