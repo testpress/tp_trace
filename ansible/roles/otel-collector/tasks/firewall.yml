@@ -1,12 +1,4 @@
 ---
-- name: Validate OpenTelemetry Collector firewall variables
-  ansible.builtin.assert:
-    that:
-      - (otel_collector_allowed_hosts_common | default([]) + otel_collector_allowed_hosts_extra | default([])) | length > 0
-      - otel_collector_otlp_ingress_ports | length > 0
-    fail_msg: OpenTelemetry Collector firewall variables are incomplete. Check group_vars.
-  when: otel_collector_firewall_enabled | default(true) | bool
-
 - name: Build effective OpenTelemetry Collector firewall sources
   ansible.builtin.set_fact:
     otel_collector_effective_allowed_hosts: >-
@@ -15,8 +7,9 @@
   vars:
     configured_sources: "{{ otel_collector_allowed_hosts_common + otel_collector_allowed_hosts_extra }}"
     selected_sources: >-
-      {{ ansible_play_hosts_all | reject('equalto', inventory_hostname)
-         | map('extract', hostvars, 'ansible_host') | map('regex_replace', '$', '/32') | list }}
+      {{ ['127.0.0.1/32'] + (ansible_play_hosts_all | map('extract', hostvars)
+         | selectattr('ansible_host', 'defined') | map(attribute='ansible_host')
+         | map('regex_replace', '$', '/32') | list) }}
   when: otel_collector_firewall_enabled | default(true) | bool
 
 - name: Ensure OpenTelemetry Collector OTLP firewall rules are present
@@ -28,7 +21,7 @@
     jump: ACCEPT
     action: append
     state: present
-  loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_otlp_ingress_ports) | list }}"
+  loop: "{{ (otel_collector_effective_allowed_hosts | default([])) | product(otel_collector_otlp_ingress_ports | default([])) | list }}"
   when: otel_collector_firewall_enabled | default(true) | bool
   notify: Save iptables rules
 
@@ -52,7 +45,7 @@
     jump: ACCEPT
     action: insert
     state: present
-  loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_observability_ingress_ports) | list }}"
+  loop: "{{ (otel_collector_effective_allowed_hosts | default([])) | product(otel_collector_observability_ingress_ports | default([])) | list }}"
   when:
     - otel_collector_firewall_enabled | default(true) | bool
     - otel_collector_observability_host | default('') | length > 0
@@ -68,7 +61,7 @@
     jump: ACCEPT
     action: append
     state: present
-  loop: "{{ otel_collector_effective_allowed_hosts | product(otel_collector_observability_ingress_ports) | list }}"
+  loop: "{{ (otel_collector_effective_allowed_hosts | default([])) | product(otel_collector_observability_ingress_ports | default([])) | list }}"
   when:
     - otel_collector_firewall_enabled | default(true) | bool
     - otel_collector_observability_host | default('') | length > 0

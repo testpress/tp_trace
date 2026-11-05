@@ -150,10 +150,13 @@ ansible-playbook playbooks/otel-collector/configure.yml --limit "bpala_classes_a
 ansible-playbook playbooks/otel-collector/site.yml --limit "staging1,bpala_classes_app1" -k -K
 ```
 
-A limited deployment adds firewall rules only on the selected hosts, for the
-other selected hosts' allowlisted IPv4 addresses. For the example above,
-`staging1` allows `bpala_classes_app1`, and `bpala_classes_app1` allows
-`staging1`. Existing rules are preserved. A deployment without `--limit` uses the full configured allowlist.
+A limited deployment adds firewall rules only on the selected hosts. It uses
+allowlisted loopback and the allowlisted `ansible_host` IPv4 addresses of the
+selected hosts, including each target's own address. In the example above,
+`staging1` and `bpala_classes_app1` allow each other and retain local access.
+Hosts without `ansible_host` contribute no address to the limited allowlist.
+Existing rules are preserved. A deployment without `--limit` uses the full
+configured allowlist.
 
 ### Add a New Application Server
 
