@@ -122,9 +122,9 @@ Pass `-k` (`--ask-pass`) for SSH password prompt and `-K` (`--ask-become-pass`) 
 ansible-playbook playbooks/otel-collector/site.yml -k -K
 ```
 
-### Configuration & Firewall Update Only
+### Configuration Update Only
 
-Copies the shared Collector configuration, restarts container if config changed, updates iptables allow rules, and validates endpoints:
+Validates the Collector settings, copies the shared configuration, and applies it to the Collector container.
 
 ```bash
 ansible-playbook playbooks/otel-collector/configure.yml -k -K
@@ -132,17 +132,31 @@ ansible-playbook playbooks/otel-collector/configure.yml -k -K
 
 ### Target a Single Application Server
 
-When targeting a specific application server, always include `staging1` in the `--limit` pattern so that `staging1`'s firewall opens ingress for Tempo (`4327`) and Prometheus (`9090`) to accept the application server's incoming telemetry:
+For a configuration update on a single application server, limit `configure.yml` to that host.
 
 ```bash
-ansible-playbook playbooks/otel-collector/configure.yml --limit "staging1,bpala_classes_app1" -k -K
+ansible-playbook playbooks/otel-collector/configure.yml --limit "bpala_classes_app1" -k -K
 ```
 
 For dry-run previews:
 
 ```bash
-ansible-playbook playbooks/otel-collector/configure.yml --limit "staging1,bpala_classes_app1" -k -K --check --diff
+ansible-playbook playbooks/otel-collector/configure.yml --limit "bpala_classes_app1" -k -K --check --diff
 ```
+
+### Limit a Deployment
+
+```bash
+ansible-playbook playbooks/otel-collector/site.yml --limit "staging1,bpala_classes_app1" -k -K
+```
+
+A limited deployment adds firewall rules only on the selected hosts. It uses
+allowlisted loopback and the allowlisted `ansible_host` IPv4 addresses of the
+selected hosts, including each target's own address. In the example above,
+`staging1` and `bpala_classes_app1` allow each other and retain local access.
+Hosts without `ansible_host` contribute no address to the limited allowlist.
+Existing rules are preserved. A deployment without `--limit` uses the full
+configured allowlist.
 
 ### Add a New Application Server
 
