@@ -175,28 +175,6 @@
         "type": "query"
       },
       {
-        "name": "route",
-        "label": "Route",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
-        },
-        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",normalized_service=\"django\",http_route!=\"\"}, http_route)",
-        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",normalized_service=\"django\",http_route!=\"\"}, http_route)",
-        "refresh": 2,
-        "sort": 1,
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": false,
-        "current": {
-          "text": "All",
-          "value": "$__all",
-          "selected": true
-        },
-        "options": []
-      },
-      {
         "name": "method",
         "label": "Method",
         "type": "query",
@@ -217,6 +195,29 @@
           "selected": true
         },
         "options": []
+      },
+      {
+        "name": "route",
+        "label": "Repeated-query Route",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "query_result(group by (http_route) (round(sum by (project_name, cluster_name, http_route, http_method) ((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]))) > 0))",
+        "definition": "query_result(group by (http_route) (round(sum by (project_name, cluster_name, http_route, http_method) ((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]))) > 0))",
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "options": [],
+        "regex": "/http_route=\"([^\"]+)\"/"
       },
       {
         "allValue": null,
@@ -365,9 +366,10 @@
           "editorMode": "code",
           "expr": "((count(((((((sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",error=\"true\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])) or (0 * (sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))))))) / (sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) * 100) > 2)) or vector(0)) + (count((((((sum by (project_name, cluster_name) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",error=\"true\",instance!=\"\",project_name=~\"${project:regex}\"}[5m])) or (0 * (sum by (project_name, cluster_name) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))))) / (sum by (project_name, cluster_name) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[5m])))) * 100) > 1) or vector(0)) + (count((((((sum by (project_name, cluster_name) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",error=\"true\",instance!=\"\",project_name=~\"${project:regex}\"}[5m])) or (0 * (sum by (project_name, cluster_name) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))))) / (sum by (project_name, cluster_name) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[5m])))) * 100) > 1) or vector(0)))",
           "legendFormat": "Critical",
-          "range": true,
+          "range": false,
           "refId": "A",
-          "exemplar": false
+          "exemplar": false,
+          "instant": true
         }
       ],
       "links": [
@@ -444,11 +446,12 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(count(((((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > 250) and (((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > (2 * ((histogram_quantile(0.5, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[30m]))))))))) or vector(0)) + (count(((((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > 250) and (((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > (2 * ((histogram_quantile(0.5, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[30m]))))))))) or vector(0)) + (count(((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) > 500) and ((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) > (2 * (histogram_quantile(0.5, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[30m]))))))) or vector(0)) + (count(sum by (project_name, cluster_name, http_route, http_method) (increase(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\"}[5m])) > 0) or vector(0))",
+          "expr": "(count(((((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > 250) and (((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > (2 * ((histogram_quantile(0.5, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[30m]))))))))) or vector(0)) + (count(((((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > 250) and (((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[5m]))))) > (2 * ((histogram_quantile(0.5, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[30m]))))))))) or vector(0)) + (count(((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) > 500) and ((histogram_quantile(0.95, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) > (2 * (histogram_quantile(0.5, sum by (le, project_name, cluster_name) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[30m]))))))) or vector(0)) + (count(round(sum by (project_name, cluster_name, http_route, http_method) ((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"}[$__range]))) > 0) or vector(0))",
           "legendFormat": "Warning",
-          "range": true,
+          "range": false,
           "refId": "A",
-          "exemplar": false
+          "exemplar": false,
+          "instant": true
         }
       ],
       "links": [
@@ -528,9 +531,10 @@
           "editorMode": "code",
           "expr": "(count(((((max_over_time((sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))[5m:1m]) - quantile_over_time(0.5, (sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))[1h:5m])) / quantile_over_time(0.5, (sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))[1h:5m])) * 100) > 200) and (max_over_time((sum by (project_name, cluster_name, http_route, http_method) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",http_route!~\"^[0-9]{3}$\",instance!=\"\",normalized_service=\"django\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))[5m:1m]) > 20)) or vector(0))",
           "legendFormat": "Info",
-          "range": true,
+          "range": false,
           "refId": "A",
-          "exemplar": false
+          "exemplar": false,
+          "instant": true
         }
       ],
       "links": [
@@ -973,7 +977,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((sum by (project_name, cluster_name, http_route, http_method) (increase(apm_repeated_query_affected_requests_total{worker_id!=\"\",instance!=\"\",  normalized_service=\"django\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",http_route=~`${route:regex}`,http_method=~\"${method:regex}\"}[5m])) > 0), \"Severity\", \"\u26a0\ufe0f Warning\", \"project_name\", \".*\"), \"SeverityLabel\", \"REPEATED QUERIES\", \"project_name\", \".*\"), \"SeverityBadge\", \"Warning\", \"project_name\", \".*\"), \"Color\", \"#f59e0b\", \"project_name\", \".*\"), \"BgColor\", \"rgba(245, 158, 11, 0.08)\", \"project_name\", \".*\"), \"BorderColor\", \"rgba(245, 158, 11, 0.35)\", \"project_name\", \".*\"), \"Headline\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Description\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Service\", \"Django\", \"project_name\", \".*\"), \"ImpactSub\", \"Database Efficiency\", \"project_name\", \".*\"), \"BaselineText\", \"> 0 reqs\", \"project_name\", \".*\"), \"Deviation\", \"Repeated\", \"project_name\", \".*\"), \"ContributionText\", \"Potential N+1\", \"project_name\", \".*\"), \"AffectedText\", \"Repeated DB Queries\", \"project_name\", \".*\"), \"MetricType\", \"Affected Requests\", \"project_name\", \".*\"), \"MetricUnit\", \"reqs\", \"project_name\", \".*\"), \"MetricPrefix\", \"\", \"project_name\", \".*\"), \"EvidenceSub\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"ActionText\", \"-> View Repeated Query Details\", \"project_name\", \".*\"), \"TargetUrl\", \"/d/n-plus-one-detail?var-service=django&\", \"project_name\", \".*\"), \"ImpactText\", \" \", \"http_method\", \"http_route\"), \"selected_severity\", \"$severity\", \"project_name\", \".*\")",
+          "expr": "label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace((round(sum by (project_name, cluster_name, http_route, http_method) ((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\", normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=~`${route:regex}`, http_route!=\"\"}[$__range]))) > 0), \"Severity\", \"\u26a0\ufe0f Warning\", \"project_name\", \".*\"), \"SeverityLabel\", \"REPEATED QUERIES\", \"project_name\", \".*\"), \"SeverityBadge\", \"Warning\", \"project_name\", \".*\"), \"Color\", \"#f59e0b\", \"project_name\", \".*\"), \"BgColor\", \"rgba(245, 158, 11, 0.08)\", \"project_name\", \".*\"), \"BorderColor\", \"rgba(245, 158, 11, 0.35)\", \"project_name\", \".*\"), \"Headline\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Description\", \"Potential repeated database query pattern detected.\", \"project_name\", \".*\"), \"Service\", \"Django\", \"project_name\", \".*\"), \"ImpactSub\", \"Database Efficiency\", \"project_name\", \".*\"), \"BaselineText\", \"> 0 reqs\", \"project_name\", \".*\"), \"Deviation\", \"Repeated\", \"project_name\", \".*\"), \"ContributionText\", \"Potential N+1\", \"project_name\", \".*\"), \"AffectedText\", \"Repeated DB Queries\", \"project_name\", \".*\"), \"MetricType\", \"Affected Requests\", \"project_name\", \".*\"), \"MetricUnit\", \"reqs\", \"project_name\", \".*\"), \"MetricPrefix\", \"\", \"project_name\", \".*\"), \"EvidenceSub\", \"Flagged requests in the selected time range.\", \"project_name\", \".*\"), \"ActionText\", \"-> View Repeated Query Details\", \"project_name\", \".*\"), \"TargetUrl\", \"/d/n-plus-one-detail?var-service=django&\", \"project_name\", \".*\"), \"ImpactText\", \" \", \"http_method\", \"http_route\"), \"selected_severity\", \"$severity\", \"project_name\", \".*\")",
           "format": "table",
           "instant": true,
           "range": false,

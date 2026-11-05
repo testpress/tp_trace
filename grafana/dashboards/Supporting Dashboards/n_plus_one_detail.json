@@ -47,7 +47,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 8,
         "x": 0,
         "y": 0
       },
@@ -88,7 +88,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Requests triggering repeated query anomaly threshold in the selected time range. Counts include the first export of new worker series. Counter-based window totals are estimates.",
+      "description": "Estimated requests flagged by the SDK for repeated SQL in the selected time range. This Prometheus count is independent of Tempo trace sampling.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -115,8 +115,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 8,
+        "x": 8,
         "y": 0
       },
       "id": 11,
@@ -187,8 +187,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 0
       },
       "id": 12,
@@ -228,80 +228,9 @@
         "type": "tempo",
         "uid": "${DS_TEMPO}"
       },
-      "description": "Repeated query executions per request, based on matching traces available in Tempo.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 15
-              },
-              {
-                "color": "red",
-                "value": 50
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
+      "description": "Normalized SQL and its per-request execution count from a flagged request span in Tempo.",
       "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 13,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "max"
-          ],
-          "fields": "/^n_plus_one\\.dominant_count$/",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "11.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "${DS_TEMPO}"
-          },
-          "limit": 20,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_count)",
-          "queryType": "traceql",
-          "refId": "A",
-          "tableType": "spans"
-        }
-      ],
-      "title": "Query Runs / Req",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "${DS_TEMPO}"
-      },
-      "description": "The exact SQL query being executed repeatedly on this endpoint.",
-      "gridPos": {
-        "h": 22,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 4
@@ -333,7 +262,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 1,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (span.repeated_query.detected = true || span.n_plus_one.detected = true) && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
@@ -380,7 +309,7 @@
         "type": "tempo",
         "uid": "${DS_TEMPO}"
       },
-      "description": "Recent traces exhibiting repeated queries for this endpoint (fixed to 10 latest). Click any Trace ID to inspect flamegraph waterfall, or click \"Open in Explore\" to load up to 1000 traces.",
+      "description": "Sampled requests with repeated SQL. Repeated Runs shows how many times the dominant query ran in that request.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -542,7 +471,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 66
+        "y": 14
       },
       "id": 30,
       "links": [
@@ -582,13 +511,13 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 10,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.repeated_query.detected = true && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.institute, span.n_plus_one.dominant_count, span.db.query_count, span.http.status_code)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"
         }
       ],
-      "title": "Recent N+1 Traces (Last 10)",
+      "title": "Sampled Repeated Query Traces (Last 10)",
       "transformations": [
         {
           "id": "extractFields",
@@ -657,7 +586,9 @@
               "Total Queries": 5,
               "span.http.status_code": 6,
               "http.status_code": 6,
-              "Status": 6
+              "Status": 6,
+              "span.n_plus_one.dominant_query": 7,
+              "n_plus_one.dominant_query": 7
             },
             "renameByName": {
               "traceID": "Trace ID (Flamegraph Waterfall)",
@@ -673,7 +604,9 @@
               "span.db.query_count": "Total Queries",
               "db.query_count": "Total Queries",
               "span.http.status_code": "Status",
-              "http.status_code": "Status"
+              "http.status_code": "Status",
+              "span.n_plus_one.dominant_query": "Repeated SQL",
+              "n_plus_one.dominant_query": "Repeated SQL"
             }
           }
         }

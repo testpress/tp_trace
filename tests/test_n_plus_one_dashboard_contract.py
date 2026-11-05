@@ -25,22 +25,22 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
 
     assert prometheus
     assert tempo
-    # Check trace query in main panel
-    query_panel = next(p for p in dashboard["panels"] if p.get("title") in ("Problem", "Duplicated SQL Query"))
-    trace_query = query_panel["targets"][0]["query"]
+    affected_panel = next(p for p in dashboard["panels"] if p["title"] == "Affected Requests")
+    assert affected_panel["datasource"]["type"] == "prometheus"
+    assert "apm_repeated_query_affected_requests_total" in affected_panel["targets"][0]["expr"]
+
+    problem = next(p for p in dashboard["panels"] if p["title"] == "Problem")
+    trace_query = problem["targets"][0]["query"]
+    assert "span.n_plus_one.dominant_query" in trace_query
+    assert "span.n_plus_one.dominant_count" in trace_query
     for predicate in (
         'resource.project_name =~ "${project:regex}"',
         'resource.cluster_name =~ "${cluster:regex}"',
         "span.repeated_query.detected = true",
         'span.http.method =~ "${method:regex}"',
         'span.http.route_template = "${route:raw}"',
-        "span.n_plus_one.dominant_query",
     ):
         assert predicate in trace_query
-
-    # Top runs stat card queries dominant_count
-    runs_panel = next(p for p in dashboard["panels"] if p.get("title") == "Query Runs / Req")
-    assert "span.n_plus_one.dominant_count" in runs_panel["targets"][0]["query"]
 
     assert "${method:regex}" in prometheus[0]["expr"]
     assert "${route:raw}" in prometheus[0]["expr"]
@@ -48,10 +48,6 @@ def test_n_plus_one_detail_has_live_metric_and_tempo_evidence():
     # that escape inside a quoted matcher.
     assert all('http_route="${route:raw}"' in t["expr"] for t in prometheus)
     assert all("${route:regex}" not in t["expr"] for t in prometheus)
-
-    # Ensure codebase styling is configured on the SQL code box panel
-    assert query_panel["type"] == "marcusolsson-dynamictext-panel"
-    assert "dd-problem-card" in query_panel["options"]["content"]
 
     # Ensure rate query calculates percentage safely
     rate_panel = next(p for p in dashboard["panels"] if p.get("title") == "Affected Rate")
@@ -347,3 +343,17 @@ def test_operational_issue_endpoint_queries_apply_route_and_method():
         if "http_route" in expr:
             assert 'http_route=~`${route:regex}`' in expr
             assert 'http_method=~"${method:regex}"' in expr
+
+
+def test_operational_repeated_query_counts_match_drilldown_window():
+    detail = _load("Supporting Dashboards/n_plus_one_detail.json")
+    affected = next(panel for panel in detail["panels"] if panel["title"] == "Affected Requests")
+    expr = affected["targets"][0]["expr"].rsplit(" or vector(0)", 1)[0]
+    grouped = expr.replace("sum(", "sum by (project_name, cluster_name, http_route, http_method) (", 1)
+    grouped = grouped.replace('http_route="${route:raw}"', 'http_route=~`${route:regex}`, http_route!=""')
+
+    overview = _load("Supporting Dashboards/operational_issues.json")
+    targets = [target for _, target in _all_targets(overview)
+               if "apm_repeated_query_affected_requests_total" in target["expr"]]
+    assert len(targets) == 2
+    assert all(f"{grouped} > 0" in target["expr"] for target in targets)
