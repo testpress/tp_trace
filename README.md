@@ -140,6 +140,19 @@ docker compose -f setup/docker-compose.yml config --quiet
 
 ## Documentation
 
-- **[01. Observability Basics](docs/01-basics.md)**: Fundamental observability concepts — traces, spans, RED metrics, context propagation, and cardinality.
-- **[02. Architecture](docs/02-architecture.md)**: Complete lifecycle walkthrough from `tp_trace.init()` to metrics and traces rendered in Grafana.
-- **[03. Integration and Deployment](docs/03-integration.md)**: Application SDK integration, Docker Tempo setup, and Ansible fleet Collector deployment.
+### Working on tp_trace
+
+1. [Observability Basics](docs/01-basics.md) introduces the telemetry concepts
+   used throughout the codebase.
+2. [Architecture](docs/02-architecture.md) follows telemetry from the SDK to
+   Grafana and points to the code and configuration at each stage.
+
+### Using tp_trace in an application
+
+1. [Integrate tp_trace into a Django app](docs/03-integration.md) to configure
+   the SDK and verify that your application emits telemetry.
+2. [Investigate application services in Grafana](grafana/dashboards/README.md)
+   to diagnose slow requests, error spikes, and missing telemetry.
+
+For observability infrastructure, see the [Collector deployment guide](ansible/README.md)
+and [standalone Tempo setup](setup/README.md).

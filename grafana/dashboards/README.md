@@ -1,135 +1,105 @@
-# TP Trace — Grafana Dashboards
+# Investigate application services in Grafana
 
-## Purpose
+Use this guide to investigate telemetry from an instrumented application.
+For SDK setup, see [Integrate tp_trace into a Django app](../../docs/03-integration.md).
 
-Use the TP Trace Grafana dashboards to monitor application performance, assess service health, identify anomalies, and investigate request or database-operation failures.
+Start in **Service Catalog**. Select the time range when the problem occurred,
+then filter by service. Check requests per second
+(RPS), error rate, and p95 latency to see which services changed.
+[Open Grafana](https://g.testpress.in).
 
-For instrumentation and implementation details, see the [tp_trace repository](https://github.com/testpress/tp_trace).
+## Investigate a slow request
 
-## Prerequisites
+1. Open the affected service from **Service Catalog** to reach **Service
+   Overview — Latency, Throughput & Errors**.
+2. Compare traffic, errors, and p95 and p99 latency over the same time range.
+   In **Service Operations**, select an endpoint with elevated latency.
+3. In **Request & Database Operation Traces — Flamegraphs**, open a slow trace
+   and inspect its waterfall. Look for spans that account for the delay and
+   repeated database calls within the same request.
 
-- Access to the Grafana instance hosting the TP Trace dashboards.
-- Access to the relevant dashboards and telemetry data.
-- A service instrumented using OpenTelemetry and configured to send telemetry to the observability stack.
+## Investigate an error spike
 
-## Git Sync
+1. Open **Application Errors — Error Rates & Failure Analysis** and filter to
+   the affected service and time range.
+2. Check which endpoints and status codes account for the spike, then click a
+   trace ID in **Error Trace Explorer** to find the failing span. APM excludes
+   HTTP 4xx responses from its error count.
+3. Open **Application Anomalies & Incidents — Investigation** to look for
+   detected issues in the same window. This view depends on configured
+   detection and available telemetry.
 
-This directory is the Git Sync source of truth. Configure the existing Grafana
-instance to sync this repository and point its dashboard path at
-`grafana/dashboards`. Keep the `Supporting Dashboards/` directory in the
-same relative location: it contains the folders and drill-down dashboards used
-by the Service Catalog.
+## Check for missing or delayed telemetry
 
-Grafana needs working Prometheus and Tempo datasources before dashboards are
-synced. Verify the datasource UIDs in Grafana match the UIDs referenced by the
-JSON before publishing a change; dashboard queries will otherwise show `No
-data` even when telemetry is available.
+Check the selected time range and filters, then verify that the service is
+instrumented and exporting telemetry. In **OpenTelemetry Collector — Health,
+Resource Usage & Metrics**, compare spans ingested and exported, and look for
+dropped or refused spans, a growing Tempo export queue, or high CPU or memory.
 
-## How to Monitor Application Performance
+## Connect an AI coding tool to Grafana
 
-### 1. Check the Service Catalog
+Use Grafana MCP to query telemetry alongside the source code during an
+investigation. Available data depends on the configured datasources, the MCP
+tools your client exposes, and the service account's permissions.
 
-Open **Service Catalog** to assess the overall health and performance of
-monitored services.
+1. Install `uv` and confirm `uvx --version` runs in the environment that
+   launches your client. The client starts `uvx mcp-grafana` locally.
+2. Obtain a read-only Grafana service account token through your team's
+   approved channel. Store it in a private local file outside the repository,
+   readable only by your user. Use the absolute path to that file in the
+   examples below.
+3. Add the server using your client's configuration and reload the client.
+   [Grafana MCP installation guide](https://grafana.com/docs/grafana/latest/ai-tools/mcp/set-up/install-with-uvx/)
+   and [token file configuration](https://github.com/grafana/mcp-grafana/blob/main/docs/sources/configure/authentication.md).
 
-Use this dashboard to:
+### Codex
 
-- Review detected anomalies, when available.
-- Monitor requests per second (RPS), error rate, and p95 latency for each service.
-- Filter metrics by the available time range and dimensions.
-- Filter by subdomain where supported by Testpress.
-- Review overall request throughput and latency trends.
-- Check the current health status of monitored services.
+```sh
+codex mcp add grafana \
+  --env GRAFANA_URL=https://g.testpress.in \
+  --env GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE=/absolute/path/to/grafana-token \
+  -- uvx mcp-grafana
+codex mcp list
+```
 
-#### Interpret Service Health
+### Claude Code, Cursor, and VS Code
 
-Service health is evaluated over a rolling five-minute window based on the error percentage.
+Add the following entry under `mcpServers` in Claude Code or Cursor. In VS Code,
+add the same entry under `servers` in your MCP configuration.
 
-| Status | Error percentage (5m) |
-|---|---:|
-| Healthy (Green) | Below 1% |
-| Warning (Orange) | 1% to below 5% |
-| Critical (Red) | 5% and above |
-| No Data (Gray) | No data available |
+```json
+{
+  "mcpServers": {
+    "grafana": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-grafana"],
+      "env": {
+        "GRAFANA_URL": "https://g.testpress.in",
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE": "/absolute/path/to/grafana-token"
+      }
+    }
+  }
+}
+```
 
-Use these thresholds to identify services that require further investigation. A *No Data* status indicates missing telemetry, not necessarily a healthy service.
+### Verify the connection and try an investigation
 
-### 2. Investigate Service Performance
+Start by asking your client to make a real Grafana query.
 
-Open **Service Performance — Latency, Throughput & Errors** for the service you want to investigate.
+> Use Grafana MCP to find the Service Catalog dashboard and list the Prometheus
+> datasources I can query. Report any connection or permission errors.
 
-Review the following metrics:
+Then try a focused prompt. Replace bracketed values with your incident details.
 
-- Requests per second (RPS).
-- Error count.
-- p95 latency.
-- p99 latency.
-
-Use the operations list to identify individual endpoints or operations with high latency, elevated error counts, or unexpected traffic patterns.
-
-### 3. Investigate Request and Database Traces
-
-Open **Request & Database Operation Traces — Flamegraphs** for the operation you want to investigate.
-
-An operation can represent an HTTP endpoint or a SQL query.
-
-Use the dashboard to:
-
-1. Review the operation's RPS, error count, and latency metrics.
-2. Identify relevant traces associated with the operation.
-3. Inspect trace waterfalls or flamegraphs to understand where request time is spent.
-4. Examine database operations and other spans to identify potential bottlenecks.
-
-Correlate the operation's metrics with individual traces to narrow down the source of performance issues.
-
-### 4. Investigate Application Errors
-
-Open **Application Errors — Error Rates & Failure Analysis** when investigating failed requests or elevated error rates.
-
-Use this dashboard to:
-
-- Identify failed requests.
-- Review exception breakdowns by HTTP status code.
-- Inspect error traces using TraceQL error trace waterfalls.
-- Correlate failures with the affected services and operations.
-
-HTTP 4xx responses are excluded from the APM error count because they generally represent client-side errors. The APM focuses on application and server-side failures.
-
-### 5. Investigate Anomalies and Incidents
-
-Open **Application Anomalies & Incidents — Investigation** to review detected deviations across services and operations.
-
-Use this dashboard to:
-
-- Identify critical- and warning-level anomalies.
-- Determine which services or operations are affected.
-- Investigate the associated performance metrics and traces.
-- Assess whether the deviation requires further investigation.
-
-Anomaly data is available only when the relevant detection and data sources are configured and producing results.
-
-### 6. Check OpenTelemetry Collector Health
-
-Open **OpenTelemetry Collector — Health, Resource Usage & Metrics** to assess the health of the telemetry collection infrastructure.
-
-Review:
-
-- CPU utilization.
-- Memory utilization.
-- Collector health and resource usage metrics.
-
-Use this dashboard when telemetry appears incomplete or delayed, or when investigating potential collection or resource-capacity issues.
-
-## Troubleshooting Guidance
-
-| Symptom | What to check |
-|---|---|
-| Service shows No Data | Verify application instrumentation, telemetry export, and the selected time range. |
-| Error rate is elevated | Open the application error dashboard and inspect relevant traces. |
-| Latency is elevated | Review service-level metrics, operation-level latency, and trace waterfalls. |
-| Anomalies are not displayed | Verify that anomaly detection is configured and that data is available. |
-| Telemetry appears incomplete | Check Collector health, resource utilization, and telemetry ingestion. |
-
-## Related Resources
-
-- [tp_trace repository](https://github.com/testpress/tp_trace) — Instrumentation and implementation details.
+- **Server health.** Use Prometheus node exporter metrics to identify the
+  application servers and show CPU and memory utilization for each over the
+  last 30 minutes. Show the labels used to select the servers and call out
+  missing data.
+- **Slow API.** Compare p95 latency, request rate, and errors for [service] in
+  the last hour with the previous hour. List the endpoints with the largest
+  latency increases and show the queries you used.
+- **Error spike.** Find which endpoints and status codes drove the increase
+  in errors for [service] during [time window]. Link to relevant dashboard
+  panels and, where available, representative traces. Use the source code to
+  identify the handlers to inspect.

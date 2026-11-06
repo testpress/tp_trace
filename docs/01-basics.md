@@ -1,5 +1,8 @@
 # Observability Basics
 
+If you are new to the tp_trace codebase, start here to learn the concepts used
+by the SDK, Collector, and dashboards.
+
 ## Observability
 
 Observability is the ability to understand a system's behavior from the signals it emits. Monitoring checks known conditions, such as an error-rate threshold. Investigating an unexpected slowdown often requires connecting measurements, events, and individual requests.
@@ -47,3 +50,5 @@ Tempo stores and queries distributed traces. Trace IDs support lookup; TraceQL s
 ## Sampling
 
 Sampling selects which traces to retain or export. Head sampling decides near the start of a trace; tail sampling decides after observing spans. Counts calculated only from sampled traces describe the retained population unless explicitly corrected. Separately recorded metrics can preserve workload totals, subject to recording and delivery failures.
+
+Continue with [tp_trace Architecture](02-architecture.md) to see how these concepts apply to a request.
