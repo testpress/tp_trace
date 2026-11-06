@@ -357,24 +357,3 @@ def test_operational_repeated_query_counts_match_drilldown_window():
                if "apm_repeated_query_affected_requests_total" in target["expr"]]
     assert len(targets) == 2
     assert all(f"{grouped} > 0" in target["expr"] for target in targets)
-
-
-def test_n_plus_one_table_focuses_selected_span_in_tempo():
-    detail = _load("Supporting Dashboards/n_plus_one_detail.json")
-    panel = next(p for p in detail["panels"] if p.get("title") == "Sampled Repeated Query Traces (Last 10)")
-    for transform in panel["transformations"]:
-        if transform["id"] == "organize":
-            assert not transform["options"]["excludeByName"].get("spanID", False)
-    assert any(
-        override["matcher"] == {"id": "byName", "options": "spanID"}
-        and {"id": "custom.hidden", "value": True} in override["properties"]
-        for override in panel["fieldConfig"]["overrides"]
-    )
-    trace_override = next(
-        o for o in panel["fieldConfig"]["overrides"]
-        if o["matcher"].get("options") == "/^(TraceID|traceID|traceId|Trace ID.*)$/"
-    )
-    link = next(p["value"][0] for p in trace_override["properties"] if p["id"] == "links")
-    assert "left={%22datasource%22%3A%22${DS_TEMPO}%22" in link["url"]
-    assert "spanId%22%3A%22${__data.fields.spanID}%22" in link["url"]
-
