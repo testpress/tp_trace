@@ -22,7 +22,7 @@ Configure SDK behavior using environment variables:
 
 ```bash
 # Application identity for grouping telemetry in Grafana
-ENABLE_TP_TRACE=True
+export ENABLE_TP_TRACE=True
 export TP_TRACE_PROJECT_NAME=my_app
 export TP_TRACE_CLUSTER_NAME=cluster1
 
