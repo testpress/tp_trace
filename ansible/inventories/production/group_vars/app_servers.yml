@@ -17,6 +17,7 @@ otel_collector_allowed_hosts_common:
   - 65.108.131.200/32
   - 168.119.199.13/32
   - 49.12.67.231/32
+  - 65.109.142.57/32
 
 otel_collector_allowed_hosts_extra: []
 
