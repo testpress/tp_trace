@@ -41,9 +41,9 @@ the main trace export.
 The Collector applies memory limits and removes ephemeral resource attributes.
 It handles spans and metrics through separate pipelines.
 
-- The main trace pipeline filters unsampled spans and exports the remaining
-  spans to Tempo over OTLP/gRPC. Separate pipelines can retain sampled evidence
-  for errors and repeated-query patterns.
+- The main trace pipeline applies tail sampling to evaluate whole-trace policies
+  (preserving complete parent-child hierarchies for error traces, SDK-sampled traces,
+  and repeated-query evidence) and exports retained traces to Tempo over OTLP/gRPC.
 - The span-to-metrics pipeline derives metrics from eligible spans independently
   of the main trace pipeline's sampling filter.
   Prometheus Remote Write sends both native and span-derived metrics to

@@ -168,8 +168,13 @@ def test_collector_spanmetrics_pipeline_and_filters():
         "memory_limiter", "resource/drop_ephemeral", "resource/drop_metric_institute", "filter/spanmetrics_drop_internal",
         "transform/spanmetrics_route", "transform/spanmetrics_sanitize", "batch",
     ]
-    assert "filter/drop_unsampled" not in metrics["processors"]
-    assert "filter/drop_unsampled" in pipelines["traces"]["processors"]
+    assert "tail_sampling" not in metrics["processors"]
+    assert "tail_sampling" in pipelines["traces"]["processors"]
+    policy_names = [p["name"] for p in cfg["processors"]["tail_sampling"]["policies"]]
+    assert "errors" in policy_names
+    assert "sampled_by_attribute" in policy_names
+    assert "sampled_by_wire_flags" in policy_names
+    assert "repeated_query_evidence" in policy_names
     assert pipelines["traces"]["exporters"] == ["otlp/tempo"]
     assert "spanmetrics" in pipelines["metrics"]["receivers"]
     connector = cfg["connectors"]["spanmetrics"]
