@@ -1,105 +1,164 @@
-# Investigate application services in Grafana
+# Grafana Investigation Guide
 
-Use this guide to investigate telemetry from an instrumented application.
-For SDK setup, see [Integrate tp_trace into a Django app](../../docs/03-integration.md).
+> **Quick links:** [Open Grafana →](https://g.testpress.in) · [SDK setup](../../docs/03-integration.md)
 
-Start in **Service Catalog**. Select the time range when the problem occurred,
-then filter by service. Check requests per second
-(RPS), error rate, and p95 latency to see which services changed.
-[Open Grafana](https://g.testpress.in).
+This guide walks you through investigating live telemetry for instrumented services — slow requests, error spikes, missing data, and AI-assisted debugging via Grafana MCP.
+
+---
+
+## Where to start
+
+Open [Service Catalog](https://g.testpress.in) and set the time range to when the problem occurred. Filter by service and look at three signals:
+
+| Signal | What to look for |
+|---|---|
+| **RPS** (requests/sec) | Sudden drops or spikes in traffic |
+| **Error rate** | Any uptick, especially correlated with a deploy |
+| **p95 latency** | Sustained elevation across an endpoint |
+
+---
 
 ## Investigate a slow request
 
-1. Open the affected service from **Service Catalog** to reach **Service
-   Overview — Latency, Throughput & Errors**.
-2. Compare traffic, errors, and p95 and p99 latency over the same time range.
-   In **Service Operations**, select an endpoint with elevated latency.
-3. In **Request & Database Operation Traces — Flamegraphs**, open a slow trace
-   and inspect its waterfall. Look for spans that account for the delay and
-   repeated database calls within the same request.
+**Goal:** find which span or database call accounts for the latency.
+
+1. From **Service Catalog**, open the affected service → **Service Overview — Latency, Throughput & Errors**.
+2. Compare p95 and p99 latency, traffic, and errors over the same time window.
+3. In **Service Operations**, pick the endpoint with the highest latency.
+4. Open **Request & Database Operation Traces — Flamegraphs**, click into a slow trace, and inspect the waterfall.
+
+**What to look for in the waterfall:**
+- A single long span that blocks the response (e.g. a slow external call or query)
+- The same DB query repeated many times in one request (N+1 pattern)
+- Gaps between spans (serialization, lock wait, thread scheduling)
+
+---
 
 ## Investigate an error spike
 
-1. Open **Application Errors — Error Rates & Failure Analysis** and filter to
-   the affected service and time range.
-2. Check which endpoints and status codes account for the spike, then click a
-   trace ID in **Error Trace Explorer** to find the failing span. APM excludes
-   HTTP 4xx responses from its error count.
-3. Open **Application Anomalies & Incidents — Investigation** to look for
-   detected issues in the same window. This view depends on configured
-   detection and available telemetry.
+**Goal:** identify which endpoint and status code is failing, then find the offending span.
+
+1. Open **Application Errors — Error Rates & Failure Analysis**. Filter to the affected service and time window.
+2. Find the endpoint and status code driving the spike.
+3. Click a trace ID in **Error Trace Explorer** to open the failing span.
+
+> [!NOTE]
+> APM excludes HTTP 4xx responses from its error count. Only 5xx and instrumented exceptions appear here.
+
+4. Open **Application Anomalies & Incidents — Investigation** to check for auto-detected issues in the same window. Results depend on configured detection rules and available telemetry.
+
+---
 
 ## Check for missing or delayed telemetry
 
-Check the selected time range and filters, then verify that the service is
-instrumented and exporting telemetry. In **OpenTelemetry Collector — Health,
-Resource Usage & Metrics**, compare spans ingested and exported, and look for
-dropped or refused spans, a growing Tempo export queue, or high CPU or memory.
+If a service or time range shows no data:
+
+1. Verify the time range and filters are correct.
+2. Confirm the service is instrumented and the process is running.
+3. Open **OpenTelemetry Collector — Health, Resource Usage & Metrics** and check:
+
+| Symptom | Likely cause |
+|---|---|
+| Spans ingested < spans exported | Drops at the Collector — check `refused` or `dropped` counters |
+| Growing Tempo export queue | Backpressure from Tempo or network latency |
+| High Collector CPU / memory | Tail-sampling or batch processor under load |
+
+---
 
 ## Connect an AI coding tool to Grafana
 
-Use Grafana MCP to query telemetry alongside the source code during an
-investigation. Available data depends on the configured datasources, the MCP
-tools your client exposes, and the service account's permissions.
+Grafana MCP lets your AI coding client (Claude Code, Cursor, VS Code, Codex) query live telemetry while reading source code — useful for correlating a slow DB span with the ORM call that caused it.
 
-1. Install `uv` and confirm `uvx --version` runs in the environment that
-   launches your client. The client starts `uvx mcp-grafana` locally.
-2. Obtain a read-only Grafana service account token through your team's
-   approved channel. Store it in a private local file outside the repository,
-   readable only by your user. Use the absolute path to that file in the
-   examples below.
-3. Add the server using your client's configuration and reload the client.
-   [Grafana MCP installation guide](https://grafana.com/docs/grafana/latest/ai-tools/mcp/set-up/install-with-uvx/)
-   and [token file configuration](https://github.com/grafana/mcp-grafana/blob/main/docs/sources/configure/authentication.md).
-
-### Codex
+### Prerequisites
 
 ```sh
-codex mcp add grafana \
-  --env GRAFANA_URL=https://g.testpress.in \
-  --env GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE=/absolute/path/to/grafana-token \
-  -- uvx mcp-grafana
-codex mcp list
+# 1. Install uv (the MCP server runs via uvx)
+curl -Lsf https://astral.sh/uv/install.sh | sh
+uvx --version   # confirm it works
+
+# 2. Store your service account token in a private file (outside the repo)
+echo "glsa_xxxxxxxxxxxx" > ~/.config/grafana-token
+chmod 600 ~/.config/grafana-token
 ```
 
-### Claude Code, Cursor, and VS Code
+Get your token from your team's shared secrets channel. Use a **read-only** service account.
 
-Add the following entry under `mcpServers` in Claude Code or Cursor. In VS Code,
-add the same entry under `servers` in your MCP configuration.
+---
 
-```json
-{
-  "mcpServers": {
-    "grafana": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["mcp-grafana"],
-      "env": {
-        "GRAFANA_URL": "https://g.testpress.in",
-        "GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE": "/absolute/path/to/grafana-token"
-      }
-    }
-  }
-}
-```
+### Client setup
 
-### Verify the connection and try an investigation
+Pick the client you use and follow the steps below. All clients connect to the same MCP server (`uvx mcp-grafana`).
 
-Start by asking your client to make a real Grafana query.
+#### Codex
 
-> Use Grafana MCP to find the Service Catalog dashboard and list the Prometheus
-> datasources I can query. Report any connection or permission errors.
+1. Register the Grafana MCP server:
 
-Then try a focused prompt. Replace bracketed values with your incident details.
+   ```sh
+   codex mcp add grafana \
+     --env GRAFANA_URL=https://g.testpress.in \
+     --env GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE=/absolute/path/to/grafana-token \
+     -- uvx mcp-grafana
+   ```
 
-- **Server health.** Use Prometheus node exporter metrics to identify the
-  application servers and show CPU and memory utilization for each over the
-  last 30 minutes. Show the labels used to select the servers and call out
-  missing data.
-- **Slow API.** Compare p95 latency, request rate, and errors for [service] in
-  the last hour with the previous hour. List the endpoints with the largest
-  latency increases and show the queries you used.
-- **Error spike.** Find which endpoints and status codes drove the increase
-  in errors for [service] during [time window]. Link to relevant dashboard
-  panels and, where available, representative traces. Use the source code to
-  identify the handlers to inspect.
+2. Confirm the server was added:
+
+   ```sh
+   codex mcp list
+   ```
+
+   You should see `grafana` in the output. Restart Codex if it was already running.
+
+#### Claude Code, Cursor, VS Code
+
+1. Open your MCP configuration file:
+   - **Claude Code / Cursor:** `~/.claude.json` or the in-app MCP settings
+   - **VS Code:** `.vscode/mcp.json` in the project, or the user-level MCP settings
+
+2. Add the following block under `mcpServers` (Claude Code / Cursor) or `servers` (VS Code):
+
+   ```json
+   {
+     "mcpServers": {
+       "grafana": {
+         "type": "stdio",
+         "command": "uvx",
+         "args": ["mcp-grafana"],
+         "env": {
+           "GRAFANA_URL": "https://g.testpress.in",
+           "GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE": "/absolute/path/to/grafana-token"
+         }
+       }
+     }
+   }
+   ```
+
+3. Replace `/absolute/path/to/grafana-token` with the actual path to your token file (e.g. `~/.config/grafana-token`).
+
+4. Save the file and **fully restart the client** — a reload alone may not pick up new MCP servers.
+
+Refer to the official [installation guide](https://grafana.com/docs/grafana/latest/ai-tools/mcp/set-up/install-with-uvx/) and [token file auth docs](https://github.com/grafana/mcp-grafana/blob/main/docs/sources/configure/authentication.md) if you run into issues.
+
+---
+
+### Verify and start investigating
+
+Confirm the connection first:
+
+> Use Grafana MCP to find the Service Catalog dashboard and list the Prometheus datasources I can query. Report any connection or permission errors.
+
+Then use one of these ready-made prompts. Swap in your service name and time window.
+
+---
+
+**Server health**
+> Use Prometheus node exporter metrics to identify the application servers and show CPU and memory utilization for each over the last 30 minutes. Show the labels used to select the servers and call out any missing data.
+
+---
+
+**Slow API**
+> Compare p95 latency, request rate, and error rate for `[service]` over the last hour vs. the previous hour. List the endpoints with the largest latency increases and show the PromQL queries you used.
+
+---
+
+**Error spike**
+> Find which endpoints and status codes drove the increase in errors for `[service]` during `[time window]`. Link to relevant dashboard panels and, where available, representative traces. Use the source code to identify the handlers to inspect.
