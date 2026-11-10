@@ -19,7 +19,7 @@
     destination_port: "{{ item.1 | string }}"
     source: "{{ item.0 }}"
     jump: ACCEPT
-    action: append
+    action: insert
     state: present
   loop: "{{ (otel_collector_effective_allowed_hosts | default([])) | product(otel_collector_otlp_ingress_ports | default([])) | list }}"
   when: otel_collector_firewall_enabled | default(true) | bool
@@ -59,7 +59,7 @@
     destination_port: "{{ item.1 | string }}"
     source: "{{ item.0 }}"
     jump: ACCEPT
-    action: append
+    action: insert
     state: present
   loop: "{{ (otel_collector_effective_allowed_hosts | default([])) | product(otel_collector_observability_ingress_ports | default([])) | list }}"
   when:
