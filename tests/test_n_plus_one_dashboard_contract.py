@@ -130,7 +130,7 @@ def test_service_overview_error_rate_selects_whole_metric_source():
     assert "rate(calls_total{" not in expr
     assert "rate(apm_calls_total{" in expr
     assert 'span_kind!~"SPAN_KIND_INTERNAL"' in expr
-    assert expr.count('error="true"') == 1
+    assert expr.count('error="true"') == 2
 
 
 def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():

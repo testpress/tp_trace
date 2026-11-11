@@ -738,6 +738,22 @@ def test_operation_table_uses_consumer_kind_not_celery_operation_name(tmp_path):
     )
 
 
+def test_service_overview_panels_use_consumer_kind_for_celery(tmp_path):
+    labels = 'project_name="test",cluster_name="dev",instance="collector",db_connection_pool="default"'
+    series = [
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="django",span_kind="SPAN_KIND_SERVER"}', "values": "0+120x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="celery",span_kind="SPAN_KIND_PRODUCER"}', "values": "0+6000x31"},
+        {"series": 'apm_calls_total{' + labels + ',normalized_service="celery",span_kind="SPAN_KIND_CONSUMER"}', "values": "0+60x31"},
+    ]
+    # When service is filtered to celery, producer calls must be ignored and only consumer counted.
+    expr_celery = expression("Supporting Dashboards/service_overview.json", 6, "A").replace('normalized_service=~".*"', 'normalized_service=~"celery"')
+    evaluate(tmp_path, expr_celery, series, [{"labels": "{}", "value": 1}])
+
+    # When service is filtered to django, it evaluates django calls cleanly.
+    expr_django = expression("Supporting Dashboards/service_overview.json", 6, "A").replace('normalized_service=~".*"', 'normalized_service=~"django"')
+    evaluate(tmp_path, expr_django, series, [{"labels": "{}", "value": 2}])
+
+
 def test_service_time_breakdown_panel_config_and_promql(tmp_path):
     """Service Time Breakdown uses normal-stacked 100%-fill ms timeseries and accurate PromQL."""
     item = panel("Supporting Dashboards/service_overview.json", 11)
