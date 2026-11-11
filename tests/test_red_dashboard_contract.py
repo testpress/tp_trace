@@ -736,3 +736,79 @@ def test_operation_table_uses_consumer_kind_not_celery_operation_name(tmp_path):
         series,
         [{"labels": '{normalized_operation="renamed.task"}', "value": 8}],
     )
+
+
+def test_service_time_breakdown_panel_config_and_promql(tmp_path):
+    """Service Time Breakdown uses normal-stacked 100%-fill ms timeseries and accurate PromQL."""
+    item = panel("Supporting Dashboards/service_overview.json", 11)
+    assert item["type"] == "timeseries"
+    assert item["fieldConfig"]["defaults"]["unit"] == "ms"
+    assert item["fieldConfig"]["defaults"]["custom"]["stacking"]["mode"] == "normal"
+    assert item["fieldConfig"]["defaults"]["custom"]["fillOpacity"] == 100
+    assert {t["refId"] for t in item["targets"]} == {"A", "B", "C", "D", "E", "F", "G", "H"}
+    assert all(t.get("interval") == "1m" for t in item["targets"])
+
+    def service_expr(ref, service):
+        expr = next(t["expr"] for t in item["targets"] if t["refId"] == ref)
+        expr = expr.replace("${service:regex}", service)
+        return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m")
+
+    common = 'project_name="test",cluster_name="dev",instance="collector"'
+    django_http = common + ',normalized_service="django",span_kind="SPAN_KIND_SERVER",normalized_operation="GET /api/"'
+    django_cmd = common + ',normalized_service="django",span_kind="SPAN_KIND_SERVER",normalized_operation="django.command.migrate"'
+    pg = common + ',normalized_service="postgres",span_kind="SPAN_KIND_CLIENT"'
+    redis = common + ',normalized_service="redis",span_kind="SPAN_KIND_CLIENT"'
+    celery_consumer = common + ',normalized_service="celery",span_kind="SPAN_KIND_CONSUMER"'
+
+    # 1. Normal breakdown: 100ms total - (60ms PG + 15ms Redis) = 25ms Django Self;
+    #    management commands and Celery consumer execution are excluded.
+    series = [
+        {"series": "apm_duration_milliseconds_count{" + django_http + "}", "values": "0+60x31"},
+        {"series": "apm_duration_milliseconds_sum{" + django_http + "}", "values": "0+6000x31"},
+        {"series": "apm_duration_milliseconds_count{" + django_cmd + "}", "values": "0+1x31"},
+        {"series": "apm_duration_milliseconds_sum{" + django_cmd + "}", "values": "0+50000x31"},
+        {"series": "apm_duration_milliseconds_sum{" + pg + "}", "values": "0+3600x31"},
+        {"series": "apm_duration_milliseconds_sum{" + redis + "}", "values": "0+900x31"},
+        {"series": "apm_duration_milliseconds_sum{" + celery_consumer + "}", "values": "0+100000x31"},
+    ]
+    evaluate(tmp_path, service_expr("A", "django"), series, [{"labels": "{}", "value": 60}])
+    evaluate(tmp_path, service_expr("B", "django"), series, [{"labels": "{}", "value": 15}])
+    evaluate(tmp_path, service_expr("C", "django"), series, [{"labels": "{}", "value": 0}])
+    evaluate(tmp_path, service_expr("H", "django"), series, [{"labels": "{}", "value": 25}])
+
+    # 2. Clamping when parallel downstream spans exceed wall-clock request duration.
+    parallel_series = [
+        {"series": "apm_duration_milliseconds_count{" + django_http + "}", "values": "0+60x31"},
+        {"series": "apm_duration_milliseconds_sum{" + django_http + "}", "values": "0+3000x31"},
+        {"series": "apm_duration_milliseconds_sum{" + pg + "}", "values": "0+4800x31"},
+    ]
+    evaluate(tmp_path, service_expr("H", "django"), parallel_series, [{"labels": "{}", "value": 0}])
+
+    # 3. Zero downstream calls: Self equals total mean, core dependencies emit 0.
+    no_deps_series = [
+        {"series": "apm_duration_milliseconds_count{" + django_http + "}", "values": "0+60x31"},
+        {"series": "apm_duration_milliseconds_sum{" + django_http + "}", "values": "0+2400x31"},
+    ]
+    evaluate(tmp_path, service_expr("A", "django"), no_deps_series, [{"labels": "{}", "value": 0}])
+    evaluate(tmp_path, service_expr("H", "django"), no_deps_series, [{"labels": "{}", "value": 40}])
+
+    # 4. Non-Django leaf service (postgres): no Django breakdown, displays Postgres own mean latency.
+    pg_only_series = [
+        {"series": "apm_duration_milliseconds_count{" + django_http + "}", "values": "0+60x31"},
+        {"series": "apm_duration_milliseconds_sum{" + django_http + "}", "values": "0+6000x31"},
+        {"series": "apm_duration_milliseconds_count{" + pg + "}", "values": "0+120x31"},
+        {"series": "apm_duration_milliseconds_sum{" + pg + "}", "values": "0+1440x31"},
+    ]
+    evaluate(tmp_path, service_expr("A", "postgres"), pg_only_series, [])
+    evaluate(tmp_path, service_expr("H", "postgres"), pg_only_series, [{"labels": "{}", "value": 12}])
+
+    # 5. Non-Django celery service uses SPAN_KIND_CONSUMER for its own mean latency.
+    celery_producer = common + ',normalized_service="celery",span_kind="SPAN_KIND_PRODUCER"'
+    celery_series = [
+        {"series": "apm_duration_milliseconds_count{" + celery_consumer + "}", "values": "0+30x31"},
+        {"series": "apm_duration_milliseconds_sum{" + celery_consumer + "}", "values": "0+6000x31"},
+        {"series": "apm_duration_milliseconds_count{" + celery_producer + "}", "values": "0+30x31"},
+        {"series": "apm_duration_milliseconds_sum{" + celery_producer + "}", "values": "0+150x31"},
+    ]
+    evaluate(tmp_path, service_expr("A", "celery"), celery_series, [])
+    evaluate(tmp_path, service_expr("H", "celery"), celery_series, [{"labels": "{}", "value": 200}])
