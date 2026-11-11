@@ -114,13 +114,33 @@ processors:
   # Tail sampling buffers spans and evaluates policies over the entire trace.
   # This guarantees full parent-child hierarchy retention for error traces,
   # SDK-sampled traces, and repeated-query traces without orphan spans.
+  #
+  # Sizing & Memory Budget:
+  # - Statefulness: Tail sampling buffers all spans of in-flight traces until
+  #   decision_wait expires. At expected_new_traces_per_sec=1000 and
+  #   decision_wait=3s, steady state is ~3,000 in-flight traces.
+  # - Memory budget: The Collector memory limiter enforces a 400 MiB hard limit
+  #   (limit_mib) with an 80 MiB spike threshold, giving an effective 320 MiB soft
+  #   limit. Other components (spanmetrics connector, deltatocumulative, batch
+  #   processors, Go GC headroom) consume ~180-200 MiB under load, leaving a
+  #   safe budget of ~100-125 MiB for tail sampling.
+  # - Sizing: Typical traces (15-30 spans with DB/Redis/HTTP attributes) occupy
+  #   ~20-25 KB in Go heap. num_traces=5000 caps buffer memory at ~100-125 MiB,
+  #   providing ~66% burst headroom over the 3,000 trace steady state.
+  # - Trade-off: Bursts exceeding 5,000 in-flight traces evict the oldest un-decided
+  #   traces (tracked by otelcol_processor_tail_sampling_sampling_trace_dropped_too_early).
+  #   This sheds trace detail under extreme spikes while strictly preventing
+  #   memory_limiter from tripping and refusing data on the shared spanmetrics pipeline.
+  # - Late spans & decision cache: Spans arriving after decision_wait inherit the cached
+  #   decision from decision_cache. If a long-running trace (>3s) encounters an error
+  #   after the initial drop decision, the late error span is dropped.
   tail_sampling:
-    decision_wait: 3s
-    num_traces: 20000
-    expected_new_traces_per_sec: 1000
+    decision_wait: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_DECISION_WAIT:-3s}
+    num_traces: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_NUM_TRACES:-5000}
+    expected_new_traces_per_sec: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_EXPECTED_NEW_TRACES_PER_SEC:-1000}
     decision_cache:
-      sampled_cache_size: 10000
-      non_sampled_cache_size: 20000
+      sampled_cache_size: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_SAMPLED_CACHE_SIZE:-2500}
+      non_sampled_cache_size: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_NON_SAMPLED_CACHE_SIZE:-5000}
     policies:
       # Keep 50% of whole traces if ANY span in the trace has an error status
       - name: errors
