@@ -738,16 +738,16 @@ def test_operation_table_uses_consumer_kind_not_celery_operation_name(tmp_path):
     )
 
 
-def test_service_overview_panels_use_consumer_kind_for_celery(tmp_path):
+def test_service_overview_panels_use_producer_kind_for_celery(tmp_path):
     labels = 'project_name="test",cluster_name="dev",instance="collector",db_connection_pool="default"'
     series = [
         {"series": 'apm_calls_total{' + labels + ',normalized_service="django",span_kind="SPAN_KIND_SERVER"}', "values": "0+120x31"},
         {"series": 'apm_calls_total{' + labels + ',normalized_service="celery",span_kind="SPAN_KIND_PRODUCER"}', "values": "0+6000x31"},
         {"series": 'apm_calls_total{' + labels + ',normalized_service="celery",span_kind="SPAN_KIND_CONSUMER"}', "values": "0+60x31"},
     ]
-    # When service is filtered to celery, producer calls must be ignored and only consumer counted.
+    # When service is filtered to celery, consumer calls must be ignored and only producer counted.
     expr_celery = expression("Supporting Dashboards/service_overview.json", 6, "A").replace('normalized_service=~".*"', 'normalized_service=~"celery"')
-    evaluate(tmp_path, expr_celery, series, [{"labels": "{}", "value": 1}])
+    evaluate(tmp_path, expr_celery, series, [{"labels": "{}", "value": 100}])
 
     # When service is filtered to django, it evaluates django calls cleanly.
     expr_django = expression("Supporting Dashboards/service_overview.json", 6, "A").replace('normalized_service=~".*"', 'normalized_service=~"django"')
