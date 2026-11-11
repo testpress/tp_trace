@@ -137,7 +137,12 @@ def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
     """Short refresh intervals must not hide counters exported less frequently."""
     dashboard = _load("Supporting Dashboards/service_overview.json")
     panels = {panel["title"]: panel for panel in dashboard["panels"]}
-    for title in ("Requests and Errors", "Error Rate Over Time", "Latency Percentiles (P50 / P95 / P99)"):
+    for title in (
+        "Requests and Errors",
+        "Error Rate Over Time",
+        "Latency Percentiles (P50 / P95 / P99)",
+        "Service Time Breakdown (Mean Time per Request)",
+    ):
         expressions = [target.get("expr", "") for target in panels[title]["targets"]]
         assert expressions
         assert all("$__rate_interval" in expr for expr in expressions)

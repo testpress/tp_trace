@@ -850,12 +850,324 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Datadog-style Service Time Breakdown showing mean milliseconds per request spent across downstream services and application self-time. For non-Django services, displays that service's own mean latency. Note: without a caller_service dimension, shared project dependencies include background Celery/command calls, and parallel child spans may cause self-time to clamp to 0 ms.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Mean time / request (ms)",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "PostgreSQL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#10b981",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Redis"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef4444",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "External HTTP"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#f97316",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AWS / Boto3"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#06b6d4",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Celery (Publish)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#a855f7",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "PgBouncer (Connect)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#eab308",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Other Dependencies"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#64748b",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.* \\(Self\\)$/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#3b82f6",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"postgres\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) or (0 * (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0))",
+          "interval": "1m",
+          "legendFormat": "PostgreSQL",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"redis\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) or (0 * (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0))",
+          "interval": "1m",
+          "legendFormat": "Redis",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) or (0 * (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0))",
+          "interval": "1m",
+          "legendFormat": "External HTTP",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"aws-.*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) or (0 * (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0))",
+          "interval": "1m",
+          "legendFormat": "AWS / Boto3",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_PRODUCER\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) or (0 * (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0))",
+          "interval": "1m",
+          "legendFormat": "Celery (Publish)",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=\"pgbouncer\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)",
+          "interval": "1m",
+          "legendFormat": "PgBouncer (Connect)",
+          "range": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service!~\"django|postgres|pgbouncer|redis|requests|aws-.*|celery\",project_name=~\"${project:regex}\",span_kind=~\"SPAN_KIND_CLIENT|SPAN_KIND_PRODUCER\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)",
+          "interval": "1m",
+          "legendFormat": "Other Dependencies",
+          "range": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service!=\"django\",project_name=~\"${project:regex}\",span_kind=~\"SPAN_KIND_CLIENT|SPAN_KIND_PRODUCER\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0)) or (0 * (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) > 0))), 0) or (sum(rate(apm_duration_milliseconds_sum{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service!=\"django\",normalized_service!=\"celery\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service!=\"django\",normalized_service!=\"celery\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) > 0)) or (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__rate_interval])) / (sum(rate(apm_duration_milliseconds_count{cluster_name=~\"${cluster:regex}\",instance!=\"\",normalized_service=~\"${service:regex}\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__rate_interval])) > 0))",
+          "interval": "1m",
+          "legendFormat": "${service} (Self)",
+          "range": true,
+          "refId": "H"
+        }
+      ],
+      "title": "Service Time Breakdown (Mean Time per Request)",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "id": 300,
       "title": "Service Operations (Click endpoint to drill down)",
@@ -1119,7 +1431,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 25
       },
       "id": 9,
       "options": {
