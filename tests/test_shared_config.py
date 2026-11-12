@@ -54,7 +54,7 @@ def test_health_listener_is_enabled_by_entry_points():
     assert deployed_env["OTEL_COLLECTOR_HEALTH_BIND"] == "{{ otel_collector_health_bind | string }}"
     assert defaults["otel_collector_health_bind"] == "127.0.0.1"
     assert inventory["otel_collector_health_bind"] == "0.0.0.0"
-    assert inventory["otel_collector_health_allowed_hosts"] == ["127.0.0.1/32", "65.21.236.56/32"]
+    assert inventory["otel_collector_health_allowed_hosts"] == []
 
 
 def test_local_tempo_publishes_deployment_grpc_port_for_vm_collectors():

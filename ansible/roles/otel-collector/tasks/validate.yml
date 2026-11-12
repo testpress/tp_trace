@@ -16,3 +16,20 @@
     that:
       - otel_collector_version is version("0.153.0", ">=")
     fail_msg: This role requires Collector 0.153.0 or later.
+
+- name: Validate OpenTelemetry Collector firewall variables
+  ansible.builtin.assert:
+    that:
+      - (otel_collector_allowed_hosts_common | default([]) + otel_collector_allowed_hosts_extra | default([])) | length > 0
+      - otel_collector_otlp_ingress_ports | default([]) | length > 0
+    fail_msg: OpenTelemetry Collector firewall variables are incomplete. Check group_vars.
+  when: otel_collector_firewall_enabled | default(true) | bool
+
+- name: Require monitoring sources before exposing remote Collector health
+  ansible.builtin.assert:
+    that:
+      - otel_collector_health_allowed_hosts | default([]) | difference(['127.0.0.1/32', '127.0.0.1', '::1', '::1/128']) | length > 0
+    fail_msg: Set otel_collector_health_allowed_hosts to the verified Kuma probe source IP/CIDR before enabling remote health checks.
+  when:
+    - otel_collector_health_enabled | bool
+    - otel_collector_health_bind not in ['127.0.0.1', 'localhost', '::1']
