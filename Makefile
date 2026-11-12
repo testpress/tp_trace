@@ -3,7 +3,7 @@ PYTHON ?= python3
 VENV ?= .venv
 COMPOSE ?= docker compose $(if $(wildcard .env),--env-file .env) -f dev/docker-compose.yml
 
-.PHONY: help install lint test pre-commit build check-config check-collector-config up rebuild restart down nuke logs ps smoke traffic
+.PHONY: help install lint test pre-commit build check-config check-collector-config up core-up rebuild restart down nuke logs ps smoke traffic
 
 help: ## Show development commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -37,6 +37,9 @@ check-collector-config: ## Validate shared Collector YAML with the pinned local 
 
 up: ## Start the local stack using existing images (no build)
 	$(COMPOSE) up --no-build -d --wait --wait-timeout 180
+
+core-up: ## Start only core telemetry services (collector, prometheus, tempo)
+	$(COMPOSE) up --no-build -d --wait --wait-timeout 180 otel-collector prometheus tempo grafana
 
 rebuild: ## Build images and start the local stack after dependency or Dockerfile changes
 	$(COMPOSE) up --build -d --wait --wait-timeout 180
