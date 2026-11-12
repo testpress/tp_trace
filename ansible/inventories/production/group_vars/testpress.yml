@@ -3,9 +3,7 @@
 # All hosts except `tpstreams_staging` belong here.
 # Values here override or supplement `group_vars/app_servers.yml`.
 
-# Example: testpress-specific observability host override
-# otel_collector_observability_host: "staging1"
-
-# Example: testpress-specific allowed hosts (append to common list)
+# Example: testpress-specific allowed hosts (replaces default empty list in app_servers.yml;
+# combined with otel_collector_allowed_hosts_common in firewall rules)
 # otel_collector_allowed_hosts_extra:
 #   - 10.0.0.0/24
