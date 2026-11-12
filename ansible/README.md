@@ -25,6 +25,29 @@ roles/otel-collector/
     verify.yml
 ```
 
+## Inventory Groups
+
+Hosts are organized under `app_servers` (which all playbooks target by default):
+
+```text
+app_servers
+├── testpress
+│   ├── cluster1   (cluster1_app1, cluster1_app2, cluster1_app3)
+│   ├── cluster2   (cluster2_app1, cluster2_app2)
+│   ├── bpala_classes   (bpala_classes_app1)
+│   ├── testpress_staging   (staging1)
+│   └── celery
+└── tpstreams
+    └── tpstreams_staging
+```
+
+- **`app_servers`** — every collector host; used by `site.yml`, `install.yml`, `configure.yml`.
+- **`testpress`** — all non-tpstreams hosts; target with `--limit "testpress"`.
+- **`tpstreams`** — `tpstreams_staging` only; target with `--limit "tpstreams"`.
+- **`cluster1` / `cluster2` / `bpala_classes` / `testpress_staging`** — cluster-wise subsets of `testpress`; target with `--limit "cluster1"`, `--limit "cluster2"`, `--limit "bpala_classes"`, or `--limit "testpress_staging"`.
+
+Per-group variables live in `inventories/production/group_vars/<group>.yml` (`testpress.yml`, `tpstreams.yml`, `cluster1.yml`, `cluster2.yml`, `bpala_classes.yml`, `testpress_staging.yml`) and override `app_servers.yml`.
+
 ## How It Works
 
 1. **Host-Level Sidecar Deployment:**

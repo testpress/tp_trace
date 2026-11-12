@@ -1,0 +1,11 @@
+---
+# Variables specific to the `tpstreams` group.
+# Only `tpstreams_staging` belongs here.
+# Values here override or supplement `group_vars/app_servers.yml`.
+
+# Example: tpstreams-specific observability host override
+# otel_collector_observability_host: "staging1"
+
+# Example: tpstreams-specific allowed hosts (append to common list)
+# otel_collector_allowed_hosts_extra:
+#   - 10.0.0.0/24
