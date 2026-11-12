@@ -25,6 +25,22 @@
   when: otel_collector_firewall_enabled | default(true) | bool
   notify: Save iptables rules
 
+- name: Allow monitoring sources to reach Collector health endpoint
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "13133"
+    source: "{{ item }}"
+    jump: ACCEPT
+    action: insert
+    state: present
+  # Monitoring sources must survive --limit to an individual Collector host.
+  loop: "{{ otel_collector_health_allowed_hosts }}"
+  when:
+    - otel_collector_firewall_enabled | default(true) | bool
+    - otel_collector_health_enabled | bool
+  notify: Save iptables rules
+
 - name: Ensure Docker user chain exists
   ansible.builtin.iptables:
     chain: DOCKER-USER

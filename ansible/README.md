@@ -86,6 +86,20 @@ See [shared configuration](../config/README.md).
 
 ### Network & Container Resources
 
+`otel_collector_health_enabled` / `otel_collector_health_bind`
+: Enable the HTTP health endpoint on port `13133` (default: `true`, loopback
+`127.0.0.1`). Production inventory binds to `0.0.0.0` for remote Kuma probes.
+
+`otel_collector_health_allowed_hosts`
+: Sources allowed to reach port `13133`. Defaults to loopback; production adds
+`65.21.236.56/32`, assuming Kuma runs on staging1. Confirm Kuma's outbound IP
+before rollout and update this list if needed. This list is independent of
+`--limit`, so single-host deployments retain monitoring access. These are additive
+ACCEPT rules: the host's baseline firewall must deny other sources. Provider
+firewall rules must also permit the Kuma source. Removed sources and disabling
+the endpoint do not remove previously installed firewall rules; reconcile stale
+rules separately. The endpoint checks availability, not successful exports.
+
 `otel_collector_version`
 : Version tag for `otel/opentelemetry-collector-contrib` image (default: `"0.153.0"`).
 
@@ -124,7 +138,10 @@ ansible-playbook playbooks/otel-collector/site.yml -k -K
 
 ### Configuration Update Only
 
-Validates the Collector settings, copies the shared configuration, and applies it to the Collector container.
+Validates the Collector settings, copies the shared configuration, applies it to
+the Collector container, updates firewall allow rules, and verifies metrics and
+the enabled health endpoint. Container environment changes may recreate the
+Collector, briefly interrupting telemetry collection.
 
 ```bash
 ansible-playbook playbooks/otel-collector/configure.yml -k -K

@@ -30,6 +30,8 @@
       GOMEMLIMIT: "{{ otel_collector_gomemlimit }}"
       GOGC: "{{ otel_collector_gogc }}"
       OTEL_COLLECTOR_ALIAS: "{{ otel_collector_alias | string }}"
+      OTEL_COLLECTOR_EXTENSIONS: "{{ '[health_check]' if otel_collector_health_enabled | bool else '[]' }}"
+      OTEL_COLLECTOR_HEALTH_BIND: "{{ otel_collector_health_bind | string }}"
       OTEL_COLLECTOR_BATCH_MAX_SIZE: "{{ (otel_collector_batch_max_size | string) if otel_collector_batch_max_size is defined else omit }}"
       OTEL_COLLECTOR_BATCH_SEND_SIZE: "{{ (otel_collector_batch_send_size | string) if otel_collector_batch_send_size is defined else omit }}"
       OTEL_COLLECTOR_BATCH_TIMEOUT: "{{ (otel_collector_batch_timeout | string) if otel_collector_batch_timeout is defined else omit }}"
