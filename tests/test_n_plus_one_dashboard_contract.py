@@ -141,12 +141,17 @@ def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
         "Requests and Errors",
         "Error Rate Over Time",
         "Latency Percentiles (P50 / P95 / P99)",
-        "Service Time Breakdown (Mean Time per Request)",
+        "% of Time Spent by Downstream Service and inferred",
     ):
         expressions = [target.get("expr", "") for target in panels[title]["targets"]]
         assert expressions
         assert all("$__rate_interval" in expr for expr in expressions)
-        assert all("$__range" not in expr for expr in expressions)
+        if title == "% of Time Spent by Downstream Service and inferred":
+            # Range-wide activity gates hide empty dependencies without removing
+            # their zero intervals elsewhere in the displayed time range.
+            assert all("[$__range] @ end()" in expr for expr in expressions[1:])
+        else:
+            assert all("$__range" not in expr for expr in expressions)
         assert all(target.get("interval") == "1m" for target in panels[title]["targets"])
 
 
