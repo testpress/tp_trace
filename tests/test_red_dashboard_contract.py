@@ -827,7 +827,7 @@ def test_dependency_span_time_hides_inactive_series_without_fabricating_self_tim
 @pytest.mark.parametrize("selected, expected", [("server-a", 2), ("server-b", 7), ("server-a|server-b", 9), (".*", 9)])
 def test_service_server_selection_isolates_collectors(tmp_path, selected, expected):
     expr = expression("Supporting Dashboards/service_overview.json", 6, "A").replace(
-        'instance=~".*"', 'instance=~"' + selected + '"'
+        'instance=~`.*`', 'instance=~`' + selected + '`'
     )
     labels = (
         'project_name="test",cluster_name="dev",normalized_service="django",span_kind="SPAN_KIND_SERVER",error="true"'
@@ -867,9 +867,61 @@ def test_apm_dashboards_scope_metrics_and_links_by_server():
                     expanded = re.sub(r"\$\{[^}]+\}", ".*", expr)
                     selectors = re.findall(r"\bapm_\w+\{([^}]+)\}", expanded)
                     assert selectors
-                    assert all('instance=~".*"' in selector for selector in selectors)
+                    assert all('instance=~`.*`' in selector for selector in selectors)
                 if target.get("queryType") == "traceql":
                     assert "not filtered by Server" in item["description"]
         serialized = json.dumps(dashboard)
         assert serialized.count("${cluster:queryparam}") == serialized.count("${server:queryparam}")
     assert len(dashboards) == 6
+
+
+@pytest.mark.parametrize("selected", [["37.27.120.204"], ["app.example.com:8000", "37.27.120.204"], None])
+def test_server_filter_uses_prometheus_escaping(tmp_path, selected):
+    # Grafana produces regex escapes such as \. for dotted server names.
+    # Do not assume a second escaping pass by the datasource: PromQL raw
+    # strings must preserve these backslashes through parsing.
+    regex = ".*" if selected is None else "(" + "|".join(
+        re.sub(r"([.\\+*?\[\]{}()^$|])", r"\\\1", value) for value in selected
+    ) + ")"
+    rules = []
+    for path in DASHBOARDS.rglob("*.json"):
+        dashboard = json.loads(path.read_text())
+        for item in dashboard.get("panels", []):
+            for target in item.get("targets", []):
+                expr = target.get("expr", "")
+                if "${server" not in expr:
+                    continue
+                expr = expr.replace("${server:regex}", regex)
+                expr = expr.replace("${server}", regex)
+                expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
+                expr = re.sub(r"\$\{[^}]+\}", ".*", expr)
+                expr = expr.replace("$__rate_interval", "5m").replace("$__range", "1h")
+                rules.append({"record": "server_filter_" + str(len(rules)), "expr": expr})
+    assert rules
+    fixture = tmp_path / "server_filters.yml"
+    fixture.write_text(yaml.safe_dump({"groups": [{"name": "server_filters", "rules": rules}]}))
+    result = subprocess.run([promtool(), "check", "rules", str(fixture)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("component", ["receiver", "processor", "exporter"])
+def test_collector_component_filter_discovers_selected_collectors(tmp_path, component):
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    variable = next(v for v in dashboard["templating"]["list"] if v["name"] == component)
+    query = variable["query"]
+    if isinstance(query, dict):
+        query = query["query"]
+    if query.startswith("label_values("):
+        selector = query[len("label_values("):].rsplit(",", 1)[0]
+        expr = "count by (" + component + ") (" + selector + ")"
+    else:
+        expr = query[len("query_result("):-1]
+    expr = expr.replace("$job", "otel-collector").replace("${instance:regex}", "staging1")
+    metric = "otelcol_" + component + "_accepted_spans_total"
+    series = [
+        {"series": metric + '{source="otelcol-telemetry",job="otelcol-contrib",collector_alias="staging1",' + component + '="otlp"}', "values": "1+0x31"},
+        {"series": metric + '{source="otelcol-telemetry",job="otelcol-contrib",collector_alias="other",' + component + '="other"}', "values": "1+0x31"},
+    ]
+    evaluate(tmp_path, expr, series, [{"labels": '{' + component + '="otlp"}', "value": 1}])
+    assert variable["multi"] and variable["includeAll"]
+    assert variable["current"]["value"] == ["$__all"]
