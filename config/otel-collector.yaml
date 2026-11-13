@@ -111,36 +111,7 @@ processors:
     trace_conditions:
       - 'span.kind == SPAN_KIND_INTERNAL'
 
-  # Tail sampling buffers spans and evaluates policies over the entire trace.
-  # Keep the received parent-child hierarchy for selected traces when their spans
-  # reach this instance within the decision window or cached-decision lifetime.
-  #
-  # Sizing & Memory Budget:
-  # - Statefulness: Tail sampling buffers all spans of in-flight traces until
-  #   decision_wait expires. At expected_new_traces_per_sec=1000 and
-  #   decision_wait=3s, steady state is ~3,000 in-flight traces.
-  # - Memory budget: The Collector memory limiter enforces a 400 MiB hard limit
-  #   (limit_mib) with an 80 MiB spike threshold, giving an effective 320 MiB soft
-  #   limit. Other components (spanmetrics connector, deltatocumulative, batch
-  #   processors, Go GC headroom) consume estimated ~180-200 MiB under load, leaving a
-  #   budget of ~100-125 MiB for tail sampling.
-  # - Sizing: Typical traces (15-30 spans with DB/Redis/HTTP attributes) are estimated
-  #   at ~20-25 KB in Go heap. num_traces=5000 caps the trace buffer at ~100-125 MiB,
-  #   providing ~66% burst headroom over the 3,000 trace steady state.
-  # - Trade-off: Eviction is trace-count-based (num_traces) rather than byte-based,
-  #   so an atypical burst of unusually large traces (e.g. hundreds of DB/Redis spans)
-  #   could still increase byte pressure. However, under typical trace shapes, capping
-  #   at 5,000 traces reduces the risk of memory_limiter tripping and refusing data
-  #   on the shared spanmetrics pipeline by dropping the oldest un-decided traces first
-  #   (tracked by otelcol_processor_tail_sampling_sampling_trace_dropped_too_early).
-  # - Late spans & decision cache: Spans arriving after decision_wait inherit the cached
-  #   decision from decision_cache. Assuming ~64-96 bytes per LRU entry, the 35,000
-  #   entries use an estimated ~2.1-3.2 MiB; this is not a measured memory bound.
-  #   At steady insertion rates, non_sampled_cache_size=25000 represents ~25s at
-  #   1,000 new unsampled traces/s, and sampled_cache_size=10000 represents ~200s
-  #   at 50 new sampled traces/s. LRU eviction does not guarantee these lifetimes.
-  #   If a span arrives after its Trace ID is evicted from the cache, it is evaluated as a new
-  #   trace and late error spans could be kept as orphan fragments.
+  # Trace decisions require spans to reach the same Collector instance.
   tail_sampling:
     decision_wait: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_DECISION_WAIT:-3s}
     num_traces: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_NUM_TRACES:-5000}
@@ -149,7 +120,7 @@ processors:
       sampled_cache_size: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_SAMPLED_CACHE_SIZE:-10000}
       non_sampled_cache_size: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_NON_SAMPLED_CACHE_SIZE:-25000}
     policies:
-      # Keep 50% of whole traces if ANY span in the trace has an error status
+      # Additional error evidence: 50% of traces.
       - name: errors
         type: and
         and:
@@ -164,10 +135,7 @@ processors:
               probabilistic:
                 sampling_percentage: 50.0
 
-      # Keep whole trace if SDK explicitly marked it as sampled.
-      # Deployment owner confirms all producers use tp_trace 0.4.1, which sets
-      # and protects tp_trace.sampled. Wire-flag fallback is intentionally omitted;
-      # reassess compatibility before accepting older SDKs or third-party producers.
+      # Baseline retention uses the explicit tp_trace SDK decision.
       - name: sampled_by_attribute
         type: ottl_condition
         ottl_condition:
@@ -175,7 +143,7 @@ processors:
           span:
             - 'span.attributes["tp_trace.sampled"] == true'
 
-      # Repeated query evidence: sample whole traces exhibiting repeated query detection
+      # Additional repeated-query evidence: 1% of traces.
       - name: repeated_query_evidence
         type: and
         and:
