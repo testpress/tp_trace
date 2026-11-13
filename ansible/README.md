@@ -86,6 +86,31 @@ See [shared configuration](../config/README.md).
 
 ### Network & Container Resources
 
+`otel_collector_health_enabled` / `otel_collector_health_bind`
+: Enable the HTTP health endpoint on port `13133` (default: `true`, loopback
+`127.0.0.1`). Production inventory binds to `0.0.0.0` for remote Kuma probes.
+
+`otel_collector_health_allowed_hosts`
+: Sources allowed to reach port `13133`. Defaults to loopback; production leaves
+this list empty until the Kuma probe source is verified. Both deployment paths
+fail validation before making changes if remote health checks are enabled without
+a non-loopback source. Set this list to the verified source IP/CIDR before rollout.
+This list is independent of
+`--limit`, so single-host deployments retain monitoring access. These are additive
+ACCEPT rules: the host's baseline firewall must deny other sources. Provider
+firewall rules must also permit the Kuma source. Removed sources and disabling
+the endpoint do not remove previously installed firewall rules; reconcile stale
+rules separately. The endpoint checks availability, not successful exports.
+
+To establish the source, send an HTTP request to the target Collector's port
+`13133` from the actual Kuma container/network namespace. Observe the arriving
+source on the Collector host, for example with
+`sudo tcpdump -nn -i any 'tcp dst port 13133'`, rather than assuming the container
+uses its host's address. Put that source's `/32` in the allowlist, apply the
+playbook, then verify HTTP 200 from the same Kuma network and confirm the Kuma
+monitor shows Up. If no packets arrive, check routing and provider firewall
+rules. A local curl on the Collector host does not verify Kuma connectivity.
+
 `otel_collector_version`
 : Version tag for `otel/opentelemetry-collector-contrib` image (default: `"0.153.0"`).
 
@@ -124,7 +149,10 @@ ansible-playbook playbooks/otel-collector/site.yml -k -K
 
 ### Configuration Update Only
 
-Validates the Collector settings, copies the shared configuration, and applies it to the Collector container.
+Validates the Collector settings, copies the shared configuration, applies it to
+the Collector container, updates firewall allow rules, and verifies metrics and
+the enabled health endpoint. Container environment changes may recreate the
+Collector, briefly interrupting telemetry collection.
 
 ```bash
 ansible-playbook playbooks/otel-collector/configure.yml -k -K

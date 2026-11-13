@@ -40,14 +40,21 @@ def test_ansible_copies_same_collector_file_and_local_only_changes_addresses():
     assert not (ROOT / "dev/prometheus").exists()
 
 
-def test_health_listener_is_disabled_for_deployment_and_enabled_locally():
+def test_health_listener_is_enabled_by_entry_points():
     config = _yaml("config/otel-collector.yaml")
     assert config["service"]["extensions"] == "${env:OTEL_COLLECTOR_EXTENSIONS:-[]}"
     local = _yaml("dev/docker-compose.yml")["services"]["otel-collector"]["environment"]
     assert yaml.safe_load(local["OTEL_COLLECTOR_EXTENSIONS"]) == ["health_check"]
     tasks = _yaml("ansible/roles/otel-collector/tasks/configure.yml")
     deployed_env = next(task["community.docker.docker_container"]["env"] for task in tasks if "community.docker.docker_container" in task)
-    assert "OTEL_COLLECTOR_EXTENSIONS" not in deployed_env
+    defaults = _yaml("ansible/roles/otel-collector/defaults/main.yml")
+    inventory = _yaml("ansible/inventories/production/group_vars/app_servers.yml")
+    assert defaults["otel_collector_health_enabled"] is True
+    assert deployed_env["OTEL_COLLECTOR_EXTENSIONS"] == "{{ '[health_check]' if otel_collector_health_enabled | bool else '[]' }}"
+    assert deployed_env["OTEL_COLLECTOR_HEALTH_BIND"] == "{{ otel_collector_health_bind | string }}"
+    assert defaults["otel_collector_health_bind"] == "127.0.0.1"
+    assert inventory["otel_collector_health_bind"] == "0.0.0.0"
+    assert inventory["otel_collector_health_allowed_hosts"] == []
 
 
 def test_local_tempo_publishes_deployment_grpc_port_for_vm_collectors():

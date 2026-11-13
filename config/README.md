@@ -15,8 +15,9 @@ Ansible role from the full repository checkout so it can find this directory.
 Required Collector values are `OTEL_COLLECTOR_TEMPO_ENDPOINT`,
 `OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT`, `OTEL_COLLECTOR_INSTANCE`, and
 `OTEL_COLLECTOR_ALIAS`. Other substitutions have defaults in the YAML. The health-check extension is
-disabled by default (`OTEL_COLLECTOR_EXTENSIONS=[]`), so Ansible deployments do
-not open port 13133. Local Compose explicitly enables it with
+disabled by default (`OTEL_COLLECTOR_EXTENSIONS=[]`). The Ansible role enables it
+with a loopback bind by default; production inventory binds to all IPv4 interfaces
+and adds monitoring-source firewall allow rules for port 13133. Local Compose enables it with
 `OTEL_COLLECTOR_EXTENSIONS=[health_check]` and binds to `0.0.0.0:13133` for the
 existing development health probe. Merely defining the extension does not start it.
 

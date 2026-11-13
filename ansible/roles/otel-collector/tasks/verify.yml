@@ -1,5 +1,5 @@
 ---
-- name: Verify OpenTelemetry Collector is responding to internal health/metrics
+- name: Verify OpenTelemetry Collector is responding to internal metrics
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ otel_collector_internal_metrics_port }}/metrics"
     status_code: 200
@@ -8,3 +8,15 @@
   retries: 10
   delay: 2
   when: not ansible_check_mode
+
+- name: Verify OpenTelemetry Collector health endpoint
+  ansible.builtin.uri:
+    url: "http://{{ '127.0.0.1' if otel_collector_health_bind == '0.0.0.0' else otel_collector_health_bind }}:13133/"
+    status_code: 200
+  register: otel_collector_health_response
+  until: otel_collector_health_response.status == 200
+  retries: 10
+  delay: 2
+  when:
+    - not ansible_check_mode
+    - otel_collector_health_enabled | bool

@@ -1,6 +1,10 @@
 ---
 otel_collector_otlp_grpc_bind: "0.0.0.0"
 otel_collector_otlp_http_bind: "0.0.0.0"
+otel_collector_health_bind: "0.0.0.0"
+# Populate with the verified Kuma probe source IP/CIDR before deploying.
+# Remote health validation deliberately fails while this list is empty.
+otel_collector_health_allowed_hosts: []
 otel_collector_tempo_endpoint: "65.21.236.56:4327"
 otel_collector_prometheus_remote_write_endpoint: "http://65.21.236.56:9090/api/v1/write"
 otel_collector_observability_host: "staging1"

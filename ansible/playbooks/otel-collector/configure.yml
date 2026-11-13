@@ -12,3 +12,13 @@
       ansible.builtin.import_role:
         name: otel-collector
         tasks_from: configure.yml
+
+    - name: Configure OpenTelemetry Collector firewall
+      ansible.builtin.import_role:
+        name: otel-collector
+        tasks_from: firewall.yml
+
+    - name: Verify OpenTelemetry Collector
+      ansible.builtin.import_role:
+        name: otel-collector
+        tasks_from: verify.yml
