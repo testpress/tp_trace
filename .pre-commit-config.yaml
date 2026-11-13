@@ -17,20 +17,20 @@ repos:
 
       - id: check-yaml
         name: check yaml
-        entry: bash -c 'PYTHON=$([ -x "${VIRTUAL_ENV:-.venv}/bin/python" ] && echo "${VIRTUAL_ENV:-.venv}/bin/python" || command -v python3); exec "$PYTHON" -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" "$@"' --
+        entry: bash -c 'PYTHON=$(command -v python3 || echo "${VIRTUAL_ENV:-.venv}/bin/python"); exec "$PYTHON" -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" "$@"' --
         language: system
         types: [yaml]
 
       - id: check-json
         name: check json
-        entry: bash -c 'PYTHON=$([ -x "${VIRTUAL_ENV:-.venv}/bin/python" ] && echo "${VIRTUAL_ENV:-.venv}/bin/python" || command -v python3); exec "$PYTHON" -c "import sys, json; [json.load(open(f)) for f in sys.argv[1:]]" "$@"' --
+        entry: bash -c 'PYTHON=$(command -v python3 || echo "${VIRTUAL_ENV:-.venv}/bin/python"); exec "$PYTHON" -c "import sys, json; [json.load(open(f)) for f in sys.argv[1:]]" "$@"' --
         language: system
         types: [json]
 
       - id: check-toml
         name: check toml
         entry: >-
-          bash -c 'PYTHON=$([ -x "${VIRTUAL_ENV:-.venv}/bin/python" ] && echo "${VIRTUAL_ENV:-.venv}/bin/python" || command -v python3);
+          bash -c 'PYTHON=$(command -v python3 || echo "${VIRTUAL_ENV:-.venv}/bin/python");
           exec "$PYTHON" -c "try:
               import tomllib as t
           except ImportError:
