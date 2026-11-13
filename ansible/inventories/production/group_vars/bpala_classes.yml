@@ -1,0 +1,12 @@
+---
+# Variables specific to the `bpala_classes` cluster group.
+# Hosts: bpala_classes_app1
+# Values here override or supplement `group_vars/app_servers.yml`.
+
+# Example: bpala_classes-specific container resources
+# otel_collector_container_cpu_limit: 1.0
+# otel_collector_container_memory_limit: "1024m"
+
+# Example: bpala_classes-specific batch tuning
+# otel_collector_batch_timeout: "1s"
+# otel_collector_batch_send_size: 512

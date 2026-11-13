@@ -1,0 +1,9 @@
+---
+# Variables specific to the `testpress` group.
+# All hosts except `tpstreams_staging` belong here.
+# Values here override or supplement `group_vars/app_servers.yml`.
+
+# Example: testpress-specific allowed hosts (replaces default empty list in app_servers.yml;
+# combined with otel_collector_allowed_hosts_common in firewall rules)
+# otel_collector_allowed_hosts_extra:
+#   - 10.0.0.0/24

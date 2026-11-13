@@ -1,4 +1,10 @@
 ---
+- name: Validate Ansible control node version
+  ansible.builtin.assert:
+    that:
+      - ansible_version.full is version("2.13", ">=")
+    fail_msg: This role requires ansible-core 2.13 or later for iptables chain management.
+
 - name: Validate required OpenTelemetry Collector variables
   ansible.builtin.assert:
     that:

@@ -1,0 +1,12 @@
+---
+# Variables specific to the `cluster2` group.
+# Hosts: cluster2_app1, cluster2_app2
+# Values here override or supplement `group_vars/app_servers.yml`.
+
+# Example: cluster2-specific container resources
+# otel_collector_container_cpu_limit: 1.0
+# otel_collector_container_memory_limit: "1024m"
+
+# Example: cluster2-specific batch tuning
+# otel_collector_batch_timeout: "1s"
+# otel_collector_batch_send_size: 512
