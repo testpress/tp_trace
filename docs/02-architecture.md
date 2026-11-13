@@ -42,17 +42,17 @@ The Collector applies memory limits and removes ephemeral resource attributes.
 It handles spans and metrics through separate pipelines.
 
 - The main trace pipeline applies tail sampling to evaluate whole-trace policies
-  (preserving complete parent-child hierarchies for error traces, SDK-sampled traces,
-  and repeated-query evidence) and exports retained traces to Tempo over OTLP/gRPC.
+  (retaining received parent-child spans for selected error traces, SDK-sampled traces,
+  and repeated-query evidence within the decision-window and routing constraints below) and exports retained traces to Tempo over OTLP/gRPC.
 - The span-to-metrics pipeline derives metrics from eligible spans independently
-  of the main trace pipeline's sampling filter.
+  of the main trace pipeline's tail sampler.
   Prometheus Remote Write sends both native and span-derived metrics to
   Prometheus.
 
 #### Tail Sampling Architecture & Sizing
 
 The `tail_sampling` processor buffers incoming spans in memory and evaluates keep/drop policies
-across complete traces once `decision_wait` (default: 3 seconds) elapses.
+across the spans received for each trace once `decision_wait` (default: 3 seconds) elapses.
 
 - **Deployment Topology & Single-Instance Constraint**:
   - The Collector runs as a host-level sidecar container (`network_mode: host`) on each application host (deployed via Ansible) or as a single container locally in Compose. The `setup/docker-compose.yml` configuration deploys only the shared Tempo backend (`obs-tempo`) and does not deploy or horizontally scale the Collector.

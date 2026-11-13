@@ -112,8 +112,8 @@ processors:
       - 'span.kind == SPAN_KIND_INTERNAL'
 
   # Tail sampling buffers spans and evaluates policies over the entire trace.
-  # This guarantees full parent-child hierarchy retention for error traces,
-  # SDK-sampled traces, and repeated-query traces without orphan spans.
+  # Keep the received parent-child hierarchy for selected traces when their spans
+  # reach this instance within the decision window or cached-decision lifetime.
   #
   # Sizing & Memory Budget:
   # - Statefulness: Tail sampling buffers all spans of in-flight traces until
