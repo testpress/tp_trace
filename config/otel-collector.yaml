@@ -171,14 +171,6 @@ processors:
           span:
             - 'span.attributes["tp_trace.sampled"] == true'
 
-      # Keep whole trace if non-tp_trace producer wire flags indicate sampled
-      - name: sampled_by_wire_flags
-        type: ottl_condition
-        ottl_condition:
-          error_mode: ignore
-          span:
-            - 'span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) != 0'
-
       # Repeated query evidence: sample whole traces exhibiting repeated query detection
       - name: repeated_query_evidence
         type: and

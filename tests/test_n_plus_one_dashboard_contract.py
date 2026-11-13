@@ -173,7 +173,7 @@ def test_collector_spanmetrics_pipeline_and_filters():
     policy_names = [p["name"] for p in cfg["processors"]["tail_sampling"]["policies"]]
     assert "errors" in policy_names
     assert "sampled_by_attribute" in policy_names
-    assert "sampled_by_wire_flags" in policy_names
+    assert "sampled_by_wire_flags" not in policy_names
     assert "repeated_query_evidence" in policy_names
     assert pipelines["traces"]["exporters"] == ["otlp/tempo"]
     assert "spanmetrics" in pipelines["metrics"]["receivers"]

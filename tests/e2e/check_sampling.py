@@ -1,4 +1,4 @@
-"""Explicit live check: Tempo obeys SDK sampling decisions and wire flags.
+"""Explicit live check: Tempo obeys explicit SDK sampling decisions, not wire flags.
 
 Run against the local development stack: PYTHONPATH=tests/e2e .venv/bin/python tests/e2e/check_sampling.py.
 Uses isolated synthetic spans and does not start infrastructure.
@@ -30,12 +30,12 @@ def main():
     prometheus = "http://{}:9090".format(os.getenv("SMOKE_PROMETHEUS_HOST", host))
     tempo = "http://{}:3200".format(os.getenv("SMOKE_TEMPO_HOST", host))
     project = "sampling-probe-" + uuid.uuid4().hex[:12]
-    # Non-error cases: deterministic keep based on sampling flags
+    # A missing SDK decision must not retain non-error traces, regardless of wire flags.
     cases = [
-        (flags, 1, None, bool(flags & 1))
+        (flags, 1, None, False)
         for flags in (0, 1, 256, 257, 768, 769)
     ]
-    # Test tp_trace.sampled attribute overrides
+    # Explicit SDK decisions control baseline retention.
     cases.append((0, 1, True, True))  # wire flags 0, attribute sampled True -> kept
     cases.append((1, 1, False, False))  # wire flags 1, attribute sampled False -> dropped
 

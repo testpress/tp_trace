@@ -78,7 +78,8 @@ across the spans received for each trace once `decision_wait` (default: 3 second
 
 - **Retention Semantics & Tempo Volume**:
   - Tail sampling evaluates policies using logical **OR**:
-    1. SDK-sampled traces (`tp_trace.sampled == true` or wire sampled flag) are retained **100%**.
+    1. SDK-sampled traces (`tp_trace.sampled == true`) are retained **100%**.
+    Wire sampled flags alone do not retain a trace; producers without the SDK attribute can still match the error or repeated-query policies.
     2. Unsampled traces containing an `ERROR` status code on ANY span are retained at **50%**.
     3. Repeated-query evidence traces are retained at **1%**.
   - **Retention shift**: Previously, the main trace pipeline dropped all error spans and exported errors only through a 50% error evidence pipeline. Now, SDK-sampled traces that contain errors are retained at **100%** (preserving their complete parent-child trees).
