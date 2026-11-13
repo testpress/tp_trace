@@ -822,3 +822,54 @@ def test_dependency_span_time_hides_inactive_series_without_fabricating_self_tim
     series = [{"series": 'apm_duration_milliseconds_sum{project_name="test",cluster_name="dev",instance="collector",span_kind="SPAN_KIND_CLIENT",normalized_service="postgres",db_instance="idle"}', "values": "100+0x31"}]
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "A"), series, [])
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "B"), [], [])
+
+
+@pytest.mark.parametrize("selected, expected", [("server-a", 2), ("server-b", 7), ("server-a|server-b", 9), (".*", 9)])
+def test_service_server_selection_isolates_collectors(tmp_path, selected, expected):
+    expr = expression("Supporting Dashboards/service_overview.json", 6, "A").replace(
+        'instance=~".*"', 'instance=~"' + selected + '"'
+    )
+    labels = (
+        'project_name="test",cluster_name="dev",normalized_service="django",span_kind="SPAN_KIND_SERVER",error="true"'
+    )
+    evaluate(
+        tmp_path,
+        expr,
+        [
+            {"series": "apm_calls_total{" + labels + ',instance="server-a"}', "values": "0+120x31"},
+            {"series": "apm_calls_total{" + labels + ',instance="server-b"}', "values": "0+420x31"},
+        ],
+        [{"labels": "{}", "value": expected}],
+    )
+
+
+def test_apm_dashboards_scope_metrics_and_links_by_server():
+    dashboards = []
+    for path in DASHBOARDS.rglob("*.json"):
+        dashboard = json.loads(path.read_text())
+        variables = dashboard.get("templating", {}).get("list", [])
+        if not any(v["name"] == "cluster" for v in variables):
+            continue
+        dashboards.append(path)
+        server = next(v for v in variables if v["name"] == "server")
+        assert server["label"] == "Server"
+        assert server["multi"] and server["includeAll"] and server["allValue"] == ".*"
+        assert "${project:regex}" in server["query"] and "${cluster:regex}" in server["query"]
+        assert server["query"].endswith(", instance)")
+        for variable in variables:
+            if variable["name"] in ("project", "cluster", "server"):
+                assert "${server:" not in variable["query"]
+        for item in dashboard.get("panels", []):
+            for target in item.get("targets", []):
+                expr = target.get("expr", "")
+                if "apm_" in expr:
+                    # Expand templates before splitting PromQL selectors at braces.
+                    expanded = re.sub(r"\$\{[^}]+\}", ".*", expr)
+                    selectors = re.findall(r"\bapm_\w+\{([^}]+)\}", expanded)
+                    assert selectors
+                    assert all('instance=~".*"' in selector for selector in selectors)
+                if target.get("queryType") == "traceql":
+                    assert "not filtered by Server" in item["description"]
+        serialized = json.dumps(dashboard)
+        assert serialized.count("${cluster:queryparam}") == serialized.count("${server:queryparam}")
+    assert len(dashboards) == 6
