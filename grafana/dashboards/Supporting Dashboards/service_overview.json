@@ -889,7 +889,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Estimated Django request-time breakdown, stacked to 100%. Django is the estimated non-negative residual after subtracting included dependency durations from Django HTTP request duration; it includes connection setup, uninstrumented work, excluded or filtered operations, and publish overhead. It is not measured Django self-time. Celery spans and separate PgBouncer connection spans are excluded from the dependency stack. Recorded dependencies can overlap and include worker-origin calls because caller labels are unavailable; when their total exceeds request duration the stack is normalized and the residual is zero. Database filters apply only to SQL entries.",
+      "description": "Estimated share of recorded span time, recalculated at each point using the rate window ($__rate_interval).\n\nFormula (Django view):\nR = sum of rate(apm_duration_milliseconds_sum) for Django SERVER spans, excluding django.command.* operations (milliseconds per second).\nD = sum of the same duration rates for included CLIENT spans in the selected project, cluster and server scope: PostgreSQL entries matching the database pool and instance filters, plus other services excluding Django, Celery and PgBouncer. Database filters apply only to SQL entries.\nI = max(R - D, 0): inferred Django time.\nT = I + D = max(R, D): normalization total.\nDjango % = 100 \u00d7 I / T.\nEach dependency % = 100 \u00d7 its duration rate / T, grouped by service and database instance. Values are clamped to 0\u2013100%; a zero total produces no percentage.\n\nExample: R = 100 ms/s and D = 60 ms/s gives Django 40% and dependencies 60%. If D exceeds R because calls overlap or include background work, Django is 0% and dependencies are normalized against D.\n\nThe Django residual includes connection setup, uninstrumented work, excluded or filtered operations, and publish overhead; it is not measured Django self-time. Celery and separate PgBouncer connection spans are excluded from the dependency stack.\n\nThese are estimates from aggregated span metrics, not exact exclusive execution time or average request latency. Shared project dependencies may include background calls and concurrent spans; they are not attributed from individual trace trees. Only dependencies with recorded duration in the selected time range are listed; zero entries are hidden in the tooltip. S3 bucket names and HTTP/Redis endpoint identities are unavailable in these metrics.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -960,6 +960,36 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "django"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#44B78B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^postgres( / .+)?$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#244A68"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "postgres"
             },
             "properties": [
@@ -967,7 +997,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#FCAF2B"
+                  "fixedColor": "#244A68"
                 }
               }
             ]
@@ -982,7 +1012,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#FCAF2B"
+                  "fixedColor": "#244A68"
                 }
               }
             ]
@@ -997,7 +1027,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#BE53BB"
+                  "fixedColor": "#336791"
                 }
               }
             ]
@@ -1012,7 +1042,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#57B89A"
+                  "fixedColor": "#6795BA"
                 }
               }
             ]
@@ -1027,7 +1057,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#FFCC00"
+                  "fixedColor": "#A4C4DF"
                 }
               }
             ]
@@ -1042,7 +1072,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#FCAF2B"
+                  "fixedColor": "#DC382D"
                 }
               }
             ]
@@ -1088,6 +1118,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "#985083"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^redis( / .+)?$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#DC382D"
                 }
               }
             ]
