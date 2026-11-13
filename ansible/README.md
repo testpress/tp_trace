@@ -25,6 +25,28 @@ roles/otel-collector/
     verify.yml
 ```
 
+## Control Node Requirements
+
+The control node requires **ansible-core 2.13 or later**. The role checks this
+before deployment; `ansible.builtin.iptables.chain_management` creates the
+`DOCKER-USER` chain when it is missing. Collection requirements remain in
+`requirements.yml`; that file does not install or pin ansible-core.
+
+## Local Inventory
+
+From the `ansible/` directory, select the local inventory explicitly:
+
+```bash
+ansible-playbook -i inventories/local/hosts.yml playbooks/otel-collector/site.yml --check --diff
+```
+
+Without `-i`, `ansible.cfg` selects the **production inventory**. The local
+inventory binds OTLP listeners to `127.0.0.1`, disables firewall management, and
+does not designate the development machine as an observability firewall host.
+The role still expects a supported Linux host with Docker; check mode does not
+perform a deployment. To deploy locally, remove `--check --diff` after reviewing
+the selected hosts and configuration.
+
 ## Inventory Groups
 
 Hosts are organized under `app_servers` (which all playbooks target by default):

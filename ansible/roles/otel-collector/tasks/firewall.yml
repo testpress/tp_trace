@@ -28,6 +28,7 @@
 - name: Ensure Docker user chain exists
   ansible.builtin.iptables:
     chain: DOCKER-USER
+    chain_management: true
     state: present
   when:
     - otel_collector_firewall_enabled | default(true) | bool

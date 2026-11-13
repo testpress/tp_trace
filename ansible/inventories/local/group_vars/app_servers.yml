@@ -4,11 +4,13 @@
 # the locally-run stack (docker-compose) on localhost.
 # See dev/docker-compose.yml for the exposed ports.
 
-otel_collector_otlp_grpc_bind: "0.0.0.0"
-otel_collector_otlp_http_bind: "0.0.0.0"
+otel_collector_otlp_grpc_bind: "127.0.0.1"
+otel_collector_otlp_http_bind: "127.0.0.1"
 otel_collector_tempo_endpoint: "127.0.0.1:4317"
 otel_collector_prometheus_remote_write_endpoint: "http://127.0.0.1:9090/api/v1/write"
-otel_collector_observability_host: "localhost"
+# The local inventory must not modify the development host's firewall.
+otel_collector_firewall_enabled: false
+otel_collector_observability_host: ""
 
 # Allowed source IPs/CIDRs for OTLP ingress (4317/4318) and observability push
 # ports (4327/9090). Local testing only needs loopback.
