@@ -41,13 +41,35 @@ the main trace export.
 The Collector applies memory limits and removes ephemeral resource attributes.
 It handles spans and metrics through separate pipelines.
 
-- The main trace pipeline filters unsampled spans and exports the remaining
-  spans to Tempo over OTLP/gRPC. Separate pipelines can retain sampled evidence
-  for errors and repeated-query patterns.
-- The span-to-metrics pipeline derives metrics from eligible spans independently
-  of the main trace pipeline's sampling filter.
-  Prometheus Remote Write sends both native and span-derived metrics to
-  Prometheus.
+- The trace pipeline samples received traces and exports retained spans to Tempo.
+- The separate span-to-metrics pipeline derives RED metrics from all eligible
+  spans, independently of trace retention, and exports them to Prometheus.
+
+#### Tail Sampling
+
+The Collector buffers spans for 3 seconds before making a trace-level decision.
+Policies are combined with OR: retain SDK-sampled traces (`tp_trace.sampled == true`),
+50% of error traces, or 1% of repeated-query evidence traces. SDK-sampled error
+traces are therefore retained in full, increasing Tempo error evidence compared
+with the previous per-span filters.
+
+All deployed producers use tp_trace 0.4.1, which supplies `tp_trace.sampled`.
+Wire sampled flags alone do not retain a trace.
+
+All spans of a trace must reach the same Collector for a complete decision.
+Ansible deploys one Collector per host, so cross-host traces can be evaluated as
+separate fragments. A shared sampling tier would require trace-ID-aware routing.
+
+The buffer holds up to 5,000 traces; overflow evicts the oldest pending traces.
+This is a trace-count limit, not a memory bound. The memory limiter defaults to
+400 MiB with an 80 MiB spike allowance; large traces can still cause pressure.
+`expected_new_traces_per_sec: 1000` is a preallocation hint, not a throughput limit.
+
+Decision caches hold 10,000 kept and 25,000 dropped trace IDs. Late spans inherit
+cached decisions without re-evaluation. Errors arriving after a drop decision
+can be lost; after cache eviction, late spans may be evaluated separately and
+produce partial traces. Cache entries have no guaranteed retention duration.
+Tune the decision window and caches for longer traces, accounting for memory use.
 
 ### 4. Storage (Tempo & Prometheus)
 - **Grafana Tempo (Traces)**: Ingests raw spans, indexes them by `trace_id`, and stores immutable trace blocks.

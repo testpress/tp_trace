@@ -111,42 +111,53 @@ processors:
     trace_conditions:
       - 'span.kind == SPAN_KIND_INTERNAL'
 
-  # Normal Tempo export keeps SDK-sampled non-error spans.
-  filter/drop_unsampled:
-    error_mode: ignore
-    trace_conditions:
-      # tp_trace preserves the SDK decision explicitly: some OTLP exporters
-      # omit sampled bit 0. For other producers, fall back to the wire flags.
-      - '(span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0))'
-      - 'span.status.code == STATUS_CODE_ERROR'
+  # Trace decisions require spans to reach the same Collector instance.
+  tail_sampling:
+    decision_wait: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_DECISION_WAIT:-3s}
+    num_traces: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_NUM_TRACES:-5000}
+    expected_new_traces_per_sec: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_EXPECTED_NEW_TRACES_PER_SEC:-1000}
+    decision_cache:
+      sampled_cache_size: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_SAMPLED_CACHE_SIZE:-10000}
+      non_sampled_cache_size: ${env:OTEL_COLLECTOR_TAIL_SAMPLING_NON_SAMPLED_CACHE_SIZE:-25000}
+    policies:
+      # Additional error evidence: 50% of traces.
+      - name: errors
+        type: and
+        and:
+          and_sub_policy:
+            - name: has_error
+              type: status_code
+              status_code:
+                status_codes:
+                  - ERROR
+            - name: error_probabilistic
+              type: probabilistic
+              probabilistic:
+                sampling_percentage: 50.0
 
-  # Give flagged, unsampled non-error spans a second chance at Tempo export.
-  filter/repeated_query_evidence:
-    error_mode: ignore
-    trace_conditions:
-      - 'span.attributes["repeated_query.detected"] != true'
-      - 'not ((span.attributes["tp_trace.sampled"] == false or (span.attributes["tp_trace.sampled"] == nil and (span.flags - (span.flags / 2) * 2) == 0)) and span.status.code != STATUS_CODE_ERROR)'
+      # Baseline retention uses the explicit tp_trace SDK decision.
+      - name: sampled_by_attribute
+        type: ottl_condition
+        ottl_condition:
+          error_mode: ignore
+          span:
+            - 'span.attributes["tp_trace.sampled"] == true'
 
-  attributes/clear_sampling_priority:
-    actions:
-      # Prevent an upstream priority from overriding the evidence sample rate.
-      - key: sampling.priority
-        action: delete
-
-  probabilistic_sampler/repeated_query_evidence:
-    mode: hash_seed
-    sampling_percentage: 1
-    hash_seed: 913
-
-  filter/error_evidence:
-    error_mode: ignore
-    trace_conditions:
-      - 'span.status.code != STATUS_CODE_ERROR'
-
-  probabilistic_sampler/error_evidence:
-    mode: hash_seed
-    sampling_percentage: 50
-    hash_seed: 914
+      # Additional repeated-query evidence: 1% of traces.
+      - name: repeated_query_evidence
+        type: and
+        and:
+          and_sub_policy:
+            - name: has_repeated_query
+              type: ottl_condition
+              ottl_condition:
+                error_mode: ignore
+                span:
+                  - 'span.attributes["repeated_query.detected"] == true'
+            - name: repeated_query_probabilistic
+              type: probabilistic
+              probabilistic:
+                sampling_percentage: 1.0
 
   # Route normalization for spanmetrics
   transform/spanmetrics_route:
@@ -241,33 +252,7 @@ service:
       processors:
         - memory_limiter
         - resource/drop_ephemeral
-        - filter/drop_unsampled
-        - batch
-      exporters:
-        - otlp/tempo
-
-    traces/repeated_query_evidence:
-      receivers:
-        - otlp
-      processors:
-        - memory_limiter
-        - filter/repeated_query_evidence
-        - attributes/clear_sampling_priority
-        - probabilistic_sampler/repeated_query_evidence
-        - resource/drop_ephemeral
-        - batch
-      exporters:
-        - otlp/tempo
-
-    traces/error_evidence:
-      receivers:
-        - otlp
-      processors:
-        - memory_limiter
-        - filter/error_evidence
-        - attributes/clear_sampling_priority
-        - probabilistic_sampler/error_evidence
-        - resource/drop_ephemeral
+        - tail_sampling
         - batch
       exporters:
         - otlp/tempo
