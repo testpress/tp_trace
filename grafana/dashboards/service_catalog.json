@@ -1428,12 +1428,12 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "transparent",
                       "value": null
                     },
                     {
                       "color": "#d97706",
-                      "value": 60
+                      "value": 70
                     },
                     {
                       "color": "red",
@@ -1441,22 +1441,6 @@
                     }
                   ]
                 }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Cores"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "decimals",
-                "value": 0
               }
             ]
           },
@@ -1487,12 +1471,12 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "transparent",
                       "value": null
                     },
                     {
                       "color": "#d97706",
-                      "value": 70
+                      "value": 80
                     },
                     {
                       "color": "red",
@@ -1506,23 +1490,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Total RAM"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
-              },
-              {
-                "id": "decimals",
-                "value": 1
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Disk % (/)"
+              "options": "Disk %"
             },
             "properties": [
               {
@@ -1546,7 +1514,7 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "transparent",
                       "value": null
                     },
                     {
@@ -1565,22 +1533,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Disk Free"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
-              },
-              {
-                "id": "decimals",
-                "value": 1
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "Load (5m)"
             },
             "properties": [
@@ -1591,38 +1543,6 @@
               {
                 "id": "decimals",
                 "value": 2
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Network In"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "Bps"
-              },
-              {
-                "id": "decimals",
-                "value": 1
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Network Out"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "Bps"
-              },
-              {
-                "id": "decimals",
-                "value": 1
               }
             ]
           }
@@ -1652,7 +1572,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_replace(group by (instance, nodename, alias) (node_uname_info{job=~\"Testpress App Servers|Staging Servers|TP Streams\", instance=~`${server:regex}(:.*)?`}) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\"), \"server_ip\", \"$1\", \"instance\", \"(.*):[0-9]+\")",
+          "expr": "label_replace(group by (instance, alias) (node_uname_info{job=~\"Testpress App Servers|Staging Servers|TP Streams\", instance=~`${server:regex}(:.*)?`} and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"([^:]+)(?::[0-9]+)?\")), \"server_ip\", \"$1\", \"instance\", \"(.*):[0-9]+\")",
           "format": "table",
           "instant": true,
           "refId": "HostInfo"
@@ -1663,7 +1583,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\", instance=~`${server:regex}(:.*)?`}[5m])))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
+          "expr": "(100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job=~\"Testpress App Servers|Staging Servers|TP Streams\", mode=\"idle\", instance=~`${server:regex}(:.*)?`}[5m])))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"([^:]+)(?::[0-9]+)?\")",
           "format": "table",
           "instant": true,
           "refId": "CPU_Usage"
@@ -1674,18 +1594,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(count by (instance) (node_cpu_seconds_total{mode=\"idle\", instance=~`${server:regex}(:.*)?`})) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
-          "format": "table",
-          "instant": true,
-          "refId": "CPU_Cores"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "(100 * (1 - (node_memory_MemAvailable_bytes{instance=~`${server:regex}(:.*)?`} / node_memory_MemTotal_bytes{instance=~`${server:regex}(:.*)?`}))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
+          "expr": "(100 * (1 - (avg by (instance) (node_memory_MemAvailable_bytes{job=~\"Testpress App Servers|Staging Servers|TP Streams\", instance=~`${server:regex}(:.*)?`}) / avg by (instance) (node_memory_MemTotal_bytes{job=~\"Testpress App Servers|Staging Servers|TP Streams\", instance=~`${server:regex}(:.*)?`})))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"([^:]+)(?::[0-9]+)?\")",
           "format": "table",
           "instant": true,
           "refId": "RAM_Usage"
@@ -1696,18 +1605,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "node_memory_MemTotal_bytes{instance=~`${server:regex}(:.*)?`} and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
-          "format": "table",
-          "instant": true,
-          "refId": "RAM_Total"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "(100 - (100 * node_filesystem_avail_bytes{mountpoint=\"/\", instance=~`${server:regex}(:.*)?`} / node_filesystem_size_bytes{mountpoint=\"/\", instance=~`${server:regex}(:.*)?`})) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
+          "expr": "(100 - (100 * (avg by (instance) (node_filesystem_avail_bytes{job=~\"Testpress App Servers|Staging Servers|TP Streams\", mountpoint=\"/\", instance=~`${server:regex}(:.*)?`}) / avg by (instance) (node_filesystem_size_bytes{job=~\"Testpress App Servers|Staging Servers|TP Streams\", mountpoint=\"/\", instance=~`${server:regex}(:.*)?`})))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"([^:]+)(?::[0-9]+)?\")",
           "format": "table",
           "instant": true,
           "refId": "Disk_Usage"
@@ -1718,86 +1616,67 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\", instance=~`${server:regex}(:.*)?`} and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
-          "format": "table",
-          "instant": true,
-          "refId": "Disk_Free"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "node_load5{instance=~`${server:regex}(:.*)?`} and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
+          "expr": "avg by (instance) (node_load5{job=~\"Testpress App Servers|Staging Servers|TP Streams\", instance=~`${server:regex}(:.*)?`}) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"([^:]+)(?::[0-9]+)?\")",
           "format": "table",
           "instant": true,
           "refId": "Load5"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "(sum by (instance) (rate(node_network_receive_bytes_total{device!~\"tap.*|veth.*|br.*|docker.*|virbr.*|lo.*|cni.*\", instance=~`${server:regex}(:.*)?`}[5m]))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
-          "format": "table",
-          "instant": true,
-          "refId": "Net_Rx"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "_IY366MMk"
-          },
-          "editorMode": "code",
-          "expr": "(sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"tap.*|veth.*|br.*|docker.*|virbr.*|lo.*|cni.*\", instance=~`${server:regex}(:.*)?`}[5m]))) and on(instance) label_replace(apm_calls_total{cluster_name=~\"${cluster:regex}\", instance=~`${server:regex}`, project_name=~\"${project:regex}\"}, \"instance\", \"$1:9100\", \"instance\", \"(.+)\")",
-          "format": "table",
-          "instant": true,
-          "refId": "Net_Tx"
         }
       ],
       "title": "Server Fleet Overview",
       "transformations": [
         {
-          "id": "merge",
-          "options": {}
+          "id": "joinByField",
+          "options": {
+            "byField": "instance",
+            "mode": "outer"
+          }
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
               "instance": true,
-              "nodename": true,
               "Value #HostInfo": true
             },
             "indexByName": {
               "alias": 0,
               "server_ip": 1,
               "Value #CPU_Usage": 2,
-              "Value #CPU_Cores": 3,
-              "Value #RAM_Usage": 4,
-              "Value #RAM_Total": 5,
-              "Value #Disk_Usage": 6,
-              "Value #Disk_Free": 7,
-              "Value #Load5": 8,
-              "Value #Net_Rx": 9,
-              "Value #Net_Tx": 10
+              "Value #RAM_Usage": 3,
+              "Value #Disk_Usage": 4,
+              "Value #Load5": 5
             },
             "renameByName": {
               "alias": "Server Name",
               "server_ip": "IP Address",
               "Value #CPU_Usage": "CPU %",
-              "Value #CPU_Cores": "Cores",
               "Value #RAM_Usage": "RAM %",
-              "Value #RAM_Total": "Total RAM",
-              "Value #Disk_Usage": "Disk % (/)",
-              "Value #Disk_Free": "Disk Free",
-              "Value #Load5": "Load (5m)",
-              "Value #Net_Rx": "Network In",
-              "Value #Net_Tx": "Network Out"
+              "Value #Disk_Usage": "Disk %",
+              "Value #Load5": "Load (5m)"
             }
+          }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "regex",
+                  "options": {
+                    "value": ".+"
+                  }
+                },
+                "fieldName": "IP Address"
+              }
+            ],
+            "match": "all",
+            "type": "include"
           }
         }
       ],
