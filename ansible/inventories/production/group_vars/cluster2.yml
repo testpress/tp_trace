@@ -5,7 +5,7 @@
 
 # Example: cluster2-specific container resources
 # otel_collector_container_cpu_limit: 1.0
-# otel_collector_container_memory_limit: "1024m"
+# otel_collector_container_memory_limit: "2048m"
 
 # Example: cluster2-specific batch tuning
 # otel_collector_batch_timeout: "1s"

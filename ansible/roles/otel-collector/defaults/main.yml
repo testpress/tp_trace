@@ -15,10 +15,12 @@ otel_collector_otlp_grpc_port: 4317
 otel_collector_otlp_http_bind: "127.0.0.1"
 otel_collector_otlp_http_port: 4318
 
-otel_collector_container_cpu_limit: 0.5
-otel_collector_container_memory_limit: "512m"
-otel_collector_gomemlimit: "380MiB"
+otel_collector_container_cpu_limit: 1.0
+otel_collector_container_memory_limit: "2048m"
+otel_collector_gomemlimit: "1500MiB"
 otel_collector_gogc: "80"
+otel_collector_memory_limit_mib: 1600
+otel_collector_memory_spike_limit_mib: 350
 
 otel_collector_log_max_size: "20m"
 otel_collector_log_max_file: "3"
