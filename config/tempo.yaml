@@ -2,6 +2,8 @@ stream_over_http_enabled: true
 
 server:
   http_listen_port: 3200
+  http_server_read_timeout: 120s
+  http_server_write_timeout: 120s
 
 distributor:
   receivers:
@@ -22,6 +24,10 @@ query_frontend:
     max_duration: 720h
     # Keep ad-hoc and dashboard searches small enough to remain responsive.
     max_result_limit: 200
+
+querier:
+  search:
+    query_timeout: 120s
 
 compactor:
   compaction:
