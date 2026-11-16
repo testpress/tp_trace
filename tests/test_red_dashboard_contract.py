@@ -509,8 +509,9 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
 
 def test_collector_monitoring_breaks_down_components_without_inventing_budgets(tmp_path):
     components = panel("Supporting Dashboards/collector_monitoring.json", 403)
+    assert components["title"] == "Cardinality Utilization by Collector"
     targets = {t["refId"] for t in components["targets"]}
-    assert targets == {"Tracked", "Limit", "GroupedTotal"}
+    assert targets == {"Utilization"}
     labels = 'collector_alias="c1",service_name="testpress",project_name="testpress",cluster_name="prod"'
     series = [
         {"series": 'apm_calls_total{' + labels + ',normalized_service="django",normalized_operation="GET /courses",error="false"}', "values": "0+60x31"},
@@ -522,21 +523,17 @@ def test_collector_monitoring_breaks_down_components_without_inventing_budgets(t
         {"series": 'apm_calls_total{collector_alias="c2",service_name="testpress",project_name="testpress",cluster_name="prod",normalized_service="django"}', "values": "0+60x31"},
         {"series": 'apm_cardinality_grouping_total{' + labels + ',normalized_service="django",scope="repeated_queries",cause="repeated_query_series_limit"}', "values": "0+60x31"},
     ]
-    def result(service, value):
-        return {"labels": '{normalized_service="' + service + '"}', "value": value}
+    def result(service, collector, value):
+        return {"labels": '{collector_alias="' + collector + '",normalized_service="' + service + '"}', "value": value}
 
-    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked"), series, [
-        result("django", 3), result("postgres", 1),
+    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Utilization"), series, [
+        result("django", "c1", 0.04), result("postgres", "c1", 0.02), result("django", "c2", 0.02),
     ])
-    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "GroupedTotal"), series, [
-        result("django", 1800), result("postgres", 0),
-    ])
-    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Limit"), series, [
-        result("django", 5000), result("postgres", 5000),
-    ])
-    columns = set(components["transformations"][-1]["options"]["renameByName"].values())
-    assert columns == {"Service", "Current Cardinality", "Total Cap", "Overflow Count"}
-    assert "UsagePct" not in targets
+    transform_ids = [t["id"] for t in components["transformations"]]
+    assert "groupingToMatrix" in transform_ids
+    assert "renameByRegex" in transform_ids
+    assert components["fieldConfig"]["defaults"]["unit"] == "percent"
+    assert components["fieldConfig"]["defaults"]["custom"]["cellOptions"]["type"] == "color-background"
 
 
 
@@ -620,32 +617,12 @@ def test_cardinality_project_filter_and_simple_columns(tmp_path):
         if item["id"] != 403:
             continue
         assert all('project_name=~"${project:regex}"' in t["expr"] for t in item["targets"])
-        columns = set(item["transformations"][-1]["options"]["renameByName"].values())
-        assert not columns.intersection({"Application", "Cluster", "Collector"})
-    expr = expression("Supporting Dashboards/collector_monitoring.json", 403, "Tracked").replace('project_name=~".*"', 'project_name=~"testpress"')
+    expr = expression("Supporting Dashboards/collector_monitoring.json", 403, "Utilization").replace('project_name=~".*"', 'project_name=~"testpress"')
     series = [
         {"series": 'apm_calls_total{project_name="testpress",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
         {"series": 'apm_calls_total{project_name="other",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
     ]
-    evaluate(tmp_path, expr, series, [{"labels": '{normalized_service="django"}', "value": 1}])
-
-
-
-@pytest.mark.parametrize("panel_id,ref,metric,component", [
-    (403, "GroupedTotal", "apm_cardinality_grouping_total", ',normalized_service="django"'),
-])
-def test_cardinality_overflow_is_window_total_including_new_series(tmp_path, panel_id, ref, metric, component):
-    expr = expression("Supporting Dashboards/collector_monitoring.json", panel_id, ref).replace("1h", "5m")
-    label = '{normalized_service="django"}'
-    name = metric + '{project_name="testpress",collector_alias="dev"' + component + '}'
-    # Established counters count the selected five-minute window, not lifetime.
-    evaluate(tmp_path, expr, [{"series": name, "values": "0+60x31"}], [{"labels": label, "value": 300}])
-    # A new flat counter's first export must not become zero via increase().
-    evaluate(tmp_path, expr, [{"series": name, "values": "_x28 10x2"}], [{"labels": label, "value": 10}])
-    item = panel("Supporting Dashboards/collector_monitoring.json", panel_id)
-    field = "Overflow Count"
-    override = next(o for o in item["fieldConfig"]["overrides"] if o["matcher"]["options"] == field)
-    assert {p["id"]: p["value"] for p in override["properties"]}["unit"] == "none"
+    evaluate(tmp_path, expr, series, [{"labels": '{collector_alias="dev",normalized_service="django"}', "value": 0.02}])
 
 
 def test_pgbouncer_catalog_counts_queries_without_connection_spans(tmp_path):
