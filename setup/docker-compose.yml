@@ -9,8 +9,11 @@ services:
       - "-config.file=/etc/tempo/tempo.yaml"
 
     environment:
-      # ~80% of the 2G container limit so Go's GC backs off before the kernel OOM-kills it
-      - GOMEMLIMIT=1600MiB
+      # ~80% of the 4G container limit so Go's GC backs off before the kernel OOM-kills it
+      - GOMEMLIMIT=3200MiB
+
+    # Equal to memory limit (4G) so an overrun fails fast rather than thrashing in swap
+    memswap_limit: 4g
 
     security_opt:
       - no-new-privileges:true
@@ -49,7 +52,7 @@ services:
       resources:
         limits:
           cpus: "2.0"
-          memory: 2G
+          memory: 4G
         reservations:
           cpus: "0.5"
           memory: 512M
