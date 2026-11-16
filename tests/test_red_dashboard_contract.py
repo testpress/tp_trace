@@ -902,3 +902,33 @@ def test_collector_component_filter_discovers_selected_collectors(tmp_path, comp
     evaluate(tmp_path, expr, series, [{"labels": '{' + component + '="otlp"}', "value": 1}])
     assert variable["multi"] and variable["includeAll"]
     assert variable["current"]["value"] == ["$__all"]
+
+
+@pytest.mark.parametrize("values, expected", [
+    ("1x31", 1),                   # fresh successful heartbeat
+    ("0x31", 0),                   # explicit scrape failure
+    ("1x28 _ _", -1),              # no new sample for two minutes
+    ("1x28 stale _", -1),          # stale marker must not remove the row
+    ("1x10 stale _x18 1", 1),       # recovery
+])
+def test_collector_outage_keeps_identity_and_reports_missing_telemetry(tmp_path, values, expected):
+    evaluate(
+        tmp_path,
+        expression("Supporting Dashboards/collector_monitoring.json", 10, "Status"),
+        [{"series": 'up{source="otelcol-telemetry",collector_alias="dev",net_host_name="127.0.0.1"}',
+          "values": values}],
+        [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": expected}],
+    )
+
+
+def test_collector_selector_remembers_missing_instances(tmp_path):
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    variable = next(v for v in dashboard["templating"]["list"] if v["name"] == "instance")
+    query = variable["query"][len("query_result("):-1]
+    evaluate(tmp_path, query,
+             [{"series": 'up{source="otelcol-telemetry",collector_alias="gone"}', "values": "1 stale"}],
+             [{"labels": '{collector_alias="gone"}', "value": 1}])
+    status = panel("Supporting Dashboards/collector_monitoring.json", 10)
+    override = next(o for o in status["fieldConfig"]["overrides"] if o["matcher"]["options"] == "Status")
+    mappings = next(p["value"] for p in override["properties"] if p["id"] == "mappings")
+    assert mappings[0]["options"]["-1"]["text"] == "Telemetry missing"

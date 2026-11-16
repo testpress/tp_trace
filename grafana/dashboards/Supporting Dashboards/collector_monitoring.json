@@ -306,7 +306,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Comprehensive fleet table showing each collector instance, health status, CPU, RSS memory, throughput, drops, queue buffer occupancy, uptime, and version.",
+      "description": "Collectors seen in the last 7 days remain listed during outages. Healthy requires a heartbeat within 90 seconds. Down means an explicit failed scrape; Telemetry missing means no fresh heartbeat (collector, network or remote-write failure). Other columns are unavailable during outages; they are not historical values. Never-seen collectors require an independent inventory/scrape target.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -341,48 +341,25 @@
                 "id": "mappings",
                 "value": [
                   {
+                    "type": "value",
                     "options": {
+                      "-1": {
+                        "color": "red",
+                        "text": "Telemetry missing"
+                      },
                       "0": {
                         "color": "red",
-                        "index": 1,
                         "text": "Down"
                       },
                       "1": {
                         "color": "green",
-                        "index": 0,
                         "text": "Healthy"
                       },
                       "2": {
                         "color": "red",
-                        "index": 4,
                         "text": "Data Loss"
                       }
-                    },
-                    "type": "value"
-                  },
-                  {
-                    "options": {
-                      "from": 1,
-                      "result": {
-                        "color": "green",
-                        "index": 2,
-                        "text": "Healthy"
-                      },
-                      "to": 999999999
-                    },
-                    "type": "range"
-                  },
-                  {
-                    "options": {
-                      "from": -999999999,
-                      "result": {
-                        "color": "red",
-                        "index": 3,
-                        "text": "Down"
-                      },
-                      "to": 0
-                    },
-                    "type": "range"
+                    }
                   }
                 ]
               },
@@ -689,7 +666,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) (up{source=\"otelcol-telemetry\", collector_alias=~\"(${instance:pipe})\"})",
+          "expr": "(max by (net_host_name, collector_alias) (up{source=\"otelcol-telemetry\",collector_alias=~\"(${instance:pipe})\"} and (time() - timestamp(up{source=\"otelcol-telemetry\",collector_alias=~\"(${instance:pipe})\"}) < 90))) or (0 * max by (net_host_name, collector_alias) (last_over_time(up{source=\"otelcol-telemetry\",collector_alias=~\"(${instance:pipe})\"}[7d])) - 1)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -8046,16 +8023,16 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "label_values({__name__=~\"otelcol_process_uptime.*\",source=\"otelcol-telemetry\"}, collector_alias)",
+        "definition": "query_result(max by (collector_alias) (last_over_time(up{source=\"otelcol-telemetry\"}[7d])))",
         "hide": 0,
         "includeAll": true,
         "label": "Collector",
         "multi": true,
         "name": "instance",
         "options": [],
-        "query": "label_values({__name__=~\"otelcol_process_uptime.*\",source=\"otelcol-telemetry\"}, collector_alias)",
+        "query": "query_result(max by (collector_alias) (last_over_time(up{source=\"otelcol-telemetry\"}[7d])))",
         "refresh": 1,
-        "regex": "",
+        "regex": "/collector_alias=\"([^\"]+)\"/",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
