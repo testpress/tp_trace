@@ -78,7 +78,7 @@ def test_dynamic_issue_cards_pass_route_and_method_independently():
         panels = [p for p in dashboard["panels"] if p.get("options", {}).get("content")]
         assert panels
         content = "\n".join(p["options"]["content"] for p in panels)
-        assert "var-method={{http_method}}&var-route={{http_route}}" in content
+        assert "{{issueUrl this}}" in content
         assert "var-operation={{http_method}}%20{{http_route}}" not in content
 
 

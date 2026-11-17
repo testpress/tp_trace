@@ -848,7 +848,15 @@ def test_apm_dashboards_scope_metrics_and_links_by_server():
                 if target.get("queryType") == "traceql":
                     assert "not filtered by Server" in item["description"]
         serialized = json.dumps(dashboard)
-        assert serialized.count("${cluster:queryparam}") == serialized.count("${server:queryparam}")
+        # Issue links use the row's cluster rather than the dashboard-wide selection.
+        row_cluster_links = serialized.count("${__data.fields.cluster_name:percentencode}")
+        issue_helpers = sum(
+            "encodeURIComponent(row.cluster_name" in p.get("options", {}).get("helpers", "")
+            for p in dashboard.get("panels", [])
+        )
+        assert serialized.count("${server:queryparam}") == (
+            serialized.count("${cluster:queryparam}") + row_cluster_links + issue_helpers
+        )
     assert len(dashboards) == 6
 
 
