@@ -1480,6 +1480,453 @@
         "x": 0,
         "y": 29
       },
+      "id": 500,
+      "panels": [],
+      "title": "Downstream Telemetry Storage: Tempo & Prometheus Ingestion & Queues",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Real-time trace ingestion rate into Tempo distributor and in-memory live trace queue/buffer in ingester awaiting block compaction and flush.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "spans/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Live Traces in RAM (Ingester)"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Traces in Queue"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#f59e0b",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 25
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Refused Spans/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef4444",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ingested Spans/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#10b981",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "cps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Flush Queue Length"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#8b5cf6",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 501,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(tempo_distributor_spans_received_total[1m]))",
+          "instant": false,
+          "legendFormat": "Ingested Spans/s",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "tempo_ingester_live_traces",
+          "instant": false,
+          "legendFormat": "Live Traces in RAM (Ingester)",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(tempo_receiver_refused_spans[1m]))",
+          "instant": false,
+          "legendFormat": "Refused Spans/s",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "tempo_ingester_flush_queue_length",
+          "instant": false,
+          "legendFormat": "Flush Queue Length",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "Tempo \u2014 Ingestion Rate & In-Memory Trace Queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "_IY366MMk"
+      },
+      "description": "Real-time metric sample ingestion rate into Prometheus TSDB and in-memory Head series/chunks queue awaiting 2h block compaction.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "samples/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active Head Series in RAM"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Active Series / Chunks"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#3b82f6",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Head Chunks in RAM"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#6366f1",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ingested Samples/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#06b6d4",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "cps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active Appenders (Queue)"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#f97316",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "id": 502,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(prometheus_tsdb_head_samples_appended_total[1m]))",
+          "instant": false,
+          "legendFormat": "Ingested Samples/s",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "prometheus_tsdb_head_series",
+          "instant": false,
+          "legendFormat": "Active Head Series in RAM",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "prometheus_tsdb_head_chunks",
+          "instant": false,
+          "legendFormat": "Head Chunks in RAM",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "_IY366MMk"
+          },
+          "editorMode": "code",
+          "expr": "prometheus_tsdb_head_active_appenders",
+          "instant": false,
+          "legendFormat": "Active Appenders (Queue)",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "Prometheus \u2014 Ingestion Rate & TSDB In-Memory Head Buffer",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
       "id": 400,
       "panels": [],
       "title": "Service Cardinality & Collector Safeguards",
@@ -1592,7 +2039,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 39
       },
       "id": 403,
       "options": {
@@ -1638,7 +2085,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 48
       },
       "id": 199,
       "panels": [],
@@ -1651,7 +2098,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 49
       },
       "id": 286,
       "title": "Receivers",
@@ -1744,7 +2191,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 41
+        "y": 50
       },
       "id": 228,
       "interval": "$minstep",
@@ -1894,7 +2341,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 41
+        "y": 50
       },
       "id": 280,
       "interval": "$minstep",
@@ -2044,7 +2491,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 41
+        "y": 50
       },
       "id": 247,
       "interval": "$minstep",
@@ -2113,7 +2560,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 58
       },
       "id": 287,
       "title": "Processors",
@@ -2223,7 +2670,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 50
+        "y": 59
       },
       "id": 285,
       "interval": "$minstep",
@@ -2390,7 +2837,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 50
+        "y": 59
       },
       "id": 283,
       "interval": "$minstep",
@@ -2557,7 +3004,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 50
+        "y": 59
       },
       "id": 284,
       "interval": "$minstep",
@@ -2726,7 +3173,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 58
+        "y": 67
       },
       "id": 235,
       "interval": "$minstep",
@@ -2955,7 +3402,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 58
+        "y": 67
       },
       "id": 250,
       "interval": "$minstep",
@@ -3184,7 +3631,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 58
+        "y": 67
       },
       "id": 251,
       "interval": "$minstep",
@@ -3332,7 +3779,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 66
+        "y": 75
       },
       "id": 249,
       "interval": "$minstep",
@@ -3473,7 +3920,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 66
+        "y": 75
       },
       "id": 236,
       "interval": "$minstep",
@@ -3616,7 +4063,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 66
+        "y": 75
       },
       "id": 256,
       "interval": "$minstep",
@@ -3685,7 +4132,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 74
+        "y": 83
       },
       "id": 288,
       "title": "Exporters",
@@ -3778,7 +4225,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 75
+        "y": 84
       },
       "id": 237,
       "interval": "$minstep",
@@ -3943,7 +4390,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 75
+        "y": 84
       },
       "id": 238,
       "interval": "$minstep",
@@ -4108,7 +4555,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 75
+        "y": 84
       },
       "id": 248,
       "interval": "$minstep",
@@ -4252,7 +4699,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 84
+        "y": 93
       },
       "id": 210,
       "options": {
@@ -4365,7 +4812,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 84
+        "y": 93
       },
       "id": 255,
       "options": {
@@ -4478,7 +4925,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 84
+        "y": 93
       },
       "id": 267,
       "options": {
@@ -4592,7 +5039,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 93
+        "y": 102
       },
       "id": 302,
       "interval": "$minstep",
@@ -4676,7 +5123,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 111
       },
       "id": 289,
       "title": "Collector",
@@ -4819,7 +5266,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 103
+        "y": 112
       },
       "id": 240,
       "interval": "$minstep",
@@ -5034,7 +5481,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 103
+        "y": 112
       },
       "id": 252,
       "interval": "$minstep",
@@ -5249,7 +5696,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 103
+        "y": 112
       },
       "id": 253,
       "interval": "$minstep",
@@ -5460,7 +5907,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 112
+        "y": 121
       },
       "id": 239,
       "interval": "$minstep",
@@ -5606,7 +6053,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 112
+        "y": 121
       },
       "id": 241,
       "interval": "$minstep",
@@ -5720,7 +6167,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 112
+        "y": 121
       },
       "id": 254,
       "interval": "$minstep",
@@ -5810,7 +6257,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 121
+        "y": 130
       },
       "id": 257,
       "interval": "$minstep",
@@ -5859,7 +6306,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 135
       },
       "id": 290,
       "title": "Signal flows",
@@ -5875,7 +6322,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 127
+        "y": 136
       },
       "id": 258,
       "options": {
@@ -5953,7 +6400,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 127
+        "y": 136
       },
       "id": 260,
       "options": {
@@ -6031,7 +6478,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 127
+        "y": 136
       },
       "id": 261,
       "options": {
@@ -6105,7 +6552,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 136
+        "y": 145
       },
       "id": 291,
       "panels": [
@@ -6458,7 +6905,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 137
+        "y": 146
       },
       "id": 292,
       "panels": [
@@ -7452,7 +7899,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 138
+        "y": 147
       },
       "id": 293,
       "panels": [
@@ -7628,7 +8075,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 139
+        "y": 148
       },
       "id": 294,
       "panels": [
@@ -7936,7 +8383,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 140
+        "y": 149
       },
       "id": 295,
       "title": "Documentation",
@@ -7947,7 +8394,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 141
+        "y": 150
       },
       "id": 245,
       "options": {
