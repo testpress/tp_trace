@@ -74,7 +74,6 @@ app_servers
 ├── testpress
 │   ├── cluster1
 │   │   ├── cluster1_app1
-│   │   ├── cluster1_app2
 │   │   └── cluster1_app3
 │   ├── cluster2
 │   │   ├── cluster2_app1

@@ -1,6 +1,6 @@
 ---
 # Variables specific to the `cluster1` group.
-# Hosts: cluster1_app1, cluster1_app2, cluster1_app3
+# Hosts: cluster1_app1, cluster1_app3
 # Values here override or supplement `group_vars/app_servers.yml`.
 
 # Example: cluster1-specific container resources

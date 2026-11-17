@@ -22,3 +22,25 @@ def test_local_inventory_uses_loopback_without_host_firewall_changes():
     assert local["otel_collector_otlp_http_bind"] == "127.0.0.1"
     assert local["otel_collector_firewall_enabled"] is False
     assert local["otel_collector_observability_host"] == ""
+
+
+def test_production_allowed_hosts_matches_inventory():
+    def extract_hosts(data):
+        hosts = []
+        if isinstance(data, dict):
+            if "hosts" in data:
+                for name, details in data["hosts"].items():
+                    if isinstance(details, dict) and "ansible_host" in details:
+                        hosts.append(details["ansible_host"])
+            if "children" in data:
+                for child in data["children"].values():
+                    hosts.extend(extract_hosts(child))
+        return hosts
+
+    inventory = yaml.safe_load((ROOT / "inventories/production/hosts.yml").read_text())
+    host_ips = set(extract_hosts(inventory["all"]))
+    group_vars = yaml.safe_load((ROOT / "inventories/production/group_vars/app_servers.yml").read_text())
+    allowed = {item.split("/")[0] for item in group_vars["otel_collector_allowed_hosts_common"]}
+    assert allowed == host_ips | {"127.0.0.1"}
+    assert "157.180.105.111" not in allowed
+    assert "157.180.105.111" not in host_ips
