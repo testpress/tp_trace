@@ -680,7 +680,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "max by (net_host_name, collector_alias) ((rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m]) / 0.5) * 100)",
+          "expr": "max by (net_host_name, collector_alias) ((rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m]) / 1.0) * 100)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -857,7 +857,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "Resident memory per collector. The 512 MiB reference is the production role default; overridden limits may differ.",
+      "description": "Resident memory per collector. The 2048 MiB reference is the production role default; overridden limits may differ.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -906,7 +906,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Limit (512 MiB)"
+              "options": "Limit (2048 MiB)"
             },
             "properties": [
               {
@@ -977,14 +977,14 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "vector(536870912)",
-          "legendFormat": "Limit (512 MiB)",
+          "expr": "vector(2147483648)",
+          "legendFormat": "Limit (2048 MiB)",
           "range": true,
           "refId": "B",
           "exemplar": false
         }
       ],
-      "title": "1. Collector Memory (RSS vs 512 MiB Reference)",
+      "title": "1. Collector Memory (RSS vs 2048 MiB Reference)",
       "type": "timeseries"
     },
     {
@@ -992,7 +992,7 @@
         "type": "prometheus",
         "uid": "_IY366MMk"
       },
-      "description": "CPU utilization percentage per collector instance against 0.5 CPU container quota",
+      "description": "CPU utilization percentage per collector instance against 1.0 CPU container quota",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1073,7 +1073,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "(sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) / 0.5) * 100",
+          "expr": "(sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) / 1.0) * 100",
           "legendFormat": "{{collector_alias}} ({{net_host_name}})",
           "range": true,
           "refId": "A",
