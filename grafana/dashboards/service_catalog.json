@@ -816,7 +816,7 @@
           "reducer": [
             "mean"
           ],
-          "show": true
+          "show": false
         },
         "showHeader": true,
         "sortBy": [
