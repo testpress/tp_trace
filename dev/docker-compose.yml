@@ -191,7 +191,7 @@ services:
     container_name: tp-otel-collector
     restart: on-failure:5
     environment:
-      GOMEMLIMIT: "380MiB"
+      GOMEMLIMIT: "1500MiB"
       GOGC: "80"
       OTEL_COLLECTOR_OTLP_GRPC_BIND: "0.0.0.0"
       OTEL_COLLECTOR_OTLP_HTTP_BIND: "0.0.0.0"

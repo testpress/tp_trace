@@ -72,8 +72,8 @@ connectors:
 processors:
   memory_limiter:
     check_interval: 500ms
-    limit_mib: ${env:OTEL_COLLECTOR_MEMORY_LIMIT_MIB:-400}
-    spike_limit_mib: ${env:OTEL_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB:-80}
+    limit_mib: ${env:OTEL_COLLECTOR_MEMORY_LIMIT_MIB:-1600}
+    spike_limit_mib: ${env:OTEL_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB:-350}
 
   # Deploy before enabling delta SDK exports. Preserve datapoint worker_id.
   # max_streams bounds state; new streams over the limit are dropped.
