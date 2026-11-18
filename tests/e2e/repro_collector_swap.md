@@ -16,16 +16,14 @@ Reproduce the Nov 16 `cluster2_app1` Collector incident locally using an isolate
 ### 1. Reproduce Monday's freeze (`0.5 CPU`, `512m` RAM, `1024m` swap)
 
 ```bash
-./tests/e2e/repro_collector_swap.sh --mode swap --duration 5m --workers 12 --rate 1500
+./tests/e2e/repro_collector_swap.sh --mode swap --duration 5m
 ```
 
-- Keeps Monday's exact container limits (`0.5 CPU`, `512m` RAM, `1024m` swap, `GOMEMLIMIT=380MiB`, `memory_limiter=400/80 MiB`).
-- If Apple Silicon still keeps up, increase load rather than shrinking container limits:
-  ```bash
-  ./tests/e2e/repro_collector_swap.sh --mode swap --duration 5m --workers 20 --rate 2000 --child-spans 40
-  ```
+- Simulates the production fleet topology: `repro-cluster2-app1` (target), `repro-cluster1-app1`, and `repro-cluster2-app2` pushing concurrent traces to shared Tempo.
+- Tempo runs with production defaults: 15 MB/s distributor rate limit (`15000000 bytes/s`) and 2 GB memory ceiling.
+- With 0ms artificial latency, aggregate fleet trace bandwidth breaches Tempo's 15 MB/s ceiling, naturally triggering gRPC backpressure, export queue accumulation, swap spilling, and scrape timeouts (`UP = 0.00`).
 - Watch for: `CPU%` pinned near `50%`, `VM_SWAP` climbing, `SCRAPE_S > 10s`, `UP(fail) = 0.00`, and `RSS_MiB = missing` while `RSTR = 0` (`OOM = false`).
-- Open local Grafana (`http://localhost:3001`) -> **OpenTelemetry Collector** dashboard and filter alias `repro-cluster2-app1`.
+- Open local Grafana (`http://localhost:3001`) -> **OpenTelemetry Collector** dashboard and inspect collectors side-by-side or filter alias `repro-cluster2-app1`.
 
 ### 2. Verify fail-fast OOM (`0.5 CPU`, `512m` RAM, `512m` swap)
 

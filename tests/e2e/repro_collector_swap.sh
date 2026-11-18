@@ -29,11 +29,17 @@ COMPOSE_FILE="${REPO_ROOT}/dev/docker-compose.yml"
 TELEMETRYGEN_IMAGE="ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.162.0"
 ALPINE_IMAGE="alpine:3.20"
 COLLECTOR_CONTAINER="tp-otel-collector-repro"
+COLLECTOR_CONTAINER_C1="tp-otel-collector-repro-c1"
+COLLECTOR_CONTAINER_C2="tp-otel-collector-repro-c2"
 TELEMETRYGEN_CONTAINER="tp-telemetrygen-repro"
+TELEMETRYGEN_CONTAINER_C1="tp-telemetrygen-repro-c1"
+TELEMETRYGEN_CONTAINER_C2="tp-telemetrygen-repro-c2"
 COLLECTOR_ALIAS="repro-cluster2-app1"
 PROMETHEUS_URL="${PROMETHEUS_URL:-http://localhost:9090}"
 GRAFANA_URL="${GRAFANA_URL:-http://localhost:3001}"
 HEALTH_URL="${REPRO_HEALTH_URL:-http://localhost:13134/}"
+HEALTH_URL_C1="${REPRO_HEALTH_URL_C1:-http://localhost:13135/}"
+HEALTH_URL_C2="${REPRO_HEALTH_URL_C2:-http://localhost:13136/}"
 
 MODE="swap"
 DURATION="5m"
@@ -44,7 +50,10 @@ BATCH_SIZE="64"
 PAYLOAD_MB="0"
 SPAN_BYTES="5000"
 CPUS_OVERRIDE=""
-LATENCY_MS="${REPRO_LATENCY_MS:-100}"
+LATENCY_MS="${REPRO_LATENCY_MS:-0}"
+FLEET="${REPRO_FLEET:-1}"
+FLEET_WORKERS="16"
+FLEET_RATE="1000"
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -59,22 +68,25 @@ Options:
                            oom   = 0.5 CPU, 512m RAM, 512m swap (fail-fast OOM)
                            fixed = 1.0 CPU, 2048m RAM, 2048m swap (post-#68 fix)
   --duration <dur>         Finite Go duration for load, e.g. 2m, 5m (default: 5m)
-  --workers <n>            Telemetrygen worker goroutines (default: 32)
+  --workers <n>            Telemetrygen worker goroutines for target collector (default: 32)
                            Increase on Apple Silicon (e.g. 24-40) to saturate
                            0.5 CPU / 512m without lowering container limits.
   --rate <n>               Approximate configured spans/s per worker (default: 1500)
                            Configured target = workers * rate; delivered throughput
                            may be lower under backpressure or export failures.
+  --fleet <0|1>            Enable multi-collector fleet simulation (default: 1)
+                           Runs cluster1_app1 and cluster2_app2 collectors to
+                           share and saturate Tempo's 15 MB/s distributor limit.
+  --no-fleet               Disable fleet; run only against repro-cluster2-app1
   --child-spans <n>        Child spans per trace, >= 1 (default: 24)
   --batch-size <n>         Spans per OTLP batch (default: 64)
   --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 5000)
-  --latency <ms>           Injected network latency to Tempo in ms (default: 100, set 0 to disable)
-                           Simulates inter-server AWS VPC latency across separate instances.
+  --latency <ms>           Injected network latency to Tempo in ms (default: 0, set >0 to simulate cross-AZ/WAN)
   --cpus <n>               CPU limit override for container, e.g. 0.2 on Apple Silicon (default: 0.5)
   --size <mb>              Extra MB per parent span, >= 0 (default: 0)
   --poll-interval <sec>    Monitoring output interval in seconds (default: 15)
   --no-start               Reuse an already-running otel-collector-repro container
-  --down                   Stop and remove otel-collector-repro when finished
+  --down                   Stop and remove repro collectors when finished
   -h, --help               Show this help
 
 Notes for macOS (Mac mini):
@@ -158,6 +170,14 @@ while [[ "$#" -gt 0 ]]; do
       TEARDOWN_AFTER=1
       shift
       ;;
+    --fleet)
+      FLEET="${2:-1}"
+      shift 2
+      ;;
+    --no-fleet)
+      FLEET=0
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -183,6 +203,7 @@ require_nonneg_int "--span-bytes" "$SPAN_BYTES"
 require_nonneg_int "--latency" "$LATENCY_MS"
 require_nonneg_int "--size" "$PAYLOAD_MB"
 require_pos_int "--poll-interval" "$POLL_INTERVAL"
+require_nonneg_int "--fleet" "$FLEET"
 
 case "$MODE" in
   swap)
@@ -246,13 +267,11 @@ reset_tempo_latency() {
 
 cleanup() {
   reset_tempo_latency
-  if docker ps -a -q -f "name=^${TELEMETRYGEN_CONTAINER}$" | grep -q .; then
-    docker rm -f "${TELEMETRYGEN_CONTAINER}" >/dev/null 2>&1 || true
-  fi
+  docker rm -f "${TELEMETRYGEN_CONTAINER}" "${TELEMETRYGEN_CONTAINER_C1}" "${TELEMETRYGEN_CONTAINER_C2}" >/dev/null 2>&1 || true
   if [[ "${TEARDOWN_AFTER}" -eq 1 ]]; then
     echo ""
-    echo "Stopping ${COLLECTOR_CONTAINER} (--down)..."
-    "${COMPOSE_CMD[@]}" rm -sf otel-collector-repro >/dev/null 2>&1 || true
+    echo "Stopping repro collectors (--down)..."
+    "${COMPOSE_CMD[@]}" rm -sf otel-collector-repro otel-collector-repro-c1 otel-collector-repro-c2 >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT INT TERM
@@ -311,9 +330,16 @@ echo ""
 check_vm_swap
 
 if [[ "${START_STACK}" -eq 1 ]]; then
-  echo "Starting core observability services (tempo, prometheus, grafana) and ${COLLECTOR_CONTAINER}..."
+  echo "Starting core observability services (tempo, prometheus, grafana)..."
   "${COMPOSE_CMD[@]}" up --no-build -d --wait --wait-timeout 180 tempo prometheus grafana
-  "${COMPOSE_CMD[@]}" up --no-build -d --force-recreate otel-collector-repro
+
+  if [[ "${FLEET}" -eq 1 ]]; then
+    echo "Starting collector fleet (otel-collector-repro, otel-collector-repro-c1, otel-collector-repro-c2)..."
+    "${COMPOSE_CMD[@]}" up --no-build -d --force-recreate otel-collector-repro otel-collector-repro-c1 otel-collector-repro-c2
+  else
+    echo "Starting target collector ${COLLECTOR_CONTAINER}..."
+    "${COMPOSE_CMD[@]}" up --no-build -d --force-recreate otel-collector-repro
+  fi
 
   echo -n "Waiting for ${COLLECTOR_CONTAINER} health endpoint (${HEALTH_URL})..."
   for _ in $(seq 1 30); do
@@ -327,6 +353,17 @@ if [[ "${START_STACK}" -eq 1 ]]; then
     echo " timed out!" >&2
     exit 1
   fi
+
+  if [[ "${FLEET}" -eq 1 ]]; then
+    echo -n "Waiting for fleet collectors health endpoints..."
+    for _ in $(seq 1 30); do
+      if curl -fsS "${HEALTH_URL_C1}" >/dev/null 2>&1 && curl -fsS "${HEALTH_URL_C2}" >/dev/null 2>&1; then
+        echo " ready."
+        break
+      fi
+      sleep 1
+    done
+  fi
 fi
 
 echo "Active container cgroup limits:"
@@ -334,12 +371,6 @@ docker inspect "${COLLECTOR_CONTAINER}" \
   --format '  NanoCpus={{.HostConfig.NanoCpus}} Memory={{.HostConfig.Memory}} MemorySwap={{.HostConfig.MemorySwap}} RestartCount={{.RestartCount}}'
 
 apply_tempo_latency "${LATENCY_MS}"
-
-echo ""
-echo "Launching telemetrygen (${TELEMETRYGEN_IMAGE}) against otel-collector-repro:4318 on tp-dev-net..."
-
-# Remove any leftover run container first
-docker rm -f "${TELEMETRYGEN_CONTAINER}" >/dev/null 2>&1 || true
 
 # Realistic SQL payload roughly mirroring production Django DB span attributes
 # Sized to ~SPAN_BYTES (default: 5000 bytes) to match heavy production SQL/ORM queries.
@@ -355,38 +386,56 @@ else
   SQL_SAMPLE="SELECT id, institute_id, title, slug, is_active, modified FROM courses_course WHERE institute_id = 123 AND is_active = true ORDER BY modified DESC LIMIT 50"
 fi
 
-# --allow-export-failures is used strictly against this local disposable repro
-# collector so traffic continues past memory_limiter refusals and OOM restarts
-# for the finite --duration; export errors remain visible in container logs.
-TG_ARGS=(
-  traces
-  --otlp-http
-  --otlp-insecure
-  --otlp-endpoint otel-collector-repro:4318
-  --allow-export-failures
-  --duration "${DURATION}"
-  --workers "${WORKERS}"
-  --rate "${RATE}"
-  --child-spans "${CHILD_SPANS}"
-  --batch
-  --batch-size "${BATCH_SIZE}"
-  --service "testpress"
-  --otlp-attributes 'deployment.environment.name="production"'
-  --telemetry-attributes 'http.method="GET"'
-  --telemetry-attributes 'http.route="/api/v2/courses/"'
-  --telemetry-attributes 'db.system="postgresql"'
-  --telemetry-attributes 'db.operation="SELECT"'
-  --telemetry-attributes "db.statement=\"${SQL_SAMPLE}\""
-  --telemetry-attributes 'tp_trace.sampled=true'
-)
-if [[ "${PAYLOAD_MB}" -gt 0 ]]; then
-  TG_ARGS+=(--size "${PAYLOAD_MB}")
-fi
+# Helper to launch telemetrygen with standard production trace schema
+run_telemetrygen() {
+  local container_name="$1"
+  local endpoint="$2"
+  local service_name="$3"
+  local workers="$4"
+  local rate="$5"
 
-docker run -d --name "${TELEMETRYGEN_CONTAINER}" \
-  --network "tp-dev-net" \
-  "${TELEMETRYGEN_IMAGE}" \
-  "${TG_ARGS[@]}" >/dev/null
+  local args=(
+    traces
+    --otlp-http
+    --otlp-insecure
+    --otlp-endpoint "${endpoint}"
+    --allow-export-failures
+    --duration "${DURATION}"
+    --workers "${workers}"
+    --rate "${rate}"
+    --child-spans "${CHILD_SPANS}"
+    --batch
+    --batch-size "${BATCH_SIZE}"
+    --service "${service_name}"
+    --otlp-attributes 'deployment.environment.name="production"'
+    --telemetry-attributes 'http.method="GET"'
+    --telemetry-attributes 'http.route="/api/v2/courses/"'
+    --telemetry-attributes 'db.system="postgresql"'
+    --telemetry-attributes 'db.operation="SELECT"'
+    --telemetry-attributes "db.statement=\"${SQL_SAMPLE}\""
+    --telemetry-attributes 'tp_trace.sampled=true'
+  )
+  if [[ "${PAYLOAD_MB}" -gt 0 ]]; then
+    args+=(--size "${PAYLOAD_MB}")
+  fi
+
+  docker run -d --name "${container_name}" \
+    --network "tp-dev-net" \
+    "${TELEMETRYGEN_IMAGE}" \
+    "${args[@]}" >/dev/null
+}
+
+echo ""
+echo "Launching telemetrygen (${TELEMETRYGEN_IMAGE}) against otel-collector-repro:4318 on tp-dev-net..."
+docker rm -f "${TELEMETRYGEN_CONTAINER}" >/dev/null 2>&1 || true
+run_telemetrygen "${TELEMETRYGEN_CONTAINER}" "otel-collector-repro:4318" "testpress" "${WORKERS}" "${RATE}"
+
+if [[ "${FLEET}" -eq 1 ]]; then
+  echo "Launching fleet load generators against otel-collector-repro-c1 and c2..."
+  docker rm -f "${TELEMETRYGEN_CONTAINER_C1}" "${TELEMETRYGEN_CONTAINER_C2}" >/dev/null 2>&1 || true
+  run_telemetrygen "${TELEMETRYGEN_CONTAINER_C1}" "otel-collector-repro-c1:4318" "testpress-c1" "${FLEET_WORKERS}" "${FLEET_RATE}"
+  run_telemetrygen "${TELEMETRYGEN_CONTAINER_C2}" "otel-collector-repro-c2:4318" "testpress-c2" "${FLEET_WORKERS}" "${FLEET_RATE}"
+fi
 
 echo ""
 printf '%-8s | %-7s | %-20s | %-4s | %-3s | %-8s | %-8s | %-9s | %-8s | %-8s | %-6s\n' \

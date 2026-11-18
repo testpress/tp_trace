@@ -32,6 +32,19 @@ def test_repro_collector_service_is_opt_in_and_mirrors_monday_limits():
     repro_ports = set(repro["ports"])
     assert default_ports.isdisjoint(repro_ports)
 
+    # Fleet collectors for multi-collector load
+    assert "otel-collector-repro-c1" in services
+    assert "otel-collector-repro-c2" in services
+    c1 = services["otel-collector-repro-c1"]
+    c2 = services["otel-collector-repro-c2"]
+    assert c1["profiles"] == ["repro"]
+    assert c2["profiles"] == ["repro"]
+    c1_ports = set(c1["ports"])
+    c2_ports = set(c2["ports"])
+    assert repro_ports.isdisjoint(c1_ports)
+    assert repro_ports.isdisjoint(c2_ports)
+    assert c1_ports.isdisjoint(c2_ports)
+
 
 def test_repro_script_syntax_and_finite_bound_validation():
     assert REPRO_SCRIPT.is_file()
