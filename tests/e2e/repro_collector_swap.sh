@@ -323,7 +323,7 @@ TG_ARGS=(
   --telemetry-attributes 'db.system="postgresql"'
   --telemetry-attributes 'db.operation="SELECT"'
   --telemetry-attributes "db.statement=\"${SQL_SAMPLE}\""
-  --telemetry-attributes 'tp_trace.sampled=false'
+  --telemetry-attributes 'tp_trace.sampled=true'
 )
 if [[ "${PAYLOAD_MB}" -gt 0 ]]; then
   TG_ARGS+=(--size "${PAYLOAD_MB}")
@@ -351,8 +351,8 @@ while docker ps -q -f "name=^${TELEMETRYGEN_CONTAINER}$" | grep -q .; do
 
   VM_SWAP="$(docker run --rm "${ALPINE_IMAGE}" free -m 2>/dev/null | awk '/^Swap:/ {print $3 "MiB"}' || echo 'n/a')"
 
-  PROM_UP="$(prom_query "up{job=\"otel-collector\",collector_alias=\"${COLLECTOR_ALIAS}\"}")"
-  PROM_SCRAPE="$(prom_query "scrape_duration_seconds{job=\"otel-collector\",collector_alias=\"${COLLECTOR_ALIAS}\"}")"
+  PROM_UP="$(prom_query "up{source=\"otelcol-telemetry\",collector_alias=\"${COLLECTOR_ALIAS}\"}")"
+  PROM_SCRAPE="$(prom_query "scrape_duration_seconds{collector_alias=\"${COLLECTOR_ALIAS}\"}")"
   PROM_RSS="$(prom_query "otelcol_process_memory_rss_bytes{collector_alias=\"${COLLECTOR_ALIAS}\"} / 1048576")"
   PROM_REFUSED="$(prom_query "rate(otelcol_processor_refused_spans_total{collector_alias=\"${COLLECTOR_ALIAS}\"}[1m])")"
   PROM_RWQ="$(prom_query "otelcol_exporter_queue_size{collector_alias=\"${COLLECTOR_ALIAS}\",exporter=\"prometheusremotewrite\"}")"
