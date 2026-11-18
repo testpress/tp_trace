@@ -43,17 +43,17 @@ HEALTH_URL_C2="${REPRO_HEALTH_URL_C2:-http://localhost:13136/}"
 
 MODE="swap"
 DURATION="5m"
-WORKERS="32"
-RATE="1500"
-CHILD_SPANS="24"
-BATCH_SIZE="64"
+WORKERS="16"
+RATE="32"
+CHILD_SPANS="23"
+BATCH_SIZE="256"
 PAYLOAD_MB="0"
-SPAN_BYTES="5000"
+SPAN_BYTES="500"
 CPUS_OVERRIDE=""
 LATENCY_MS="${REPRO_LATENCY_MS:-0}"
 FLEET="${REPRO_FLEET:-1}"
-FLEET_WORKERS="16"
-FLEET_RATE="1000"
+FLEET_WORKERS="8"
+FLEET_RATE="25"
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -68,20 +68,16 @@ Options:
                            oom   = 0.5 CPU, 512m RAM, 512m swap (fail-fast OOM)
                            fixed = 1.0 CPU, 2048m RAM, 2048m swap (post-#68 fix)
   --duration <dur>         Finite Go duration for load, e.g. 2m, 5m (default: 5m)
-  --workers <n>            Telemetrygen worker goroutines for target collector (default: 32)
-                           Increase on Apple Silicon (e.g. 24-40) to saturate
-                           0.5 CPU / 512m without lowering container limits.
-  --rate <n>               Approximate configured spans/s per worker (default: 1500)
-                           Configured target = workers * rate; delivered throughput
-                           may be lower under backpressure or export failures.
+  --workers <n>            Telemetrygen worker goroutines for target collector (default: 16)
+  --rate <n>               Traces/s per worker (default: 32 -> 16*32*24 = ~12,288 spans/s)
   --fleet <0|1>            Enable multi-collector fleet simulation (default: 1)
                            Runs cluster1_app1 and cluster2_app2 collectors to
                            share and saturate Tempo's 15 MB/s distributor limit.
   --no-fleet               Disable fleet; run only against repro-cluster2-app1
-  --child-spans <n>        Child spans per trace, >= 1 (default: 24)
-  --batch-size <n>         Spans per OTLP batch (default: 64)
-  --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 5000)
-  --latency <ms>           Injected network latency to Tempo in ms (default: 0, set >0 to simulate cross-AZ/WAN)
+  --child-spans <n>        Child spans per trace, >= 1 (default: 23 -> 24 spans/trace)
+  --batch-size <n>         Spans per OTLP batch (default: 256, matches Django SDK)
+  --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 500)
+  --latency <ms>           Injected network latency to Tempo in ms (default: 0)
   --cpus <n>               CPU limit override for container, e.g. 0.2 on Apple Silicon (default: 0.5)
   --size <mb>              Extra MB per parent span, >= 0 (default: 0)
   --poll-interval <sec>    Monitoring output interval in seconds (default: 15)
@@ -321,9 +317,9 @@ echo "=== Collector Swap/OOM Incident Repro ==="
 echo "Mode:             ${MODE}"
 echo "Limits:           cpus=${REPRO_COLLECTOR_CPUS}, mem=${REPRO_COLLECTOR_MEMORY_LIMIT}, memswap=${REPRO_COLLECTOR_MEMSWAP_LIMIT}"
 echo "Go / Limiter:     GOMEMLIMIT=${REPRO_COLLECTOR_GOMEMLIMIT}, limit_mib=${REPRO_COLLECTOR_MEMORY_LIMIT_MIB}, spike_mib=${REPRO_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB}"
-TOTAL_TARGET_SPANS=$((WORKERS * RATE))
-TRACES_PER_SEC=$((TOTAL_TARGET_SPANS / (CHILD_SPANS + 1)))
-echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE}/worker (~${TOTAL_TARGET_SPANS} spans/s, ~${TRACES_PER_SEC} traces/s, ~${SPAN_BYTES} bytes/span)"
+TRACES_PER_SEC=$((WORKERS * RATE))
+TOTAL_TARGET_SPANS=$((TRACES_PER_SEC * (CHILD_SPANS + 1)))
+echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE} traces/s/worker (~${TOTAL_TARGET_SPANS} spans/s, ~${TRACES_PER_SEC} traces/s, ~${SPAN_BYTES} bytes/span)"
 echo "Tempo latency:    ${LATENCY_MS}ms injected via netem"
 echo ""
 
