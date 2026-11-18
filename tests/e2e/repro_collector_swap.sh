@@ -43,8 +43,8 @@ HEALTH_URL_C2="${REPRO_HEALTH_URL_C2:-http://localhost:13136/}"
 
 MODE="swap"
 DURATION="5m"
-WORKERS="16"
-RATE="32"
+WORKERS="32"
+RATE="500"
 CHILD_SPANS="23"
 BATCH_SIZE="256"
 PAYLOAD_MB="0"
@@ -52,8 +52,8 @@ SPAN_BYTES="500"
 CPUS_OVERRIDE=""
 LATENCY_MS="${REPRO_LATENCY_MS:-0}"
 FLEET="${REPRO_FLEET:-1}"
-FLEET_WORKERS="8"
-FLEET_RATE="25"
+FLEET_WORKERS="16"
+FLEET_RATE="250"
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -317,9 +317,9 @@ echo "=== Collector Swap/OOM Incident Repro ==="
 echo "Mode:             ${MODE}"
 echo "Limits:           cpus=${REPRO_COLLECTOR_CPUS}, mem=${REPRO_COLLECTOR_MEMORY_LIMIT}, memswap=${REPRO_COLLECTOR_MEMSWAP_LIMIT}"
 echo "Go / Limiter:     GOMEMLIMIT=${REPRO_COLLECTOR_GOMEMLIMIT}, limit_mib=${REPRO_COLLECTOR_MEMORY_LIMIT_MIB}, spike_mib=${REPRO_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB}"
-TRACES_PER_SEC=$((WORKERS * RATE))
+TRACES_PER_SEC="${RATE}"
 TOTAL_TARGET_SPANS=$((TRACES_PER_SEC * (CHILD_SPANS + 1)))
-echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE} traces/s/worker (~${TOTAL_TARGET_SPANS} spans/s, ~${TRACES_PER_SEC} traces/s, ~${SPAN_BYTES} bytes/span)"
+echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE} traces/s (~${TOTAL_TARGET_SPANS} spans/s, ~${SPAN_BYTES} bytes/span)"
 echo "Tempo latency:    ${LATENCY_MS}ms injected via netem"
 echo ""
 
