@@ -336,7 +336,7 @@ docker run -d --name "${TELEMETRYGEN_CONTAINER}" \
 
 echo ""
 printf '%-8s | %-7s | %-20s | %-4s | %-3s | %-8s | %-8s | %-9s | %-8s | %-8s | %-6s\n' \
-  "TIME" "CPU%" "MEM USAGE / LIMIT" "RSTR" "OOM" "VM_SWAP" "UP(fail)" "SCRAPE_S" "RSS_MiB" "REFUSED" "RW_Q"
+  "TIME" "CPU%" "MEM USAGE / LIMIT" "RSTR" "OOM" "VM_SWAP" "UP(fail)" "SCRAPE_S" "RSS_MiB" "REFUSED" "QUEUE"
 printf '%s\n' "---------+---------+----------------------+------+-----+----------+----------+-----------+----------+----------+-------"
 
 while docker ps -q -f "name=^${TELEMETRYGEN_CONTAINER}$" | grep -q .; do
@@ -355,7 +355,7 @@ while docker ps -q -f "name=^${TELEMETRYGEN_CONTAINER}$" | grep -q .; do
   PROM_SCRAPE="$(prom_query "scrape_duration_seconds{collector_alias=\"${COLLECTOR_ALIAS}\"}")"
   PROM_RSS="$(prom_query "otelcol_process_memory_rss_bytes{collector_alias=\"${COLLECTOR_ALIAS}\"} / 1048576")"
   PROM_REFUSED="$(prom_query "rate(otelcol_processor_refused_spans_total{collector_alias=\"${COLLECTOR_ALIAS}\"}[1m])")"
-  PROM_RWQ="$(prom_query "otelcol_exporter_queue_size{collector_alias=\"${COLLECTOR_ALIAS}\",exporter=\"prometheusremotewrite\"}")"
+  PROM_RWQ="$(prom_query "max(otelcol_exporter_queue_size{collector_alias=\"${COLLECTOR_ALIAS}\",exporter=\"otlp/tempo\"})")"
 
   printf '%-8s | %-7s | %-20s | %-4s | %-3s | %-8s | %-8s | %-9s | %-8s | %-8s | %-6s\n' \
     "$NOW_TS" "$CPU_PCT" "$MEM_USE" "$RESTARTS" "$OOM_KILLED" "$VM_SWAP" "$PROM_UP" "$PROM_SCRAPE" "$PROM_RSS" "$PROM_REFUSED" "$PROM_RWQ"
