@@ -42,6 +42,7 @@ RATE="1500"
 CHILD_SPANS="24"
 BATCH_SIZE="256"
 PAYLOAD_MB="0"
+SPAN_BYTES="5000"
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -64,6 +65,7 @@ Options:
                            may be lower under backpressure or export failures.
   --child-spans <n>        Child spans per trace, >= 1 (default: 24)
   --batch-size <n>         Spans per OTLP batch (default: 256)
+  --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 5000)
   --size <mb>              Extra MB per parent span, >= 0 (default: 0)
   --poll-interval <sec>    Monitoring output interval in seconds (default: 15)
   --no-start               Reuse an already-running otel-collector-repro container
@@ -123,6 +125,10 @@ while [[ "$#" -gt 0 ]]; do
       BATCH_SIZE="${2:-}"
       shift 2
       ;;
+    --span-bytes)
+      SPAN_BYTES="${2:-}"
+      shift 2
+      ;;
     --size)
       PAYLOAD_MB="${2:-}"
       shift 2
@@ -160,6 +166,7 @@ require_pos_int "--workers" "$WORKERS"
 require_pos_int "--rate" "$RATE"
 require_pos_int "--child-spans" "$CHILD_SPANS"
 require_pos_int "--batch-size" "$BATCH_SIZE"
+require_nonneg_int "--span-bytes" "$SPAN_BYTES"
 require_nonneg_int "--size" "$PAYLOAD_MB"
 require_pos_int "--poll-interval" "$POLL_INTERVAL"
 
@@ -264,7 +271,7 @@ echo "Limits:           cpus=${REPRO_COLLECTOR_CPUS}, mem=${REPRO_COLLECTOR_MEMO
 echo "Go / Limiter:     GOMEMLIMIT=${REPRO_COLLECTOR_GOMEMLIMIT}, limit_mib=${REPRO_COLLECTOR_MEMORY_LIMIT_MIB}, spike_mib=${REPRO_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB}"
 TOTAL_TARGET_SPANS=$((WORKERS * RATE))
 TRACES_PER_SEC=$((TOTAL_TARGET_SPANS / (CHILD_SPANS + 1)))
-echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE}/worker (~${TOTAL_TARGET_SPANS} spans/s, ~${TRACES_PER_SEC} traces/s configured target; delivered rate may be lower under backpressure)"
+echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE}/worker (~${TOTAL_TARGET_SPANS} spans/s, ~${TRACES_PER_SEC} traces/s, ~${SPAN_BYTES} bytes/span)"
 echo ""
 
 check_vm_swap
@@ -299,7 +306,18 @@ echo "Launching telemetrygen (${TELEMETRYGEN_IMAGE}) against otel-collector-repr
 docker rm -f "${TELEMETRYGEN_CONTAINER}" >/dev/null 2>&1 || true
 
 # Realistic SQL payload roughly mirroring production Django DB span attributes
-SQL_SAMPLE="SELECT id, institute_id, title, slug, is_active, modified FROM courses_course WHERE institute_id = 123 AND is_active = true ORDER BY modified DESC LIMIT 50"
+# Sized to ~SPAN_BYTES (default: 5000 bytes) to match heavy production SQL/ORM queries.
+if [[ "${SPAN_BYTES}" -gt 200 ]]; then
+  REPEAT_COUNT=$(( (SPAN_BYTES - 150) / 16 ))
+  if command -v python3 >/dev/null 2>&1; then
+    SQL_PAYLOAD="$(python3 -c "print('0123456789abcdef' * ${REPEAT_COUNT})")"
+  else
+    SQL_PAYLOAD="$(head -c "$((REPEAT_COUNT * 16))" < /dev/zero | tr '\0' 'a')"
+  fi
+  SQL_SAMPLE="SELECT id, institute_id, title, payload FROM courses_course WHERE query_hash = '${SQL_PAYLOAD}' AND is_active = true"
+else
+  SQL_SAMPLE="SELECT id, institute_id, title, slug, is_active, modified FROM courses_course WHERE institute_id = 123 AND is_active = true ORDER BY modified DESC LIMIT 50"
+fi
 
 # --allow-export-failures is used strictly against this local disposable repro
 # collector so traffic continues past memory_limiter refusals and OOM restarts
