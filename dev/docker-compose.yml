@@ -168,6 +168,11 @@ services:
     container_name: tp-tempo
     restart: on-failure:5
     command: ["-config.file=/etc/tempo/tempo.yaml"]
+    cpus: ${DEV_TEMPO_CPUS:-2.0}
+    mem_limit: ${DEV_TEMPO_MEMORY_LIMIT:-2g}
+    memswap_limit: ${DEV_TEMPO_MEMSWAP_LIMIT:-2g}
+    environment:
+      GOMEMLIMIT: "${DEV_TEMPO_GOMEMLIMIT:-1600MiB}"
     volumes:
       - ../config/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo_data:/var/lib/tempo
