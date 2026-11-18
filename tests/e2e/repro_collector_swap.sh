@@ -37,13 +37,14 @@ HEALTH_URL="${REPRO_HEALTH_URL:-http://localhost:13134/}"
 
 MODE="swap"
 DURATION="5m"
-WORKERS="12"
+WORKERS="32"
 RATE="1500"
 CHILD_SPANS="24"
-BATCH_SIZE="256"
+BATCH_SIZE="64"
 PAYLOAD_MB="0"
 SPAN_BYTES="5000"
 CPUS_OVERRIDE=""
+LATENCY_MS="${REPRO_LATENCY_MS:-100}"
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -58,15 +59,17 @@ Options:
                            oom   = 0.5 CPU, 512m RAM, 512m swap (fail-fast OOM)
                            fixed = 1.0 CPU, 2048m RAM, 2048m swap (post-#68 fix)
   --duration <dur>         Finite Go duration for load, e.g. 2m, 5m (default: 5m)
-  --workers <n>            Telemetrygen worker goroutines (default: 12)
-                           Increase on Apple Silicon (e.g. 16-24) to saturate
+  --workers <n>            Telemetrygen worker goroutines (default: 32)
+                           Increase on Apple Silicon (e.g. 24-40) to saturate
                            0.5 CPU / 512m without lowering container limits.
   --rate <n>               Approximate configured spans/s per worker (default: 1500)
                            Configured target = workers * rate; delivered throughput
                            may be lower under backpressure or export failures.
   --child-spans <n>        Child spans per trace, >= 1 (default: 24)
-  --batch-size <n>         Spans per OTLP batch (default: 256)
+  --batch-size <n>         Spans per OTLP batch (default: 64)
   --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 5000)
+  --latency <ms>           Injected network latency to Tempo in ms (default: 100, set 0 to disable)
+                           Simulates inter-server AWS VPC latency across separate instances.
   --cpus <n>               CPU limit override for container, e.g. 0.2 on Apple Silicon (default: 0.5)
   --size <mb>              Extra MB per parent span, >= 0 (default: 0)
   --poll-interval <sec>    Monitoring output interval in seconds (default: 15)
@@ -131,6 +134,10 @@ while [[ "$#" -gt 0 ]]; do
       SPAN_BYTES="${2:-}"
       shift 2
       ;;
+    --latency)
+      LATENCY_MS="${2:-}"
+      shift 2
+      ;;
     --cpus)
       CPUS_OVERRIDE="${2:-}"
       shift 2
@@ -173,6 +180,7 @@ require_pos_int "--rate" "$RATE"
 require_pos_int "--child-spans" "$CHILD_SPANS"
 require_pos_int "--batch-size" "$BATCH_SIZE"
 require_nonneg_int "--span-bytes" "$SPAN_BYTES"
+require_nonneg_int "--latency" "$LATENCY_MS"
 require_nonneg_int "--size" "$PAYLOAD_MB"
 require_pos_int "--poll-interval" "$POLL_INTERVAL"
 
@@ -218,7 +226,26 @@ if [[ -f "${REPO_ROOT}/.env" ]]; then
 fi
 COMPOSE_CMD+=(-f "${COMPOSE_FILE}" --profile repro)
 
+apply_tempo_latency() {
+  local ms="$1"
+  if [[ "$ms" -gt 0 ]]; then
+    echo "Injecting ${ms}ms network latency into tp-tempo (simulating AWS inter-server latency)..."
+    docker run --rm --network container:tp-tempo --cap-add NET_ADMIN "${ALPINE_IMAGE}" sh -c \
+      "apk add --no-cache iproute2 >/dev/null 2>&1 && tc qdisc replace dev eth0 root netem delay ${ms}ms" >/dev/null 2>&1 || {
+        echo "Warning: failed to inject network latency via tc netem; proceeding with default network."
+      }
+  fi
+}
+
+reset_tempo_latency() {
+  if [[ "${LATENCY_MS:-0}" -gt 0 ]]; then
+    docker run --rm --network container:tp-tempo --cap-add NET_ADMIN "${ALPINE_IMAGE}" sh -c \
+      "apk add --no-cache iproute2 >/dev/null 2>&1 && tc qdisc del dev eth0 root 2>/dev/null || true" >/dev/null 2>&1 || true
+  fi
+}
+
 cleanup() {
+  reset_tempo_latency
   if docker ps -a -q -f "name=^${TELEMETRYGEN_CONTAINER}$" | grep -q .; then
     docker rm -f "${TELEMETRYGEN_CONTAINER}" >/dev/null 2>&1 || true
   fi
@@ -278,6 +305,7 @@ echo "Go / Limiter:     GOMEMLIMIT=${REPRO_COLLECTOR_GOMEMLIMIT}, limit_mib=${RE
 TOTAL_TARGET_SPANS=$((WORKERS * RATE))
 TRACES_PER_SEC=$((TOTAL_TARGET_SPANS / (CHILD_SPANS + 1)))
 echo "Load target:      duration=${DURATION}, workers=${WORKERS}, rate=${RATE}/worker (~${TOTAL_TARGET_SPANS} spans/s, ~${TRACES_PER_SEC} traces/s, ~${SPAN_BYTES} bytes/span)"
+echo "Tempo latency:    ${LATENCY_MS}ms injected via netem"
 echo ""
 
 check_vm_swap
@@ -304,6 +332,8 @@ fi
 echo "Active container cgroup limits:"
 docker inspect "${COLLECTOR_CONTAINER}" \
   --format '  NanoCpus={{.HostConfig.NanoCpus}} Memory={{.HostConfig.Memory}} MemorySwap={{.HostConfig.MemorySwap}} RestartCount={{.RestartCount}}'
+
+apply_tempo_latency "${LATENCY_MS}"
 
 echo ""
 echo "Launching telemetrygen (${TELEMETRYGEN_IMAGE}) against otel-collector-repro:4318 on tp-dev-net..."

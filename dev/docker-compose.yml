@@ -167,7 +167,10 @@ services:
     image: grafana/tempo:2.4.1
     container_name: tp-tempo
     restart: on-failure:5
-    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    command:
+      - "-config.file=/etc/tempo/tempo.yaml"
+      - "-distributor.ingestion-rate-limit-bytes=${DEV_TEMPO_INGESTION_RATE_LIMIT_BYTES:-100000000}"
+      - "-distributor.ingestion-burst-size-bytes=${DEV_TEMPO_INGESTION_BURST_SIZE_BYTES:-150000000}"
     cpus: ${DEV_TEMPO_CPUS:-2.0}
     mem_limit: ${DEV_TEMPO_MEMORY_LIMIT:-2g}
     memswap_limit: ${DEV_TEMPO_MEMSWAP_LIMIT:-2g}
