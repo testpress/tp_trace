@@ -43,6 +43,7 @@ CHILD_SPANS="24"
 BATCH_SIZE="256"
 PAYLOAD_MB="0"
 SPAN_BYTES="5000"
+CPUS_OVERRIDE=""
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -66,6 +67,7 @@ Options:
   --child-spans <n>        Child spans per trace, >= 1 (default: 24)
   --batch-size <n>         Spans per OTLP batch (default: 256)
   --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 5000)
+  --cpus <n>               CPU limit override for container, e.g. 0.2 on Apple Silicon (default: 0.5)
   --size <mb>              Extra MB per parent span, >= 0 (default: 0)
   --poll-interval <sec>    Monitoring output interval in seconds (default: 15)
   --no-start               Reuse an already-running otel-collector-repro container
@@ -129,6 +131,10 @@ while [[ "$#" -gt 0 ]]; do
       SPAN_BYTES="${2:-}"
       shift 2
       ;;
+    --cpus)
+      CPUS_OVERRIDE="${2:-}"
+      shift 2
+      ;;
     --size)
       PAYLOAD_MB="${2:-}"
       shift 2
@@ -172,7 +178,7 @@ require_pos_int "--poll-interval" "$POLL_INTERVAL"
 
 case "$MODE" in
   swap)
-    export REPRO_COLLECTOR_CPUS="0.5"
+    export REPRO_COLLECTOR_CPUS="${CPUS_OVERRIDE:-0.5}"
     export REPRO_COLLECTOR_MEMORY_LIMIT="512m"
     export REPRO_COLLECTOR_MEMSWAP_LIMIT="1024m"
     export REPRO_COLLECTOR_GOMEMLIMIT="380MiB"
@@ -181,7 +187,7 @@ case "$MODE" in
     export REPRO_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB="80"
     ;;
   oom)
-    export REPRO_COLLECTOR_CPUS="0.5"
+    export REPRO_COLLECTOR_CPUS="${CPUS_OVERRIDE:-0.5}"
     export REPRO_COLLECTOR_MEMORY_LIMIT="512m"
     export REPRO_COLLECTOR_MEMSWAP_LIMIT="512m"
     export REPRO_COLLECTOR_GOMEMLIMIT="380MiB"
