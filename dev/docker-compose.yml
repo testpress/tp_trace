@@ -221,6 +221,48 @@ services:
           - collector
           - otel-collector
 
+  otel-collector-repro:
+    # Opt-in constrained collector mirroring Monday night production limits
+    # (0.5 CPU, 512m RAM, 2x default swap) for local incident reproduction.
+    profiles: ["repro"]
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    container_name: tp-otel-collector-repro
+    restart: unless-stopped
+    cpus: ${REPRO_COLLECTOR_CPUS:-0.5}
+    mem_limit: ${REPRO_COLLECTOR_MEMORY_LIMIT:-512m}
+    memswap_limit: ${REPRO_COLLECTOR_MEMSWAP_LIMIT:-1024m}
+    environment:
+      GOMEMLIMIT: "${REPRO_COLLECTOR_GOMEMLIMIT:-380MiB}"
+      GOGC: "${REPRO_COLLECTOR_GOGC:-80}"
+      OTEL_COLLECTOR_MEMORY_LIMIT_MIB: "${REPRO_COLLECTOR_MEMORY_LIMIT_MIB:-400}"
+      OTEL_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB: "${REPRO_COLLECTOR_MEMORY_SPIKE_LIMIT_MIB:-80}"
+      OTEL_COLLECTOR_OTLP_GRPC_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_OTLP_HTTP_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_INTERNAL_METRICS_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_HEALTH_BIND: "0.0.0.0"
+      OTEL_COLLECTOR_EXTENSIONS: "[health_check]"
+      OTEL_COLLECTOR_TEMPO_ENDPOINT: tempo:4317
+      OTEL_COLLECTOR_PROMETHEUS_REMOTE_WRITE_ENDPOINT: http://prometheus:9090/api/v1/write
+      OTEL_COLLECTOR_INSTANCE: repro-collector
+      OTEL_COLLECTOR_ALIAS: "${REPRO_COLLECTOR_ALIAS:-repro-cluster2-app1}"
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ../config/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      tempo:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${REPRO_OTLP_GRPC_PORT:-4320}:4317"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${REPRO_OTLP_HTTP_PORT:-4321}:4318"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${REPRO_METRICS_PORT:-8889}:8888"
+      - "${DEV_BIND_ADDRESS:-0.0.0.0}:${REPRO_HEALTH_PORT:-13134}:13133"
+    networks:
+      tp-net:
+        aliases:
+          - otel-collector-repro
+
   prometheus:
     image: prom/prometheus:v3.5.0
     container_name: tp-prometheus
