@@ -42,18 +42,18 @@ HEALTH_URL_C1="${REPRO_HEALTH_URL_C1:-http://localhost:13135/}"
 HEALTH_URL_C2="${REPRO_HEALTH_URL_C2:-http://localhost:13136/}"
 
 MODE="swap"
-DURATION="5m"
-WORKERS="32"
+DURATION="1h"
+WORKERS="128"
 RATE="500"
 CHILD_SPANS="23"
 BATCH_SIZE="256"
 PAYLOAD_MB="0"
 SPAN_BYTES="500"
 CPUS_OVERRIDE=""
-LATENCY_MS="${REPRO_LATENCY_MS:-0}"
+LATENCY_MS="${REPRO_LATENCY_MS:-30}"
 FLEET="${REPRO_FLEET:-1}"
-FLEET_WORKERS="16"
-FLEET_RATE="250"
+FLEET_WORKERS="64"
+FLEET_RATE="350"
 POLL_INTERVAL="15"
 START_STACK=1
 TEARDOWN_AFTER=0
@@ -67,9 +67,9 @@ Options:
                            swap  = 0.5 CPU, 512m RAM, 1024m swap (Monday incident)
                            oom   = 0.5 CPU, 512m RAM, 512m swap (fail-fast OOM)
                            fixed = 1.0 CPU, 2048m RAM, 2048m swap (post-#68 fix)
-  --duration <dur>         Finite Go duration for load, e.g. 2m, 5m (default: 5m)
-  --workers <n>            Telemetrygen worker goroutines for target collector (default: 16)
-  --rate <n>               Traces/s per worker (default: 32 -> 16*32*24 = ~12,288 spans/s)
+  --duration <dur>         Finite Go duration for load, e.g. 10m, 1h (default: 1h)
+  --workers <n>            Telemetrygen worker goroutines (default: 128, matching production Gunicorn workers)
+  --rate <n>               Global traces/s (default: 500 -> 500*24 = 12,000 spans/s)
   --fleet <0|1>            Enable multi-collector fleet simulation (default: 1)
                            Runs cluster1_app1 and cluster2_app2 collectors to
                            share and saturate Tempo's 15 MB/s distributor limit.
@@ -77,7 +77,7 @@ Options:
   --child-spans <n>        Child spans per trace, >= 1 (default: 23 -> 24 spans/trace)
   --batch-size <n>         Spans per OTLP batch (default: 256, matches Django SDK)
   --span-bytes <bytes>     Target size in bytes for span attribute payload (default: 500)
-  --latency <ms>           Injected network latency to Tempo in ms (default: 0)
+  --latency <ms>           Injected network latency to Tempo in ms (default: 30, inter-DC RTT)
   --cpus <n>               CPU limit override for container, e.g. 0.2 on Apple Silicon (default: 0.5)
   --size <mb>              Extra MB per parent span, >= 0 (default: 0)
   --poll-interval <sec>    Monitoring output interval in seconds (default: 15)

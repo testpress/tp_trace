@@ -16,14 +16,22 @@ Reproduce the Nov 16 `cluster2_app1` Collector incident locally using an isolate
 ### 1. Reproduce Monday's freeze (`0.5 CPU`, `512m` RAM, `1024m` swap)
 
 ```bash
-./tests/e2e/repro_collector_swap.sh --mode swap --duration 5m
+./tests/e2e/repro_collector_swap.sh --mode swap
 ```
 
-- Simulates the production fleet topology: `repro-cluster2-app1` (target), `repro-cluster1-app1`, and `repro-cluster2-app2` pushing concurrent traces to shared Tempo.
-- Tempo runs with production defaults: 15 MB/s distributor rate limit (`15000000 bytes/s`) and 2 GB memory ceiling.
-- With 0ms artificial latency, aggregate fleet trace bandwidth breaches Tempo's 15 MB/s ceiling, naturally triggering gRPC backpressure, export queue accumulation, swap spilling, and scrape timeouts (`UP = 0.00`).
-- Watch for: `CPU%` pinned near `50%`, `VM_SWAP` climbing, `SCRAPE_S > 10s`, `UP(fail) = 0.00`, and `RSS_MiB = missing` while `RSTR = 0` (`OOM = false`).
-- Open local Grafana (`http://localhost:3001`) -> **OpenTelemetry Collector** dashboard and inspect collectors side-by-side or filter alias `repro-cluster2-app1`.
+- **Production Topology & Load**:
+  - Simulates the dedicated bare-metal server with **128 workers** dumping concurrent traces (~12,000 spans/sec) into the 0.5 CPU container.
+  - Multi-collector fleet simulation enabled by default (`repro-cluster2-app1`, `repro-cluster1-app1`, `repro-cluster2-app2`) pushing concurrent traces to shared Tempo.
+  - Simulates the inter-datacenter network RTT (**30ms default latency**) between the dedicated application server and the central Tempo instance (`65.21.236.56`), preventing unrealistic instantaneous 0ms localhost drains.
+  - Tempo runs with production defaults: 15 MB/s distributor rate limit (`15000000 bytes/s`).
+  - Defaults to **1 hour (`1h`)** duration to match sustained production workloads.
+- **Expected Failure Signature**:
+  - `CPU%` pinned near `50%` (100% of the 0.5 CPU quota).
+  - Exporter queue (`QUEUE`) fills up due to inter-server latency and distributor rate limits.
+  - Container memory breaches `512m` and spills into swap (`VM_SWAP` climbs).
+  - Page-ins stall the Go runtime; Prometheus self-scrape exceeds timeout (`SCRAPE_S > 10s`).
+  - `UP(fail) = 0.00` while `RSTR = 0` and `OOM = false`.
+- Open local Grafana (`http://localhost:3001`) -> **OpenTelemetry Collector** dashboard and filter alias `repro-cluster2-app1`.
 
 ### 2. Verify fail-fast OOM (`0.5 CPU`, `512m` RAM, `512m` swap)
 
