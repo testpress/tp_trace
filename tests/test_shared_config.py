@@ -11,7 +11,7 @@ def _yaml(name):
     return yaml.safe_load((ROOT / name).read_text())
 
 
-def test_tempo_and_prometheus_mount_shared_files():
+def test_local_services_mount_config_files():
     local = _yaml("dev/docker-compose.yml")["services"]
     for service, target, source in (
         (local["tempo"], "/etc/tempo/tempo.yaml", "./config/tempo.yaml"),
