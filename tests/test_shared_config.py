@@ -11,17 +11,14 @@ def _yaml(name):
     return yaml.safe_load((ROOT / name).read_text())
 
 
-def test_tempo_and_prometheus_mount_shared_files():
+def test_local_services_mount_config_files():
     local = _yaml("dev/docker-compose.yml")["services"]
-    deployed = _yaml("setup/docker-compose.yml")["services"]
     for service, target, source in (
-        (local["tempo"], "/etc/tempo/tempo.yaml", "../config/tempo.yaml"),
-        (deployed["tempo"], "/etc/tempo/tempo.yaml", "../config/tempo.yaml"),
-        (local["prometheus"], "/etc/prometheus/prometheus.yml", "../config/prometheus.yml"),
+        (local["tempo"], "/etc/tempo/tempo.yaml", "./.observability-infra/config/tempo.yaml"),
+        (local["prometheus"], "/etc/prometheus/prometheus.yaml", "./.observability-infra/config/prometheus.yaml"),
         (local["otel-collector"], "/etc/otelcol-contrib/config.yaml", "../config/otel-collector.yaml"),
     ):
         assert source + ":" + target + ":ro" in service["volumes"]
-        assert (ROOT / "dev" / source).resolve().is_file()
 
 
 def test_ansible_copies_same_collector_file_and_local_only_changes_addresses():
@@ -50,8 +47,6 @@ def test_health_listener_is_disabled_for_deployment_and_enabled_locally():
     assert "OTEL_COLLECTOR_EXTENSIONS" not in deployed_env
 
 
-def test_local_tempo_publishes_deployment_grpc_port_for_vm_collectors():
+def test_local_tempo_publishes_grpc_port_for_vm_collectors():
     local = _yaml("dev/docker-compose.yml")["services"]["tempo"]
-    deployed = _yaml("setup/docker-compose.yml")["services"]["tempo"]
     assert "${DEV_BIND_ADDRESS:-0.0.0.0}:4327:4317" in local["ports"]
-    assert "4327:4317" in deployed["ports"]

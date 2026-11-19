@@ -9,16 +9,15 @@
 ```text
 tp_trace/
 ├── src/tp_trace/       # Core Python SDK and framework integrations
-├── config/             # Shared canonical configuration (Collector, Tempo, Prometheus)
+├── config/             # Shared Collector configuration (otel-collector.yaml)
 ├── dev/                # Local development stack (docker-compose.yml and dev configs)
 │   └── sample-app/     # Instrumented Django sample application and traffic generator
-├── setup/              # Standalone Tempo trace store deployment (Docker Compose)
 ├── ansible/            # Ansible playbooks and roles for fleet Collector deployment
 ├── grafana/            # Canonical Grafana dashboards and datasource provisioning
 ├── docs/               # Core documentation
 │   ├── 01-basics.md    # Observability concepts (traces, metrics, context propagation)
 │   ├── 02-architecture.md # End-to-end lifecycle from tp_trace.init() to Grafana
-│   └── 03-integration.md  # SDK setup, Docker Tempo setup, and Ansible Collector setup
+│   └── 03-integration.md  # SDK setup and integration guide
 └── tests/              # SDK test suite and e2e validation probes
 ```
 
@@ -118,22 +117,21 @@ make nuke
 
 ## Shared Telemetry Configuration (`config/`)
 
-To prevent drift between development and production, canonical service configurations reside in `config/`:
+To prevent drift between development and production, the canonical Collector configuration resides in `config/`:
 
 | File | Shared Usage |
 | --- | --- |
 | `config/otel-collector.yaml` | Mounted by local Compose; copied by Ansible to production application servers |
-| `config/tempo.yaml` | Mounted by local Compose; mounted by standalone Tempo in `setup/` |
-| `config/prometheus.yml` | Mounted by local Compose; reference scrape configuration for production Prometheus |
+
+Local development service configurations for Tempo and Prometheus are synced dynamically from [testpress/observability-infra](https://github.com/testpress/observability-infra).
 
 The Collector uses `${env:VAR_NAME}` substitutions for endpoints and identities. Local Compose provides environment variables through `.env` and `dev/docker-compose.yml`, while Ansible injects inventory variables during fleet deployment.
 
-To validate configuration syntax across all environments:
+To validate configuration syntax across environments:
 
 ```bash
 make check-config
 make check-collector-config
-docker compose -f setup/docker-compose.yml config --quiet
 ```
 
 ---
@@ -154,5 +152,5 @@ docker compose -f setup/docker-compose.yml config --quiet
 2. [Investigate application services in Grafana](grafana/dashboards/README.md)
    to diagnose slow requests, error spikes, and missing telemetry.
 
-For observability infrastructure, see the [Collector deployment guide](ansible/README.md)
-and [standalone Tempo setup](setup/README.md).
+For fleet Collector deployment, see the [Collector deployment guide](ansible/README.md).
+Central observability server infrastructure (Tempo, Prometheus, Loki, Grafana) is managed in `observability-infra`.

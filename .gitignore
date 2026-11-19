@@ -16,6 +16,7 @@ build/
 dist/
 .coverage
 htmlcov/
+dev/.observability-infra
 
 # Share repository instructions even when a developer globally ignores AGENTS.md.
 !/AGENTS.md
