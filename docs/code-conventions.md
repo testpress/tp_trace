@@ -75,6 +75,6 @@
 - Batch span counts are not byte limits; assess representative payload sizes
   against Tempo receive limits and collector memory/queue budgets.
 - Keep local networking and anonymous Grafana access confined to the intentional
-  dev workflow. `setup/` is a separate deployment boundary.
+  dev workflow.
 - Do not commit generated distributions, caches, real environment files,
   credentials, or reference checkouts. Environment templates use `.example`.

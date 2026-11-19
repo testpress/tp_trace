@@ -3,8 +3,6 @@
 | File | Consumers |
 |---|---|
 | `otel-collector.yaml` | Local Compose mounts it; Ansible copies the same file to deployed hosts |
-| `tempo.yaml` | Local and deployment Compose mount the same file |
-| `prometheus.yml` | Local Compose mounts it; externally managed production Prometheus must adopt it separately |
 
 The Collector uses native `${env:NAME}` substitution. Pipeline and tuning defaults
 live only in its YAML. Local Compose supplies destination addresses, listener
@@ -27,7 +25,6 @@ From the repository root, validate with:
 ```bash
 make check-config
 make check-collector-config
-docker compose -f setup/docker-compose.yml config --quiet
 ```
 
-Apply deployed Collector changes with the Ansible configure playbook. Shared source does not automatically update running hosts. Production Prometheus is managed separately; its canonical scrape file requires `localhost:9090` and `tempo:3200` to resolve in that environment.
+Apply deployed Collector changes with the Ansible configure playbook. Shared source does not automatically update running hosts.

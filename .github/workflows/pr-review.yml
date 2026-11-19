@@ -72,8 +72,6 @@ jobs:
             - dev/: local Docker Compose stack with Collector, Tempo, Prometheus, databases,
               Redis, and the HTTP test service. Root Makefile commands select this Compose file explicitly.
             - grafana/: canonical dashboards and datasource provisioning.
-            - setup/: separate deployment configuration; preserve its purpose and check it
-              when a shared change affects deployment. Do not assume it matches dev/.
             - Read pyproject.toml, docs/code-conventions.md, applicable AGENTS.md files, and relevant docs before
               judging contracts. Python >=3.8 and Django >=4.2 are supported; CI
               checks Python 3.8 and extends across 3.10, 3.11, and 3.12. Verify these against the PR's actual files.
@@ -131,7 +129,7 @@ jobs:
 
             ## Stack, dashboards, and developer workflow
             - Check Compose-relative paths, mounts, service names, host/container endpoints,
-              dependencies, health checks, volumes, and whether setup/ is affected separately.
+              dependencies, health checks, and volumes.
             - Check Collector pipeline wiring and exporter compatibility with pinned images.
               Batch counts are not byte limits: large spans/batches must not cause silent
               loss through Tempo's gRPC message-size limit or exceed queue/memory budgets.

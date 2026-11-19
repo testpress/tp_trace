@@ -43,10 +43,8 @@ Collector configuration:
 - `tests/e2e/`: explicit live-stack probes, outside ordinary pytest discovery.
 - `dev/sample-app/`: instrumented Django application and traffic generator.
 - `dev/`: local observability stack; root Makefile selects its Compose file explicitly.
-- `config/`: shared Collector, Tempo, and Prometheus configuration.
+- `config/`: shared OpenTelemetry Collector configuration.
 - `grafana/`: canonical dashboards and datasource provisioning.
-- `setup/`: separate deployment configuration. Preserve its purpose; assess shared
-  changes without copying intentional local exposure into deployment settings.
 - `.agents/skills/`: repository skills for commit conventions, branch creation, debugging,
   and OpenTelemetry workflows. Use applicable skills without
   treating their guidance as permission for unrelated external actions.
@@ -71,7 +69,6 @@ Useful commands:
 | Full SDK suite | `make test` |
 | Packaging | `make build` |
 | Local Compose | `make check-config` |
-| Deployment Compose, when affected | `docker compose -f setup/docker-compose.yml config --quiet` |
 | Live pipeline | `make smoke` |
 | Oversized export regression | `python3 tests/e2e/check_large_batch.py` |
 | Traffic script syntax | `bash -n dev/sample-app/generate_traffic.sh` |
