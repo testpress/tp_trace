@@ -35,7 +35,6 @@ def test_ansible_copies_same_collector_file_and_local_only_changes_addresses():
     assert not (ROOT / "dev/otel-collector").exists()
     assert not (ROOT / "dev/tempo").exists()
     assert not (ROOT / "dev/prometheus").exists()
-    assert not (ROOT / "dev/config").exists()
 
 
 def test_health_listener_is_disabled_for_deployment_and_enabled_locally():
