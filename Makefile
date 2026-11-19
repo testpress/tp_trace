@@ -32,9 +32,7 @@ build: ## Build wheel and source distribution
 	$(VENV)/bin/python -m build
 
 sync-infra: ## Fetch or update latest observability infrastructure configs
-	@if [ -d "../observability-infra/.git" ]; then \
-		rm -rf $(INFRA_DIR) && ln -s ../../observability-infra $(INFRA_DIR); \
-	elif [ -d "$(INFRA_DIR)/.git" ]; then \
+	@if [ -d "$(INFRA_DIR)/.git" ]; then \
 		git -C $(INFRA_DIR) pull --ff-only origin main || true; \
 	elif [ -n "$$GH_TOKEN" ] || [ -n "$$GITHUB_TOKEN" ]; then \
 		TOKEN=$${GH_TOKEN:-$$GITHUB_TOKEN}; \
