@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARDS = ROOT / "grafana/dashboards"
@@ -158,17 +159,17 @@ def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
 
 
 def test_collector_spanmetrics_pipeline_and_filters():
-    """All recording spans reach RED aggregation before independent storage filtering."""
+    """All recording spans reach exactly one profile-specific RED aggregation."""
     import yaml
 
     cfg = yaml.safe_load((ROOT / "config/otel-collector.yaml").read_text())
     pipelines = cfg["service"]["pipelines"]
     metrics = pipelines["traces/spanmetrics"]
     assert metrics["receivers"] == ["otlp"]
-    assert metrics["exporters"] == ["spanmetrics"]
+    assert metrics["exporters"] == ["routing/spanmetrics_profile"]
     assert metrics["processors"] == [
         "memory_limiter", "resource/drop_ephemeral", "resource/drop_metric_institute", "filter/spanmetrics_drop_internal",
-        "transform/spanmetrics_route", "transform/spanmetrics_sanitize", "batch",
+        "transform/spanmetrics_route", "transform/spanmetrics_sanitize", "transform/spanmetrics_profile", "batch",
     ]
     assert "tail_sampling" not in metrics["processors"]
     assert "tail_sampling" in pipelines["traces"]["processors"]
@@ -178,17 +179,108 @@ def test_collector_spanmetrics_pipeline_and_filters():
     assert "sampled_by_wire_flags" not in policy_names
     assert "repeated_query_evidence" in policy_names
     assert pipelines["traces"]["exporters"] == ["otlp/tempo"]
-    assert "spanmetrics" in pipelines["metrics"]["receivers"]
-    connector = cfg["connectors"]["spanmetrics"]
-    assert connector["aggregation_temporality"] == "AGGREGATION_TEMPORALITY_CUMULATIVE"
-    assert connector["histogram"]["unit"] == "ms"
-    assert connector["metrics_expiration"] == connector["series_expiration"] == "5m"
-    assert connector["aggregation_cardinality_limit"] == 5000
-    assert "span.name" in connector["exclude_dimensions"]
-    assert "institute" not in [dimension["name"] for dimension in connector["dimensions"]]
     assert cfg["processors"]["filter/spanmetrics_drop_internal"]["trace_conditions"] == [
         "span.kind == SPAN_KIND_INTERNAL",
     ]
+
+    routing = cfg["connectors"]["routing/spanmetrics_profile"]
+    assert routing["default_pipelines"] == ["traces/spanmetrics/web"]
+    assert [route["pipelines"] for route in routing["table"]] == [
+        ["traces/spanmetrics/fast"], ["traces/spanmetrics/db"],
+    ]
+    assert all(route["context"] == "span" for route in routing["table"])
+    profile_statements = cfg["processors"]["transform/spanmetrics_profile"]["trace_statements"][0]["statements"]
+    assert profile_statements[0] == 'delete_key(attributes, "latency.profile")'
+    assert sum('"fast"' in statement for statement in profile_statements) == 2
+    assert any('"db"' in statement for statement in profile_statements)
+    assert any('"web"' in statement for statement in profile_statements)
+
+    profiles = {
+        "fast": (["0.5ms", "1ms", "2ms", "5ms", "10ms", "25ms", "100ms", "250ms", "500ms"], {"1s", "2.5s", "5s"}),
+        "db": (["1ms", "2ms", "5ms", "10ms", "25ms", "100ms", "250ms", "500ms", "1s", "2.5s"], {"0.5ms", "5s"}),
+        "web": (["5ms", "10ms", "25ms", "100ms", "250ms", "500ms", "1s", "2.5s", "5s"], {"0.5ms", "1ms", "2ms"}),
+    }
+    for profile, (buckets, excluded) in profiles.items():
+        connector_name = f"spanmetrics/{profile}"
+        pipeline = pipelines[f"traces/spanmetrics/{profile}"]
+        assert pipeline["receivers"] == ["routing/spanmetrics_profile"]
+        assert pipeline["exporters"] == [connector_name]
+        assert connector_name in pipelines["metrics"]["receivers"]
+        connector = cfg["connectors"][connector_name]
+        assert connector["histogram"]["unit"] == "ms"
+        assert connector["histogram"]["explicit"]["buckets"] == buckets
+        assert not excluded.intersection(buckets)
+        assert connector["aggregation_temporality"] == "AGGREGATION_TEMPORALITY_CUMULATIVE"
+        assert connector["metrics_expiration"] == connector["series_expiration"] == "5m"
+        assert connector["aggregation_cardinality_limit"] == 5000
+        assert "span.name" in connector["exclude_dimensions"]
+        dimensions = [dimension["name"] for dimension in connector["dimensions"]]
+        expected_dimensions = {
+            "fast": ["db.system", "db.operation", "error", "normalized.service", "normalized.operation", "latency.profile"],
+            "db": ["db.system", "db.operation", "db.instance", "db.connection.pool", "error", "normalized.service", "normalized.operation", "latency.profile"],
+            "web": ["http.method", "http.status_code", "error", "normalized.service", "normalized.operation", "latency.profile"],
+        }[profile]
+        assert dimensions == expected_dimensions
+        assert "latency.profile" in dimensions
+        assert all(dimension["default"] == profile for dimension in connector["dimensions"] if dimension["name"] == "latency.profile")
+        assert "institute" not in dimensions
+
+
+def test_profile_specific_bucket_queries_never_merge_histograms():
+    """Profiles have different bounds, so a query must select or group by profile."""
+    key = "apm_duration_milliseconds_bucket{"
+
+    def bucket_selectors(expr):
+        found, pos = [], 0
+        while True:
+            start = expr.find(key, pos)
+            if start < 0:
+                return found
+            end = start + len(key) - 1
+            depth = 0
+            while end < len(expr):
+                if expr[end] == "{":
+                    depth += 1
+                elif expr[end] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                end += 1
+            found.append(expr[start + len(key):end])
+            pos = end + 1
+
+    for path in DASHBOARDS.rglob("*.json"):
+        for panel in _load(str(path.relative_to(ROOT / "grafana/dashboards"))).get("panels", []):
+            for target in panel.get("targets", []):
+                expr = target.get("expr", "")
+                if "histogram_quantile" not in expr or key not in expr:
+                    continue
+                grouping = re.search(r"sum by \(([^)]*)\)", expr)
+                assert grouping, f"{path.name} panel {panel.get('id')} has unparseable histogram grouping"
+                fields = [field.strip() for field in grouping.group(1).split(",")]
+                selectors = bucket_selectors(expr)
+                assert selectors, f"{path.name} panel {panel.get('id')} has no bucket selector"
+                common_bounds = r'le=~"5|10|25|100|250|500|\\+Inf"'
+                profile_safe = (
+                    "latency_profile" in fields
+                    or all("latency_profile=" in s for s in selectors)
+                    or all(common_bounds in s for s in selectors)
+                )
+                assert profile_safe, (
+                    f"{path.name} panel {panel.get('id')} target {target.get('refId')} merges incompatible buckets"
+                )
+
+
+def test_operations_summary_table_keeps_one_row_per_operation():
+    """Table latency targets must not add a join-breaking profile label."""
+    panel = next(p for p in _load("Supporting Dashboards/service_overview.json")["panels"] if p.get("title") == "Operations Summary")
+    for target in panel["targets"]:
+        if "apm_duration_milliseconds_bucket" in target.get("expr", ""):
+            assert "latency_profile=" not in target["expr"]
+            assert "latency_profile)" not in target["expr"]
+            assert r'le=~"5|10|25|100|250|500|\\+Inf"' in target["expr"]
+    join = next(t for t in panel["transformations"] if t["id"] == "joinByField")
+    assert join["options"]["byField"] == "normalized_operation"
 
 
 def test_dashboard_links_use_queryparam_not_raw_for_project():
@@ -212,8 +304,14 @@ def test_shared_delta_pipeline_preserves_worker_streams():
     processors = cfg["service"]["pipelines"]["metrics"]["processors"]
     assert processors.index("memory_limiter") < processors.index("deltatocumulative") < processors.index("batch")
     assert cfg["processors"]["deltatocumulative"] == {"max_stale": "5m", "max_streams": 50000}
-    # Only resource attributes may be stripped; worker_id on datapoints isolates writers.
-    assert not any(name.startswith("transform/") for name in processors)
+    # The only metric transform derives http_route for web RED series. It must
+    # not strip the datapoint worker_id that isolates SDK writers.
+    assert [name for name in processors if name.startswith("transform/")] == ["transform/derive_http_route"]
+    statements = cfg["processors"]["transform/derive_http_route"]["metric_statements"][0]["statements"]
+    assert len(statements) == 1
+    assert 'set(datapoint.attributes["http.route"]' in statements[0]
+    assert 'Split(datapoint.attributes["normalized.operation"], " ")' in statements[0]
+    assert "delete_key" not in statements[0]
     # Verify SDK version/language/name attributes are stripped from metric resources
     dropped_keys = [attr["key"] for attr in cfg["processors"]["resource/drop_ephemeral"]["attributes"]]
     for sdk_key in ("telemetry.sdk.version", "telemetry.sdk.language", "telemetry.sdk.name"):

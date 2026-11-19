@@ -198,9 +198,9 @@ def main():
         "error": "apm_calls_total{" + consumer + ',error="true"}',
         "count": "apm_duration_milliseconds_count{" + consumer + "}",
         "sum": "apm_duration_milliseconds_sum{" + consumer + "}",
-        "inf": "apm_duration_milliseconds_bucket{" + consumer + ',le="+Inf"}',
-        "finite": "apm_duration_milliseconds_bucket{" + consumer + ',le="5000"}',
-        "tiny": "apm_duration_milliseconds_bucket{" + consumer + ',le="5"}',
+        "inf": "apm_duration_milliseconds_bucket{" + consumer + ',latency_profile="web",le="+Inf"}',
+        "finite": "apm_duration_milliseconds_bucket{" + consumer + ',latency_profile="web",le="5000"}',
+        "tiny": "apm_duration_milliseconds_bucket{" + consumer + ',latency_profile="web",le="5"}',
     }
     baseline = counter_snapshot(prometheus, queries)
     started = datetime.now(timezone.utc).isoformat()
