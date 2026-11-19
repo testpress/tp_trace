@@ -2,8 +2,10 @@
 PYTHON ?= python3
 VENV ?= .venv
 COMPOSE ?= docker compose $(if $(wildcard .env),--env-file .env) -f dev/docker-compose.yml
+INFRA_DIR ?= dev/.observability-infra
+INFRA_REPO ?= https://github.com/testpress/observability-infra.git
 
-.PHONY: help install lint test pre-commit build check-config check-collector-config up core-up rebuild restart down nuke logs ps smoke traffic
+.PHONY: help install lint test pre-commit build sync-infra check-config check-collector-config up core-up rebuild restart down nuke logs ps smoke traffic
 
 help: ## Show development commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -29,19 +31,32 @@ test: ## Run the SDK test suite (ARGS='-k name' to filter)
 build: ## Build wheel and source distribution
 	$(VENV)/bin/python -m build
 
-check-config: ## Validate the resolved local Compose configuration
+sync-infra: ## Fetch or update latest observability infrastructure configs
+	@if [ -d "../observability-infra/.git" ]; then \
+		rm -rf $(INFRA_DIR) && ln -s ../../observability-infra $(INFRA_DIR); \
+	elif [ -d "$(INFRA_DIR)/.git" ]; then \
+		git -C $(INFRA_DIR) pull --ff-only origin main || true; \
+	elif [ -n "$$GH_TOKEN" ] || [ -n "$$GITHUB_TOKEN" ]; then \
+		TOKEN=$${GH_TOKEN:-$$GITHUB_TOKEN}; \
+		git clone --depth 1 https://x-access-token:$$TOKEN@github.com/testpress/observability-infra.git $(INFRA_DIR); \
+	else \
+		git clone --depth 1 $(INFRA_REPO) $(INFRA_DIR) 2>/dev/null || \
+		git clone --depth 1 git@github.com:testpress/observability-infra.git $(INFRA_DIR); \
+	fi
+
+check-config: sync-infra ## Validate the resolved local Compose configuration
 	$(COMPOSE) config --quiet
 
 check-collector-config: ## Validate shared Collector YAML with the pinned local image
 	$(COMPOSE) run --rm --no-deps otel-collector validate --config=/etc/otelcol-contrib/config.yaml
 
-up: ## Start the local stack using existing images (no build)
+up: sync-infra ## Start the local stack using existing images (no build)
 	$(COMPOSE) up --no-build -d --wait --wait-timeout 180
 
-core-up: ## Start only core telemetry services (collector, prometheus, tempo)
+core-up: sync-infra ## Start only core telemetry services (collector, prometheus, tempo)
 	$(COMPOSE) up --no-build -d --wait --wait-timeout 180 otel-collector prometheus tempo grafana
 
-rebuild: ## Build images and start the local stack after dependency or Dockerfile changes
+rebuild: sync-infra ## Build images and start the local stack after dependency or Dockerfile changes
 	$(COMPOSE) up --build -d --wait --wait-timeout 180
 
 restart: ## Restart without building (SERVICE=sample-app to select one)

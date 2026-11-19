@@ -14,12 +14,11 @@ def _yaml(name):
 def test_local_services_mount_config_files():
     local = _yaml("dev/docker-compose.yml")["services"]
     for service, target, source in (
-        (local["tempo"], "/etc/tempo/tempo.yaml", "./config/tempo.yaml"),
-        (local["prometheus"], "/etc/prometheus/prometheus.yml", "./config/prometheus.yml"),
+        (local["tempo"], "/etc/tempo/tempo.yaml", "./.observability-infra/config/tempo.yaml"),
+        (local["prometheus"], "/etc/prometheus/prometheus.yaml", "./.observability-infra/config/prometheus.yaml"),
         (local["otel-collector"], "/etc/otelcol-contrib/config.yaml", "../config/otel-collector.yaml"),
     ):
         assert source + ":" + target + ":ro" in service["volumes"]
-        assert (ROOT / "dev" / source).resolve().is_file()
 
 
 def test_ansible_copies_same_collector_file_and_local_only_changes_addresses():
@@ -36,6 +35,7 @@ def test_ansible_copies_same_collector_file_and_local_only_changes_addresses():
     assert not (ROOT / "dev/otel-collector").exists()
     assert not (ROOT / "dev/tempo").exists()
     assert not (ROOT / "dev/prometheus").exists()
+    assert not (ROOT / "dev/config").exists()
 
 
 def test_health_listener_is_disabled_for_deployment_and_enabled_locally():

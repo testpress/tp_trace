@@ -11,7 +11,6 @@ tp_trace/
 ├── src/tp_trace/       # Core Python SDK and framework integrations
 ├── config/             # Shared Collector configuration (otel-collector.yaml)
 ├── dev/                # Local development stack (docker-compose.yml and dev configs)
-│   ├── config/         # Local development service configuration (Tempo, Prometheus)
 │   └── sample-app/     # Instrumented Django sample application and traffic generator
 ├── ansible/            # Ansible playbooks and roles for fleet Collector deployment
 ├── grafana/            # Canonical Grafana dashboards and datasource provisioning
@@ -124,7 +123,7 @@ To prevent drift between development and production, the canonical Collector con
 | --- | --- |
 | `config/otel-collector.yaml` | Mounted by local Compose; copied by Ansible to production application servers |
 
-Local development service configurations for Tempo and Prometheus reside in `dev/config/`.
+Local development service configurations for Tempo and Prometheus are synced dynamically from [testpress/observability-infra](https://github.com/testpress/observability-infra).
 
 The Collector uses `${env:VAR_NAME}` substitutions for endpoints and identities. Local Compose provides environment variables through `.env` and `dev/docker-compose.yml`, while Ansible injects inventory variables during fleet deployment.
 

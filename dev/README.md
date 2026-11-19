@@ -7,8 +7,7 @@ startup, traffic generation, telemetry checks, and shutdown.
 |---|---|
 | `docker-compose.yml` | Local stack definition |
 | `sample-app/` | Django application, Celery worker, Dockerfile, and traffic generator |
-| `config/tempo.yaml` | Local Tempo storage and query configuration |
-| `config/prometheus.yml` | Local Prometheus scrape configuration |
+| `.observability-infra/` | Upstream service configs synced from `testpress/observability-infra` |
 | `../config/otel-collector.yaml` | Shared Collector pipelines and tuning defaults |
 | `host-app.env.example` | SDK environment example for a host-run application |
 
