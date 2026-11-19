@@ -32,7 +32,11 @@ connectors:
       unit: ms
       explicit:
         buckets:
+          - 0.5ms
+          - 1ms
+          - 2ms
           - 5ms
+          - 10ms
           - 25ms
           - 100ms
           - 250ms
