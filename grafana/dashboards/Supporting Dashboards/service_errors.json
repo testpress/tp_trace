@@ -385,7 +385,8 @@
         }
       ],
       "title": "Error Rate Over Time (Bars)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -488,7 +489,8 @@
         }
       ],
       "title": "Errors by Status Code (Stacked Bars)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,
@@ -808,7 +810,7 @@
       "type": "table"
     }
   ],
-  "refresh": "30s",
+  "refresh": "5m",
   "schemaVersion": 39,
   "tags": [
     "tp_trace",

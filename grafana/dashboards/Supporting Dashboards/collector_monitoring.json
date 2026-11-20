@@ -985,7 +985,8 @@
         }
       ],
       "title": "1. Collector Memory (RSS vs 2048 MiB Reference)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1081,7 +1082,8 @@
         }
       ],
       "title": "2. Collector CPU Usage (%)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1175,7 +1177,8 @@
         }
       ],
       "title": "3. Spans Ingested Rate (req/s)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1269,7 +1272,8 @@
         }
       ],
       "title": "4. Spans Exported Rate (req/s)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1366,7 +1370,8 @@
         }
       ],
       "title": "5. Spans Dropped / Refused (req/s)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1470,7 +1475,8 @@
         }
       ],
       "title": "6. Tempo Queue Utilization (%)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,
@@ -1698,7 +1704,8 @@
         }
       ],
       "title": "Tempo \u2014 Ingestion Rate & In-Memory Trace Queue",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1917,7 +1924,8 @@
         }
       ],
       "title": "Prometheus \u2014 Ingestion Rate & TSDB In-Memory Head Buffer",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,
@@ -2252,7 +2260,8 @@
         }
       ],
       "title": "Spans ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -2402,7 +2411,8 @@
         }
       ],
       "title": "Metric Points ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -2552,7 +2562,8 @@
         }
       ],
       "title": "Log Records ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,
@@ -2731,7 +2742,8 @@
         }
       ],
       "title": "Spans ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -2898,7 +2910,8 @@
         }
       ],
       "title": "Metric Points ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -3065,7 +3078,8 @@
         }
       ],
       "title": "Logs Records Rate ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -3294,7 +3308,8 @@
         }
       ],
       "title": "Spans ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -3523,7 +3538,8 @@
         }
       ],
       "title": "Metric Points ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -3752,7 +3768,8 @@
         }
       ],
       "title": "Log Records ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -3981,7 +3998,8 @@
         }
       ],
       "title": "Batch Metrics 1",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -4124,7 +4142,8 @@
         }
       ],
       "title": "Batch Metrics 2",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,
@@ -4301,7 +4320,8 @@
         }
       ],
       "title": "Spans ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -4466,7 +4486,8 @@
         }
       ],
       "title": "Metric Points ${metric:text} (OTLP)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -4631,7 +4652,8 @@
         }
       ],
       "title": "Log Records ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -4744,7 +4766,8 @@
         }
       ],
       "title": "Exporter Queue Size",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -4857,7 +4880,8 @@
         }
       ],
       "title": "Exporter Queue Capacity",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -4970,7 +4994,8 @@
         }
       ],
       "title": "Exporter Queue Usage",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -5115,7 +5140,8 @@
         }
       ],
       "title": "Remote Write Activity ${metric:text}",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,
@@ -5342,7 +5368,8 @@
         }
       ],
       "title": "Total RSS Memory",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -5557,7 +5584,8 @@
         }
       ],
       "title": "Total Runtime Sys Memory",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -5772,7 +5800,8 @@
         }
       ],
       "title": "Total Runtime Heap Memory",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -5983,7 +6012,8 @@
         }
       ],
       "title": "CPU Usage",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -6099,7 +6129,8 @@
         }
       ],
       "title": "Service Instance Count",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -6213,7 +6244,8 @@
         }
       ],
       "title": "Uptime by Service Instance",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -6667,7 +6699,8 @@
             }
           ],
           "title": "Spans ${metric:text}",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         },
         {
           "datasource": {
@@ -6780,7 +6813,8 @@
             }
           ],
           "title": "Metric Points ${metric:text}",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         },
         {
           "datasource": {
@@ -6893,7 +6927,8 @@
             }
           ],
           "title": "Log Records ${metric:text}",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         }
       ],
       "title": "Filter processors",
@@ -7227,7 +7262,8 @@
             }
           ],
           "title": "RPC server responses by GRPC status code (receivers)",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         },
         {
           "datasource": {
@@ -7547,7 +7583,8 @@
             }
           ],
           "title": "RPC client responses by GRPC status code (exporters)",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         },
         {
           "datasource": {
@@ -8227,7 +8264,8 @@
             }
           ],
           "title": "Namespaces",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         },
         {
           "datasource": {
@@ -8371,7 +8409,8 @@
             }
           ],
           "title": "Pods",
-          "type": "timeseries"
+          "type": "timeseries",
+          "maxDataPoints": 150
         }
       ],
       "title": "Kubernetes",
@@ -8411,7 +8450,7 @@
       "type": "text"
     }
   ],
-  "refresh": "30s",
+  "refresh": "5m",
   "schemaVersion": 42,
   "style": "dark",
   "tags": [
