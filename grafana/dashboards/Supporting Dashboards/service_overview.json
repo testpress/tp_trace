@@ -88,7 +88,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\", }, project_name)",
         "hide": 0,
@@ -121,7 +121,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\"}, cluster_name)",
         "hide": 0,
@@ -155,7 +155,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)",
         "hide": 0,
@@ -186,7 +186,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result((sum by (normalized_service) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\",project_name=~\"${project:regex}\"}[$__range]))) > 0)",
         "hide": 0,
@@ -248,7 +248,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\", project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=~\"${service:regex}\", db_connection_pool=~\"${db_pool:regex}\"}, db_instance)",
         "hide": 0,
@@ -271,7 +271,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "filters": [],
         "hide": 0,
@@ -308,7 +308,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Total request volume and errors over time for ${service}",
       "fieldConfig": {
@@ -423,7 +423,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) or vector(0))",
@@ -436,7 +436,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "((sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) or (0 * (sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))))) or vector(0))",
@@ -454,7 +454,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Percentage of requests returning HTTP 5xx errors",
       "fieldConfig": {
@@ -554,7 +554,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "((100 * (((sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) or (0 * (sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))))) or (0 * (sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) > 0))) / (sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) > 0))))",
@@ -572,7 +572,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Total requests and error rate (RPS) over time for ${service}",
       "fieldConfig": {
@@ -687,7 +687,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) or vector(0))",
@@ -700,7 +700,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "((sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) or (0 * (sum((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_PRODUCER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))))) or vector(0))",
@@ -718,7 +718,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Latency percentiles (P50, P95, P99)",
       "fieldConfig": {
@@ -847,7 +847,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -860,7 +860,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -873,7 +873,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -891,7 +891,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Estimated share of recorded span time (stacked to 100%).\n\nFormula:\nR = Django SERVER duration rate, excluding django.command.*\nD = CLIENT dependency duration rates (PostgreSQL + other services; excludes Django, Celery, PgBouncer)\nI = max(R - D, 0);   T = I + D = max(R, D)\nDjango % = 100 \u00d7 I / T;   each dependency % = 100 \u00d7 rate / T\n\nEstimates from aggregated span metrics, not exact exclusive Django time.",
       "fieldConfig": {
@@ -1168,7 +1168,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1181,7 +1181,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1194,7 +1194,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1207,7 +1207,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1220,7 +1220,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1233,7 +1233,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1263,7 +1263,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Primary navigation: Complete breakdown of Django routes with Method, RPS, error rates, latency percentiles, and 1-click drilldown into Endpoint Details.",
       "fieldConfig": {
@@ -1545,7 +1545,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(sum by (normalized_operation) ((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
@@ -1559,7 +1559,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(sum by (normalized_operation) ((((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) and ((resets(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or resets(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) == 0) unless ((apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range or apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range))) or (((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) - ((apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range or apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"} offset $__range))) and ((resets(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or resets(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])) == 0)))) or sum by (normalized_operation) ((increase(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or increase(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0",
@@ -1573,7 +1573,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "((100 * (((sum by (normalized_operation) ((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) or (0 * (sum by (normalized_operation) ((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range])))))) or (0 * (sum by (normalized_operation) ((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0))) / (sum by (normalized_operation) ((rate(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))) > 0))))",
@@ -1587,7 +1587,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(histogram_quantile(0.5, sum by (le, normalized_operation) ((rate(apm_duration_milliseconds_bucket{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_duration_milliseconds_bucket{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))))) > 0",
@@ -1601,7 +1601,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(histogram_quantile(0.95, sum by (le, normalized_operation) ((rate(apm_duration_milliseconds_bucket{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_duration_milliseconds_bucket{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))))) > 0",
@@ -1615,7 +1615,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(histogram_quantile(0.99, sum by (le, normalized_operation) ((rate(apm_duration_milliseconds_bucket{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]) or rate(apm_duration_milliseconds_bucket{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=~\"${db_instance:regex}|^$\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!~\"SPAN_KIND_INTERNAL\"}[$__range]))))) > 0",

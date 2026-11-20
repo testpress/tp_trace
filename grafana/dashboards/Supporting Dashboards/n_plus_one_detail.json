@@ -22,7 +22,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Total server requests on this endpoint in the selected time range. Counts include the first export of new worker series. Counter-based window totals are estimates.",
       "fieldConfig": {
@@ -71,7 +71,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "round(sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or vector(0))",
@@ -86,7 +86,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Estimated requests flagged by the SDK for repeated SQL in the selected time range. This Prometheus count is independent of Tempo trace sampling.",
       "fieldConfig": {
@@ -139,7 +139,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "round(sum((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route=\"${route:raw}\"}[$__range]))) or vector(0)",
@@ -154,7 +154,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Percentage of requests on this endpoint affected by repeated queries. Counts include the first export of new worker series. Counter-based window totals are estimates.",
       "fieldConfig": {
@@ -211,7 +211,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "100 * (sum((last_over_time(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",metric_source=\"tp_trace_sdk\",normalized_service=\"django\",project_name=~\"${project:regex}\",worker_id!=\"\"}[$__range])) or vector(0)) / clamp_min(sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,http_method=~\"${method:regex}\",http_route=\"${route:raw}\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])), 1)",
@@ -673,7 +673,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values(apm_repeated_query_affected_requests_total{}, project_name)",
         "hide": 0,
@@ -700,7 +700,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\"}, cluster_name)",
         "hide": 0,
@@ -727,7 +727,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values(apm_repeated_query_affected_requests_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)",
         "hide": 0,
@@ -757,7 +757,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "hide": 2,
         "includeAll": false,
@@ -780,7 +780,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values(apm_repeated_query_affected_requests_total{ project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\"}, http_method)",
         "hide": 0,
@@ -803,7 +803,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "hide": 0,
         "includeAll": false,

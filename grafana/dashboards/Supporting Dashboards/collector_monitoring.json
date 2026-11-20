@@ -63,7 +63,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Unified health overview of observability backend components: Tempo (trace storage) and Prometheus. Shows status, CPU utilization, and memory usage for each.",
       "fieldConfig": {
@@ -229,7 +229,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(label_replace(max(up{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(up{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
@@ -243,7 +243,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(label_replace(max(rate(process_cpu_seconds_total{job=\"tempo\"}[2m])) * 100 or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(rate(process_cpu_seconds_total{job=\"prometheus\"}[2m])) * 100 or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
@@ -257,7 +257,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(label_replace(max(process_resident_memory_bytes{job=\"tempo\"}) or vector(0), \"component\", \"Tempo\", \"\", \"\")) or (label_replace(max(process_resident_memory_bytes{job=\"prometheus\"}) or vector(0), \"component\", \"Prometheus\", \"\", \"\"))",
@@ -304,7 +304,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Collectors seen in the last 7 days remain listed during outages. Healthy requires a heartbeat within 90 seconds. Down means an explicit failed scrape; Telemetry missing means no fresh heartbeat (collector, network or remote-write failure). Other columns are unavailable during outages; they are not historical values. Never-seen collectors require an independent inventory/scrape target.",
       "fieldConfig": {
@@ -663,7 +663,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(max by (net_host_name, collector_alias) (up{source=\"otelcol-telemetry\",collector_alias=~\"(${instance:pipe})\"} and (time() - timestamp(up{source=\"otelcol-telemetry\",collector_alias=~\"(${instance:pipe})\"}) < 90))) or (0 * max by (net_host_name, collector_alias) (last_over_time(up{source=\"otelcol-telemetry\",collector_alias=~\"(${instance:pipe})\"}[7d])) - 1)",
@@ -677,7 +677,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "max by (net_host_name, collector_alias) ((rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m]) / 1.0) * 100)",
@@ -691,7 +691,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_memory_rss(_bytes)?\",collector_alias=~\"(${instance:pipe})\"})",
@@ -705,7 +705,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (net_host_name, collector_alias) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -719,7 +719,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (net_host_name, collector_alias) (rate({__name__=~\"otelcol_exporter_sent_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -733,7 +733,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "max by (net_host_name, collector_alias) ((otelcol_exporter_queue_size{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"} / otelcol_exporter_queue_capacity{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"}) * 100) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -747,7 +747,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"})",
@@ -761,7 +761,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "max by (net_host_name, collector_alias) ((otelcol_deltatocumulative_streams_tracked{collector_alias=~\"(${instance:pipe})\"} / (otelcol_deltatocumulative_streams_limit{collector_alias=~\"(${instance:pipe})\"} or (0 * otelcol_deltatocumulative_streams_tracked{collector_alias=~\"(${instance:pipe})\"} + 50000))) * 100)",
@@ -773,7 +773,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (net_host_name, collector_alias) (rate(otelcol_deltatocumulative_dropped_datapoints{collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -785,7 +785,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (net_host_name, collector_alias) (rate(apm_cardinality_grouping_total{collector_alias=~\"(${instance:pipe})\"}[2m]) or rate(apm_calls_total{normalized_operation=\"__other__\"}[2m])) or (0 * max by (net_host_name, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -855,7 +855,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Resident memory per collector. The 2048 MiB reference is the production role default; overridden limits may differ.",
       "fieldConfig": {
@@ -962,7 +962,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (instance, collector_alias) ({__name__=~\"otelcol_process_memory_rss(_bytes)?\",collector_alias=~\"(${instance:pipe})\"})",
@@ -974,7 +974,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "vector(2147483648)",
@@ -991,7 +991,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "CPU utilization percentage per collector instance against 1.0 CPU container quota",
       "fieldConfig": {
@@ -1071,7 +1071,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_process_cpu_seconds.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) / 1.0) * 100",
@@ -1088,7 +1088,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Incoming spans accepted per second per collector instance",
       "fieldConfig": {
@@ -1166,7 +1166,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_receiver_accepted_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -1183,7 +1183,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Outgoing spans exported per second to Tempo and downstream storage per collector",
       "fieldConfig": {
@@ -1261,7 +1261,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_exporter_sent_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -1278,7 +1278,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Dropped or refused spans per second. Must remain 0 in a healthy cluster.",
       "fieldConfig": {
@@ -1359,7 +1359,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (collector_alias, net_host_name) (rate({__name__=~\"otelcol_processor_dropped_spans.*|otelcol_receiver_refused_spans.*|otelcol_exporter_send_failed_spans.*\", collector_alias=~\"(${instance:pipe})\"}[2m])) or (0 * sum by (collector_alias, net_host_name) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -1376,7 +1376,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Buffer queue occupancy percentage of the Tempo exporter per collector",
       "fieldConfig": {
@@ -1464,7 +1464,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum by (instance, collector_alias) ((otelcol_exporter_queue_size{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"} / otelcol_exporter_queue_capacity{exporter=~\"(?i).*tempo.*\", collector_alias=~\"(${instance:pipe})\"}) * 100) or (0 * sum by (instance, collector_alias) ({__name__=~\"otelcol_process_uptime(_seconds)?_total\",collector_alias=~\"(${instance:pipe})\"}))",
@@ -1494,7 +1494,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Real-time trace ingestion rate into Tempo distributor and in-memory live trace queue/buffer in ingester awaiting block compaction and flush.",
       "fieldConfig": {
@@ -1657,7 +1657,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum(rate(tempo_distributor_spans_received_total[1m]))",
@@ -1669,7 +1669,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "tempo_ingester_live_traces",
@@ -1681,7 +1681,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum(rate(tempo_receiver_refused_spans[1m]))",
@@ -1693,7 +1693,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "tempo_ingester_flush_queue_length",
@@ -1710,7 +1710,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Real-time metric sample ingestion rate into Prometheus TSDB and in-memory Head series/chunks queue awaiting 2h block compaction.",
       "fieldConfig": {
@@ -1877,7 +1877,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "sum(rate(prometheus_tsdb_head_samples_appended_total[1m]))",
@@ -1889,7 +1889,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "prometheus_tsdb_head_series",
@@ -1901,7 +1901,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "prometheus_tsdb_head_chunks",
@@ -1913,7 +1913,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "prometheus_tsdb_head_active_appenders",
@@ -1943,7 +1943,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Each cell shows utilization of the 5,000 cap. The table can scroll horizontally as collectors increase.",
       "fieldConfig": {
@@ -2058,7 +2058,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "expr": "(count by (normalized_service, collector_alias) (apm_calls_total{collector_alias=~\"(${instance:pipe})\", project_name=~\"${project:regex}\", normalized_service!=\"\", otel_metric_overflow!=\"true\"}) / 5000) * 100",
@@ -2115,7 +2115,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Accepted: count/rate of spans successfully pushed into the pipeline.\nRefused: count/rate of spans that could not be pushed into the pipeline.",
       "fieldConfig": {
@@ -2231,7 +2231,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2246,7 +2246,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2266,7 +2266,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Accepted: count/rate of metric points successfully pushed into the pipeline.\nRefused: count/rate of metric points that could not be pushed into the pipeline.",
       "fieldConfig": {
@@ -2382,7 +2382,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2397,7 +2397,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2417,7 +2417,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Accepted: count/rate of log records successfully pushed into the pipeline.\nRefused: count/rate of log records that could not be pushed into the pipeline.",
       "fieldConfig": {
@@ -2533,7 +2533,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2548,7 +2548,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2580,7 +2580,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -2713,7 +2713,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2728,7 +2728,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2748,7 +2748,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -2881,7 +2881,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2896,7 +2896,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -2916,7 +2916,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -3049,7 +3049,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3064,7 +3064,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3084,7 +3084,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Accepted: count/rate of spans successfully pushed into the next component in the pipeline.\nRefused: count/rate of spans that were rejected by the next component in the pipeline.\nDropped: count/rate of spans that were dropped",
       "fieldConfig": {
@@ -3219,7 +3219,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3234,7 +3234,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3249,7 +3249,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3264,7 +3264,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3279,7 +3279,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3294,7 +3294,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3314,7 +3314,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Accepted: count/rate of metric points successfully pushed into the next component in the pipeline.\nRefused: count/rate of metric points that were rejected by the next component in the pipeline.\nDropped: count/rate of metric points that were dropped",
       "fieldConfig": {
@@ -3449,7 +3449,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3464,7 +3464,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3479,7 +3479,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3494,7 +3494,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3509,7 +3509,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3524,7 +3524,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3544,7 +3544,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Accepted: count/rate of log records successfully pushed into the next component in the pipeline.\nRefused: count/rate of log records that were rejected by the next component in the pipeline.\nDropped: count/rate of log records that were dropped",
       "fieldConfig": {
@@ -3679,7 +3679,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3694,7 +3694,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3709,7 +3709,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3724,7 +3724,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3739,7 +3739,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3754,7 +3754,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3774,7 +3774,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Number of units in the batch",
       "fieldConfig": {
@@ -3842,7 +3842,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3861,7 +3861,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -3969,7 +3969,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -3984,7 +3984,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4004,7 +4004,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Number of times the batch was sent due to a size trigger. Number of times the batch was sent due to a timeout trigger.",
       "fieldConfig": {
@@ -4113,7 +4113,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4128,7 +4128,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4160,7 +4160,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Sent: count/rate of spans successfully sent to destination.\nEnqueue: count/rate of spans failed to be added to the sending queue.\nFailed: count/rate of spans in failed attempts to send to destination.",
       "fieldConfig": {
@@ -4276,7 +4276,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4291,7 +4291,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4306,7 +4306,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4326,7 +4326,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Sent: count/rate of metric points successfully sent to destination.\nEnqueue: count/rate of metric points failed to be added to the sending queue.\nFailed: count/rate of metric points in failed attempts to send to destination. Collector 0.153 remote write does not expose these delivery counters. Use the Remote Write Activity panel for attempts and translation errors; HTTP delivery failures require exporter logs.",
       "fieldConfig": {
@@ -4442,7 +4442,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4457,7 +4457,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4472,7 +4472,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4492,7 +4492,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Sent: count/rate of log records successfully sent to destination.\nEnqueue: count/rate of log records failed to be added to the sending queue.\nFailed: count/rate of log records in failed attempts to send to destination.",
       "fieldConfig": {
@@ -4608,7 +4608,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4623,7 +4623,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4638,7 +4638,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4658,7 +4658,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Current size of the retry queue",
       "fieldConfig": {
@@ -4752,7 +4752,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4772,7 +4772,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Fixed capacity of the retry queue",
       "fieldConfig": {
@@ -4866,7 +4866,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -4886,7 +4886,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -4980,7 +4980,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5000,7 +5000,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Batch attempts count HTTP write batches regardless of success or failure. Translated series count translation work, not delivered samples. Translation errors count conversion failures. None proves backend ingestion; inspect exporter logs for HTTP failures. These counters are specific to Collector 0.153 remote write.",
       "fieldConfig": {
@@ -5096,7 +5096,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5111,7 +5111,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5126,7 +5126,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5158,7 +5158,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Total physical memory (resident set size)",
       "fieldConfig": {
@@ -5324,7 +5324,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5339,7 +5339,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5354,7 +5354,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5374,7 +5374,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Total bytes of memory obtained from the OS (see 'go doc runtime.MemStats.Sys')",
       "fieldConfig": {
@@ -5540,7 +5540,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5555,7 +5555,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5570,7 +5570,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5590,7 +5590,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Bytes of allocated heap objects (see 'go doc runtime.MemStats.HeapAlloc')",
       "fieldConfig": {
@@ -5756,7 +5756,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5771,7 +5771,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5786,7 +5786,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5806,7 +5806,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Total CPU user and system time in percentage",
       "fieldConfig": {
@@ -5968,7 +5968,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5983,7 +5983,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -5998,7 +5998,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6018,7 +6018,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Number of service instances, which are reporting metrics",
       "fieldConfig": {
@@ -6115,7 +6115,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6135,7 +6135,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -6230,7 +6230,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6250,7 +6250,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "fieldConfig": {
         "defaults": {
@@ -6302,7 +6302,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6347,7 +6347,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Receivers -> Processor(s) -> Exporters (Node Graph panel is beta, so this panel may not show data correctly).",
       "gridPos": {
@@ -6370,7 +6370,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6384,7 +6384,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6425,7 +6425,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Receivers -> Processor(s) -> Exporters (Node Graph panel is beta, so this panel may not show data correctly). Remote-write exporters on 0.153 do not expose sent metric-point counts and therefore have no exporter nodes here. See Remote Write Activity; batch counts cannot be mixed with metric-point counts.",
       "gridPos": {
@@ -6448,7 +6448,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6462,7 +6462,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6503,7 +6503,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "_IY366MMk"
       },
       "description": "Receivers -> Processor(s) -> Exporters (Node Graph panel is beta, so this panel may not show data correctly).",
       "gridPos": {
@@ -6526,7 +6526,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -6540,7 +6540,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "_IY366MMk"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -8477,7 +8477,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"apm_calls_total|apm_cardinality_grouping_total\",project_name!=\"\"}, project_name)",
         "description": "Filters the application cardinality tables. Collector infrastructure panels use the Collector filter.",
@@ -8507,7 +8507,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result(max by (collector_alias) (last_over_time(up{source=\"otelcol-telemetry\"}[7d])))",
         "hide": 0,
@@ -8536,7 +8536,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"otelcol_process_uptime.*\",source=\"otelcol-telemetry\"}, job)",
         "includeAll": true,
@@ -8631,7 +8631,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"otelcol_receiver_.+\",source=\"otelcol-telemetry\",collector_alias=~`${instance:regex}`,receiver!=\"\"}, receiver)",
         "includeAll": true,
@@ -8659,7 +8659,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"otelcol_processor_.+\",source=\"otelcol-telemetry\",collector_alias=~`${instance:regex}`,processor!=\"\"}, processor)",
         "includeAll": true,
@@ -8687,7 +8687,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "label_values({__name__=~\"otelcol_exporter_.+\",source=\"otelcol-telemetry\",collector_alias=~`${instance:regex}`,exporter!=\"\"}, exporter)",
         "includeAll": true,
@@ -8744,7 +8744,7 @@
         "baseFilters": [],
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "enableGroupBy": false,
         "filters": [],
@@ -8815,7 +8815,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result({__name__=~\"otelcol_process_uptime.+\",job=~`${job:regex}`})",
         "description": "Some exporter(s) configuration(s) may add the metric suffix _total. This variable will detect this case.",
@@ -8843,7 +8843,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result({__name__=~\"otelcol_process_uptime.+\",job=~`${job:regex}`})",
         "description": "Detect if _ or . is used as a divider in labels",
@@ -8871,7 +8871,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result({__name__=~\"otelcol_process_uptime.+\",job=~`${job:regex}`})",
         "description": "Some exporter(s) configuration(s) may add the metric suffix _seconds_total. This variable will detect this \"_seconds\" suffix part.",
@@ -8899,7 +8899,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result({__name__=~\"otelcol_process_memory_rss.+\",job=~`${job:regex}`})",
         "description": "Some exporter(s) configuration(s) may add the metric suffix _bytes. This variable will detect this \"_bytes\" suffix part.",
@@ -8923,7 +8923,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "_IY366MMk"
         },
         "definition": "query_result({__name__=~\".*rpc_server_duration_.*bucket|.*rpc_client_duration_.*bucket|.*http_server_duration_.*bucket|.*http_client_duration_.*bucket.*\",job=~`${job:regex}`})",
         "description": "Some metrics (e.g., RPC, HTTP) may no longer have the otelcol_ prefix. This will detect it. See https://github.com/open-telemetry/opentelemetry-collector/pull/9759",
