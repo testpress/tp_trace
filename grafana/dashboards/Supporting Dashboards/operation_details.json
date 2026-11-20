@@ -28,7 +28,7 @@
       "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%22limit%22:200,%22query%22:%22%7B%20%28%5C%22${db_pool:raw}%5C%22%20%3D%20%5C%22.%2A%5C%22%20%7C%7C%20span.db.connection.pool%20%3D~%20%5C%22${db_pool:regex}%5C%22%29%20%26%26%20(resource.service.name%20%3D%20%5C%22${service:raw}%5C%22%20%7C%7C%20span.normalized.service%20%3D%20%5C%22${service:raw}%5C%22)%20%26%26%20(name%20%3D%20%5C%22${operation:raw}%5C%22%20%7C%7C%20span.normalized.operation%20%3D%20%5C%22${operation:raw}%5C%22)%20%7D%22,%22queryType%22:%22traceql%22%7D%5D"
     }
   ],
-  "refresh": "30s",
+  "refresh": "5m",
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
@@ -447,7 +447,8 @@
         }
       ],
       "title": "Requests and Errors",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -653,7 +654,8 @@
         }
       ],
       "title": "Errors",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -797,7 +799,8 @@
         }
       ],
       "title": "Requests/s and Errors/s",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -997,7 +1000,8 @@
         }
       ],
       "title": "Latency",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "collapsed": false,

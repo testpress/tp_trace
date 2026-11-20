@@ -71,7 +71,7 @@
 
 - Keep `grafana/` as the dashboard source of truth. Check datasource UIDs, metric
   units/labels, absent-label filters, and rate windows against export cadence.
-- Dashboard defaults are one hour with a 30-second refresh unless intentionally changed.
+- Dashboard defaults are one hour with a 5-minute refresh unless intentionally changed.
 - Batch span counts are not byte limits; assess representative payload sizes
   against Tempo receive limits and collector memory/queue budgets.
 - Keep local networking and anonymous Grafana access confined to the intentional

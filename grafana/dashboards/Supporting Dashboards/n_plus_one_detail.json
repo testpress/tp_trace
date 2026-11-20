@@ -614,7 +614,7 @@
       "type": "table"
     }
   ],
-  "refresh": "30s",
+  "refresh": "5m",
   "schemaVersion": 39,
   "style": "dark",
   "tags": [

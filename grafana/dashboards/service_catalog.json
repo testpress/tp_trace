@@ -78,7 +78,7 @@
       "url": "/explore?left=%5B%22${__from}%22,%22${__to}%22,%22${DS_TEMPO}%22,%7B%7D%5D"
     }
   ],
-  "refresh": "30s",
+  "refresh": "5m",
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
@@ -968,7 +968,8 @@
           }
         }
       ],
-      "type": "table"
+      "type": "table",
+      "maxDataPoints": 100
     },
     {
       "collapsed": false,
@@ -1115,7 +1116,8 @@
         }
       ],
       "title": "\u25c6 Throughput by Service (Operations / sec)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 150
     },
     {
       "datasource": {
@@ -1339,7 +1341,8 @@
         }
       ],
       "title": "Dependency P95 Latency (All Recorded Spans)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "maxDataPoints": 100
     }
   ]
 }
