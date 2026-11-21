@@ -135,7 +135,7 @@
           }
         ],
         "query": "label_values({__name__=~\"apm_calls_total\", cluster_name=~\"${cluster:regex}\"}, project_name)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -169,7 +169,7 @@
           }
         ],
         "query": "label_values({__name__=~\"apm_calls_total\"}, cluster_name)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query"
@@ -203,7 +203,7 @@
           }
         ],
         "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "sort": 1,
         "type": "query",
@@ -219,7 +219,7 @@
         },
         "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service=\"django\",http_method!=\"\"}, http_method)",
         "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service=\"django\",http_method!=\"\"}, http_method)",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "includeAll": true,
         "allValue": ".*",
@@ -241,7 +241,7 @@
         },
         "query": "query_result(group by (http_route) (round(sum by (project_name, cluster_name, http_route, http_method) ((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]))) > 0))",
         "definition": "query_result(group by (http_route) (round(sum by (project_name, cluster_name, http_route, http_method) ((last_over_time(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) and (resets(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]) == 0) unless (apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"} offset $__range)) or increase(apm_repeated_query_affected_requests_total{metric_source=\"tp_trace_sdk\", worker_id!=\"\",instance!=\"\",  project_name=~\"${project:regex}\", cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`, normalized_service=\"django\", http_method=~\"${method:regex}\", http_route!=\"\"}[$__range]))) > 0))",
-        "refresh": 2,
+        "refresh": 1,
         "sort": 1,
         "includeAll": true,
         "allValue": ".*",
