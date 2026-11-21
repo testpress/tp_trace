@@ -188,7 +188,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result((sum by (normalized_service) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\",project_name=~\"${project:regex}\"}[$__range]))) > 0)",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
         "includeAll": false,
         "label": "Service",
@@ -201,9 +201,9 @@
             "value": "django"
           }
         ],
-        "query": "query_result((sum by (normalized_service) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\",project_name=~\"${project:regex}\"}[$__range]))) > 0)",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\"}, normalized_service)",
         "refresh": 1,
-        "regex": "/normalized_service=\"([^\"]+)\"/",
+        "regex": "",
         "sort": 1,
         "type": "query"
       },

@@ -189,7 +189,7 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result((sum by (normalized_service) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\",project_name=~\"${project:regex}\"}[$__range]))) > 0)",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
         "includeAll": false,
         "label": "Service",
@@ -202,9 +202,9 @@
             "value": "django"
           }
         ],
-        "query": "query_result((sum by (normalized_service) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\",project_name=~\"${project:regex}\"}[$__range]))) > 0)",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\"}, normalized_service)",
         "refresh": 1,
-        "regex": "/normalized_service=\"([^\"]+)\"/",
+        "regex": "",
         "sort": 1,
         "type": "query"
       },
@@ -243,16 +243,16 @@
           "type": "prometheus",
           "uid": "_IY366MMk"
         },
-        "definition": "query_result((sum by (normalized_operation) ((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0)",
+        "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service=~\"${service:regex}\",normalized_operation!~\"^django\\..*\",span_kind!=\"SPAN_KIND_INTERNAL\"}, normalized_operation)",
         "hide": 0,
         "includeAll": false,
         "label": "Operation",
         "multi": false,
         "name": "operation",
         "options": [],
-        "query": "query_result((sum by (normalized_operation) ((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0)",
+        "query": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service=~\"${service:regex}\",normalized_operation!~\"^django\\..*\",span_kind!=\"SPAN_KIND_INTERNAL\"}, normalized_operation)",
         "refresh": 1,
-        "regex": "/normalized_operation=\"(.*)\"\\s*\\}/",
+        "regex": "",
         "sort": 1,
         "type": "query"
       },
@@ -463,7 +463,7 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "Errors",
+            "axisLabel": "Errors/s",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "bars",
@@ -490,7 +490,7 @@
               "mode": "off"
             }
           },
-          "decimals": 0,
+          "decimals": 2,
           "mappings": [],
           "min": 0,
           "softMax": 1,
@@ -503,7 +503,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "reqps"
         },
         "overrides": [
           {
@@ -643,7 +643,7 @@
             "uid": "_IY366MMk"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_replace(((sum by (http_status_code) (increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (http_status_code) (increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (vector(0) unless ((sum(increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) > 0))), \"status_label\", \"HTTP $1\", \"http_status_code\", \"(.+)\"), \"status_label\", \"Errors\", \"status_label\", \"^$\")",
+          "expr": "label_replace(label_replace(((sum by (http_status_code) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (http_status_code) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (vector(0) unless ((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) > 0))), \"status_label\", \"HTTP $1\", \"http_status_code\", \"(.+)\"), \"status_label\", \"Errors\", \"status_label\", \"^$\")",
           "legendFormat": "{{status_label}}",
           "range": true,
           "refId": "A",
