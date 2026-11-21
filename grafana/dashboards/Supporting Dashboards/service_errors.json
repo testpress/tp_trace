@@ -952,7 +952,7 @@
         "name": "service",
         "options": [],
         "query": "query_result((sum by (normalized_service) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\",project_name=~\"${project:regex}\"}[$__range]))) > 0)",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "/normalized_service=\"([^\"]+)\"/",
         "sort": 1,
         "type": "query"
