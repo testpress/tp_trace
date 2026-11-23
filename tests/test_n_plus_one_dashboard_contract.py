@@ -152,7 +152,9 @@ def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
             assert all("[$__range] @ end()" in expr for expr in expressions[1:])
         else:
             assert all("$__range" not in expr for expr in expressions)
-        assert all(target.get("interval") == "1m" for target in panels[title]["targets"])
+        # Dynamic scaling: targets delegate interval to the datasource (timeInterval: 1m)
+        # and maxDataPoints so multi-day windows scale step resolution.
+        assert all(not target.get("interval") for target in panels[title]["targets"])
 
 
 def test_collector_spanmetrics_pipeline_and_filters():

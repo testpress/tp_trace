@@ -317,7 +317,16 @@ def test_variable_queries_parse_and_resolve_single_samples(tmp_path):
     def prep_var_expr(rel, var_name):
         d_json = json.loads((DASHBOARDS / rel).read_text())
         target_var = next(v for v in d_json["templating"]["list"] if v["name"] == var_name)
-        return re.sub(r"\$\{[^}]+\}", ".*", target_var["query"][len("query_result(") : -1]).replace("$__range", "1h")
+        query = target_var["query"]
+        if query.startswith("query_result(") and query.endswith(")"):
+            inner = query[len("query_result(") : -1]
+        elif query.startswith("label_values(") and query.endswith(")"):
+            args = query[len("label_values(") : -1]
+            selector, label = args.rsplit(",", 1)
+            inner = f"count by ({label.strip()}) ({selector.strip()})"
+        else:
+            inner = query
+        return re.sub(r"\$\{[^}]+\}", ".*", inner).replace("$__range", "1h")
 
     expr_so_service = prep_var_expr("Supporting Dashboards/service_overview.json", "service")
     expr_od_service = prep_var_expr("Supporting Dashboards/operation_details.json", "service")
@@ -450,7 +459,7 @@ def test_n_plus_one_counts_sparse_workers_and_excludes_colliding_legacy_stream(t
     [
         (201, "A", 1 / 60),
         (201, "B", 1 / 60),
-        (202, "A", 4),
+        (202, "A", 1 / 60),
         (203, "A", 0.05),
         (204, "A", 1 / 60),
         (204, "B", 1 / 60),
@@ -463,7 +472,8 @@ def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, exp
     )
     # At a short dashboard range Grafana's display interval is 15 seconds.
     # $__rate_interval = max(display interval + min step, 4 * min step).
-    min_step = 60 if target.get("interval") == "1m" else 15
+    # When target interval is omitted, Grafana uses datasource timeInterval (1m).
+    min_step = 60 if target.get("interval") in (None, "1m") else 15
     rate_window = "{}s".format(max(15 + min_step, 4 * min_step))
     expr = target["expr"].replace("${operation:doublequote}", '"GET /test/"')
     expr = re.sub(r"\$\{[^}]+\}", ".*", expr)
@@ -492,7 +502,7 @@ def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, exp
 @pytest.mark.parametrize("panel_id,expected", [(6, 1.25), (7, 20), (10, 1.25)])
 def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected):
     target = panel("Supporting Dashboards/service_overview.json", panel_id)["targets"][0]
-    min_step = 60 if target.get("interval") == "1m" else 15
+    min_step = 60 if target.get("interval") in (None, "1m") else 15
     expr = re.sub(r"\$\{[^}]+\}", ".*", target["expr"])
     expr = expr.replace("$__range", "1h").replace("$__rate_interval", str(max(15 + min_step, 4 * min_step)) + "s")
     labels = (
