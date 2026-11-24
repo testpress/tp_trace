@@ -89,7 +89,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\", }, project_name)",
         "hide": 0,
@@ -122,7 +122,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\"}, cluster_name)",
         "hide": 0,
@@ -156,7 +156,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)",
         "hide": 0,
@@ -187,7 +187,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
@@ -241,7 +241,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "query_result((sum by (normalized_operation) ((last_over_time(apm_calls_total{normalized_service!=\"celery\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]) or last_over_time(apm_calls_total{normalized_service=\"celery\",span_kind=\"SPAN_KIND_CONSUMER\",db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_operation!~\"^django\\\\..*\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",service_version!=\"0.1.0\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) > 0)",
         "hide": 0,
@@ -259,7 +259,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "filters": [],
         "hide": 0,
@@ -308,7 +308,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Total requests and error breakdown over time for $service $operation Query min step is 1 minute to match the default SDK metrics export cadence; Grafana uses a rate window of at least 4 minutes. Increase the min step if metrics are exported less frequently.",
       "fieldConfig": {
@@ -422,7 +422,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))",
@@ -434,7 +434,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))",
@@ -451,7 +451,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Error volume and distribution broken down by HTTP status code Query min step is 1 minute to match the default SDK metrics export cadence; Grafana uses a rate window of at least 4 minutes. Increase the min step if metrics are exported less frequently. Values estimate errors within the rolling rate window; overlapping points must not be summed as a request total.",
       "fieldConfig": {
@@ -640,7 +640,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "label_replace(label_replace(((sum by (http_status_code) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (http_status_code) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) or (vector(0) unless ((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))) > 0))), \"status_label\", \"HTTP $1\", \"http_status_code\", \"(.+)\"), \"status_label\", \"Errors\", \"status_label\", \"^$\")",
@@ -657,7 +657,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Total requests and error rate (RPS) over time for $service $operation",
       "fieldConfig": {
@@ -771,7 +771,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))",
@@ -783,7 +783,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_operation=${operation:doublequote},normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))",
@@ -800,7 +800,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Multi-percentile latency distribution (p50, p75, p90, p95, p99, p99.9, Max) with Exemplar trace dots linking to Tempo waterfalls Query min step is 1 minute to match the default SDK metrics export cadence; Grafana uses a rate window of at least 4 minutes. Increase the min step if metrics are exported less frequently.",
       "fieldConfig": {
@@ -944,7 +944,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -956,7 +956,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -968,7 +968,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -980,7 +980,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
