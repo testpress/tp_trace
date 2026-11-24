@@ -66,7 +66,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Total count of failed requests/operations in the selected time range",
       "fieldConfig": {
@@ -120,7 +120,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "((sum(increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])) or (0 * (sum(increase(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))))) or vector(0)",
@@ -137,7 +137,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Overall error rate percentage for this service",
       "fieldConfig": {
@@ -194,7 +194,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(((((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))))) or vector(0)) / (((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) > 0) or vector(1))) * 100)",
@@ -211,7 +211,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Distinct endpoints or operations currently throwing errors",
       "fieldConfig": {
@@ -265,7 +265,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(count(((sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (normalized_operation) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))))) > 0) or vector(0))",
@@ -282,7 +282,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Error rate % timeseries represented as discrete bars over time",
       "fieldConfig": {
@@ -374,7 +374,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(((((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])))))) or vector(0)) / (((sum(rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))) > 0) or vector(1))) * 100)",
@@ -391,7 +391,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "_IY366MMk"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Error volume and distribution broken down by HTTP status code",
       "fieldConfig": {
@@ -478,7 +478,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "_IY366MMk"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "((sum by (http_status_code) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval])) or (0 * (sum by (http_status_code) (rate(apm_calls_total{db_connection_pool=~\"${db_pool:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"${service:regex}\",project_name=~\"${project:regex}\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__rate_interval]))))))",
@@ -822,6 +822,24 @@
       {
         "current": {
           "selected": true,
+          "text": "Prometheus",
+          "value": "_IY366MMk"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
           "text": "Tempo",
           "value": "tempo"
         },
@@ -850,7 +868,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\", }, project_name)",
         "hide": 0,
@@ -877,7 +895,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({__name__=~\"apm_calls_total\"}, cluster_name)",
         "hide": 0,
@@ -911,7 +929,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)",
         "hide": 0,
@@ -942,7 +960,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,normalized_service!=\"pgbouncer\"}, normalized_service)",
         "hide": 0,
@@ -988,7 +1006,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "_IY366MMk"
+          "uid": "${DS_PROMETHEUS}"
         },
         "filters": [],
         "hide": 0,
