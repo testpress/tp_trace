@@ -114,10 +114,10 @@ class GunicornMetricsCollector:
             ]
 
     def _after_fork_in_child(self) -> None:
-        """Clear master-inherited gauges and request counts in forked workers."""
-        with self._lock:
-            self._active_requests = 0
-            self._gauges.clear()
+        """Reset lock and master-inherited state in forked workers without deadlocking."""
+        self._lock = threading.RLock()
+        self._active_requests = 0
+        self._gauges.clear()
 
     def reset_worker(self) -> None:
         attempt(self._reset_active_requests, _label="gunicorn.reset_worker")

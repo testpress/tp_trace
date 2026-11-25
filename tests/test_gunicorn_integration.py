@@ -75,6 +75,8 @@ def _install_fake_gunicorn(monkeypatch):
     sync_mod.SyncWorker = FakeWorker
     gthread_mod = types.ModuleType("gunicorn.workers.gthread")
     gthread_mod.ThreadWorker = FakeWorker
+    base_async_mod = types.ModuleType("gunicorn.workers.base_async")
+    base_async_mod.AsyncWorker = FakeWorker
 
     for name, mod in {
         "gunicorn": gunicorn_mod,
@@ -83,6 +85,7 @@ def _install_fake_gunicorn(monkeypatch):
         "gunicorn.workers": workers_mod,
         "gunicorn.workers.sync": sync_mod,
         "gunicorn.workers.gthread": gthread_mod,
+        "gunicorn.workers.base_async": base_async_mod,
     }.items():
         monkeypatch.setitem(sys.modules, name, mod)
     monkeypatch.delitem(sys.modules, "tp_trace.integrations.gunicorn.logger", raising=False)

@@ -38,6 +38,11 @@ class GunicornIntegration(BaseIntegration):
             "handle_request",
             self._wrap_handle_request,
         )
+        self.wrap(
+            "gunicorn.workers.base_async.AsyncWorker",
+            "handle_request",
+            self._wrap_handle_request,
+        )
 
     @staticmethod
     def _wrap_handle_request(
