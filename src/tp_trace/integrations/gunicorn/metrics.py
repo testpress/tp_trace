@@ -79,7 +79,12 @@ class GunicornMetricsCollector:
 
     def _observe_gauges(self, _options: Any) -> Iterable[Observation]:
         with self._lock:
-            return [Observation(val, {"metric": name}) for name, val in self._gauges.items()]
+            # Include worker_id so forked workers sharing a Resource do not collide.
+            worker_id = get_process_worker_identity()
+            return [
+                Observation(val, {"metric": name, "worker_id": worker_id})
+                for name, val in self._gauges.items()
+            ]
 
     def _observe_worker_state(self, _options: Any) -> Iterable[Observation]:
         with self._lock:
