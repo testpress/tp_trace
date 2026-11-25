@@ -208,6 +208,34 @@ def test_after_fork_clears_inherited_gauges_and_requests(isolated_collector):
     assert collector._active_requests == 0
 
 
+def test_stale_callbacks_noop_after_provider_swap(monkeypatch):
+    reader1 = InMemoryMetricReader()
+    provider1 = MeterProvider(metric_readers=[reader1])
+    reader2 = InMemoryMetricReader()
+    provider2 = MeterProvider(metric_readers=[reader2])
+
+    collector = GunicornMetricsCollector()
+    active_provider = [provider1]
+    monkeypatch.setattr(
+        "tp_trace.integrations.gunicorn.metrics.get_metrics_recorder",
+        lambda: types.SimpleNamespace(
+            meter=active_provider[0].get_meter("tp_trace.gunicorn"),
+            meter_provider=active_provider[0],
+        ),
+    )
+
+    collector.on_request_started()
+    assert "gunicorn_worker_state" in _collect_metrics(reader1)
+
+    active_provider[0] = provider2
+    collector.on_request_finished()
+    assert "gunicorn_worker_state" in _collect_metrics(reader2)
+    assert _collect_metrics(reader1) == {}
+
+    provider1.shutdown()
+    provider2.shutdown()
+
+
 def test_integration_manager_registers_and_uninstruments_gunicorn(monkeypatch):
     _install_fake_gunicorn(monkeypatch)
     manager = IntegrationManager()

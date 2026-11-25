@@ -79,15 +79,21 @@ class GunicornMetricsCollector:
                 description="Gunicorn native StatsD timers and histograms in ms",
                 unit="ms",
             )
+            def _gauge_cb(opts: Any) -> Iterable[Observation]:
+                return self._observe_gauges(opts, provider_id)
+
+            def _state_cb(opts: Any) -> Iterable[Observation]:
+                return self._observe_worker_state(opts, provider_id)
+
             self._gauge = meter.create_observable_gauge(
                 name="gunicorn_statsd_gauge",
-                callbacks=[self._observe_gauges],
+                callbacks=[_gauge_cb],
                 description="Gunicorn native StatsD gauges",
                 unit="1",
             )
             self._worker_state = meter.create_observable_gauge(
                 name="gunicorn_worker_state",
-                callbacks=[self._observe_worker_state],
+                callbacks=[_state_cb],
                 description="Gunicorn worker busy/idle state (busy when active requests > 0)",
                 unit="1",
             )
@@ -95,8 +101,15 @@ class GunicornMetricsCollector:
             self._instruments_ready = True
             return True
 
-    def _observe_gauges(self, _options: Any) -> Iterable[Observation]:
+    def _observe_gauges(
+        self, _options: Any, expected_provider_id: Optional[int] = None
+    ) -> Iterable[Observation]:
         with self._lock:
+            if (
+                expected_provider_id is not None
+                and self._meter_provider_id != expected_provider_id
+            ):
+                return []
             # Include worker_id so forked workers sharing a Resource do not collide.
             worker_id = get_process_worker_identity()
             return [
@@ -104,8 +117,15 @@ class GunicornMetricsCollector:
                 for name, val in self._gauges.items()
             ]
 
-    def _observe_worker_state(self, _options: Any) -> Iterable[Observation]:
+    def _observe_worker_state(
+        self, _options: Any, expected_provider_id: Optional[int] = None
+    ) -> Iterable[Observation]:
         with self._lock:
+            if (
+                expected_provider_id is not None
+                and self._meter_provider_id != expected_provider_id
+            ):
+                return []
             is_busy = self._active_requests > 0
             worker_id = get_process_worker_identity()
             return [
