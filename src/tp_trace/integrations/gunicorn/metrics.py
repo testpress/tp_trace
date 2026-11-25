@@ -1,10 +1,20 @@
-"""Minimal OpenTelemetry metrics collector for Gunicorn StatsD and worker state."""
+"""Minimal OpenTelemetry metrics collector for Gunicorn StatsD and worker state.
+
+``gunicorn_worker_state`` and ``gunicorn_statsd_gauge`` attach ``worker_id``
+(``<host>:<pid>`` via :func:`get_process_worker_identity`) so forked workers
+sharing a Resource do not collide. Dashboards and alerts should aggregate
+across workers with ``sum by (state)`` rather than tracking per-PID series.
+
+With ``threads > 1`` (e.g. ``gthread``), ``gunicorn_worker_state`` is boolean:
+any active request (``_active_requests > 0``) marks the worker ``busy``.
+"""
 
 import os
 import threading
 from typing import Any, Dict, Iterable, Optional
 
-from opentelemetry.metrics import Observation, get_meter
+from opentelemetry import metrics as otel_metrics
+from opentelemetry.metrics import Observation
 
 from tp_trace.config import SDKConfig
 from tp_trace.metrics import get_metrics_recorder, get_process_worker_identity
@@ -44,8 +54,16 @@ class GunicornMetricsCollector:
             return False
 
         recorder = get_metrics_recorder()
-        meter = recorder.meter if recorder is not None else get_meter(_DEFAULT_METER_NAME)
-        provider_id = id(recorder.meter_provider) if recorder is not None else id(meter)
+        if recorder is not None:
+            meter = recorder.meter
+            provider_id = id(recorder.meter_provider)
+        else:
+            provider = otel_metrics.get_meter_provider()
+            if type(provider).__name__ in ("ProxyMeterProvider", "NoOpMeterProvider"):
+                # Avoid registering callbacks on the pre-init no-op proxy meter.
+                return False
+            meter = otel_metrics.get_meter(_DEFAULT_METER_NAME)
+            provider_id = id(provider)
 
         with self._lock:
             if self._instruments_ready and self._meter_provider_id == provider_id:
@@ -70,7 +88,7 @@ class GunicornMetricsCollector:
             self._worker_state = meter.create_observable_gauge(
                 name="gunicorn_worker_state",
                 callbacks=[self._observe_worker_state],
-                description="Gunicorn worker busy/idle state",
+                description="Gunicorn worker busy/idle state (busy when active requests > 0)",
                 unit="1",
             )
             self._meter_provider_id = provider_id
@@ -95,8 +113,14 @@ class GunicornMetricsCollector:
                 Observation(0 if is_busy else 1, {"worker_id": worker_id, "state": "idle"}),
             ]
 
+    def _after_fork_in_child(self) -> None:
+        """Clear master-inherited gauges and request counts in forked workers."""
+        with self._lock:
+            self._active_requests = 0
+            self._gauges.clear()
+
     def reset_worker(self) -> None:
-        attempt(lambda: self._reset_active_requests(), _label="gunicorn.reset_worker")
+        attempt(self._reset_active_requests, _label="gunicorn.reset_worker")
 
     def _reset_active_requests(self) -> None:
         if not self._ensure_instruments():
@@ -146,12 +170,16 @@ class GunicornMetricsCollector:
         def _run() -> None:
             if not self._ensure_instruments():
                 return
-            self._duration.record(float(value), {"metric": name})
+            val = float(value)
+            if val >= 0:
+                self._duration.record(val, {"metric": name})
 
         attempt(_run, _label="gunicorn.statsd.duration")
 
 
 _COLLECTOR = GunicornMetricsCollector()
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_COLLECTOR._after_fork_in_child)
 
 
 def get_gunicorn_collector() -> GunicornMetricsCollector:

@@ -1,4 +1,9 @@
-"""Public Gunicorn config hook callbacks for tp_trace."""
+"""Public Gunicorn config hook callbacks for tp_trace.
+
+Use ``pre_request``/``post_request`` only when ``auto_patch=False``; when
+``auto_patch=True``, :class:`GunicornIntegration` already wraps worker request
+handling (pick one path to avoid counting each request twice).
+"""
 
 from typing import Any
 

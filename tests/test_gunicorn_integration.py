@@ -174,6 +174,37 @@ def test_disabled_sdk_is_noop(isolated_collector):
     assert _collect_metrics(reader) == {}
 
 
+def test_proxy_meter_provider_skips_registration(monkeypatch):
+    from opentelemetry import metrics as otel_metrics
+
+    class ProxyMeterProvider:
+        pass
+
+    collector = GunicornMetricsCollector()
+    monkeypatch.setattr(
+        "tp_trace.integrations.gunicorn.metrics.get_metrics_recorder",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        otel_metrics,
+        "get_meter_provider",
+        lambda: ProxyMeterProvider(),
+    )
+    collector.on_request_started()
+    assert collector._instruments_ready is False
+
+
+def test_after_fork_clears_inherited_gauges_and_requests(isolated_collector):
+    collector, _ = isolated_collector
+    collector.record_gauge("gunicorn.workers", 4)
+    collector.on_request_started()
+    collector.record_duration("gunicorn.request.duration", -5.0)
+
+    collector._after_fork_in_child()
+    assert collector._gauges == {}
+    assert collector._active_requests == 0
+
+
 def test_integration_manager_registers_and_uninstruments_gunicorn(monkeypatch):
     _install_fake_gunicorn(monkeypatch)
     manager = IntegrationManager()
