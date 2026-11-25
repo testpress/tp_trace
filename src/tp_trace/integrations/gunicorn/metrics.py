@@ -47,7 +47,8 @@ class GunicornMetricsCollector:
         disabled = os.environ.get("TP_TRACE_DISABLED", "").strip().lower()
         if disabled in ("1", "true", "yes", "on"):
             return False
-        return not (self._config is not None and self._config.disabled)
+        with self._lock:
+            return not (self._config is not None and self._config.disabled)
 
     def _ensure_instruments(self) -> bool:
         if not self.is_enabled():
@@ -69,7 +70,7 @@ class GunicornMetricsCollector:
             if self._instruments_ready and self._meter_provider_id == provider_id:
                 return True
 
-            self._counter = meter.create_up_down_counter(
+            self._counter = meter.create_counter(
                 name="gunicorn_statsd_counter",
                 description="Gunicorn native StatsD counters",
                 unit="1",
@@ -167,14 +168,12 @@ class GunicornMetricsCollector:
 
         attempt(_run, _label="gunicorn.statsd.gauge")
 
-    def record_counter(self, name: str, value: Any, *, negate: bool = False) -> None:
+    def record_counter(self, name: str, value: Any) -> None:
         def _run() -> None:
             if not self._ensure_instruments():
                 return
             amount = int(value)
-            if negate:
-                amount = -amount
-            if amount != 0:
+            if amount > 0:
                 self._counter.add(amount, {"metric": name})
 
         attempt(_run, _label="gunicorn.statsd.counter")

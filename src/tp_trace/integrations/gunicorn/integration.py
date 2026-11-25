@@ -1,13 +1,10 @@
 """GunicornIntegration — instruments Gunicorn worker state and native StatsD metrics."""
 
 import importlib
-import logging
 from typing import Any, Callable, Tuple
 
 from tp_trace.integrations.base import BaseIntegration
 from tp_trace.integrations.gunicorn.metrics import get_gunicorn_collector
-
-logger = logging.getLogger("tp_trace.integrations.gunicorn")
 
 
 class GunicornIntegration(BaseIntegration):
@@ -26,8 +23,8 @@ class GunicornIntegration(BaseIntegration):
         collector = get_gunicorn_collector()
         collector.set_config(self._config)
 
-        # Wrap worker request handling so preload_app=True setups still track
-        # busy/idle state even when gunicorn.conf.py hooks are not wired.
+        # Wrap worker request handling so preload_app=True setups track
+        # busy/idle state automatically.
         self.wrap(
             "gunicorn.workers.sync.SyncWorker",
             "handle_request",

@@ -21,7 +21,7 @@ class TPTraceGunicornLogger(Statsd):
             super().increment(name, value, sampling_rate=sampling_rate)
 
     def decrement(self, name: str, value: Any, sampling_rate: float = 1.0) -> None:
-        get_gunicorn_collector().record_counter(name, value, negate=True)
+        # OTel counter is monotonic; only forward decrements to UDP StatsD if configured.
         if self.sock:
             super().decrement(name, value, sampling_rate=sampling_rate)
 

@@ -116,7 +116,6 @@ def test_statsd_logger_bridges_native_metrics(isolated_collector, monkeypatch):
     logger.error("Worker error")
     logger.increment("gunicorn.active_connections", 3)
     logger.decrement("gunicorn.active_connections", 1)
-    logger.decrement("gunicorn.balance", "2")
 
     resp = types.SimpleNamespace(status="200 OK")
     req = types.SimpleNamespace(method="GET", path="/")
@@ -128,8 +127,7 @@ def test_statsd_logger_bridges_native_metrics(isolated_collector, monkeypatch):
     counters = {dp.attributes["metric"]: dp.value for dp in metrics["gunicorn_statsd_counter"]}
     assert counters == {
         "gunicorn.log.error": 1,
-        "gunicorn.active_connections": 2,
-        "gunicorn.balance": -2,
+        "gunicorn.active_connections": 3,
         "gunicorn.requests": 1,
         "gunicorn.request.status.200": 1,
     }
@@ -229,6 +227,26 @@ def test_integration_manager_registers_and_uninstruments_gunicorn(monkeypatch):
     _install_fake_gunicorn(monkeypatch)
     manager = IntegrationManager()
     assert "gunicorn" in manager._registered_classes
+
+
+def test_wrap_handle_request_tracks_worker_state(isolated_collector, monkeypatch):
+    collector, reader = isolated_collector
+    _install_fake_gunicorn(monkeypatch)
+    from gunicorn.workers.sync import SyncWorker
+
+    integration = GunicornIntegration()
+    integration.instrument()
+    try:
+        assert SyncWorker().handle_request() == "ok"
+    finally:
+        integration.uninstrument()
+
+    assert collector._active_requests == 0
+    states = {
+        dp.attributes["state"]: dp.value
+        for dp in _collect_metrics(reader)["gunicorn_worker_state"]
+    }
+    assert states == {"busy": 0, "idle": 1}
 
     integration = GunicornIntegration(SDKConfig(disabled=False))
     assert integration.is_installed() is True
