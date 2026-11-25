@@ -69,7 +69,7 @@ class GunicornMetricsCollector:
             if self._instruments_ready and self._meter_provider_id == provider_id:
                 return True
 
-            self._counter = meter.create_counter(
+            self._counter = meter.create_up_down_counter(
                 name="gunicorn_statsd_counter",
                 description="Gunicorn native StatsD counters",
                 unit="1",
@@ -139,15 +139,6 @@ class GunicornMetricsCollector:
         self._active_requests = 0
         self._gauges.clear()
 
-    def reset_worker(self) -> None:
-        attempt(self._reset_active_requests, _label="gunicorn.reset_worker")
-
-    def _reset_active_requests(self) -> None:
-        if not self._ensure_instruments():
-            return
-        with self._lock:
-            self._active_requests = 0
-
     def on_request_started(self) -> None:
         def _run() -> None:
             if not self._ensure_instruments():
@@ -176,12 +167,14 @@ class GunicornMetricsCollector:
 
         attempt(_run, _label="gunicorn.statsd.gauge")
 
-    def record_counter(self, name: str, value: Any) -> None:
+    def record_counter(self, name: str, value: Any, *, negate: bool = False) -> None:
         def _run() -> None:
             if not self._ensure_instruments():
                 return
             amount = int(value)
-            if amount > 0:
+            if negate:
+                amount = -amount
+            if amount != 0:
                 self._counter.add(amount, {"metric": name})
 
         attempt(_run, _label="gunicorn.statsd.counter")

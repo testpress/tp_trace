@@ -9,12 +9,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 from tp_trace.config import SDKConfig
-from tp_trace.integrations.gunicorn import (
-    GunicornIntegration,
-    post_fork,
-    post_request,
-    pre_request,
-)
+from tp_trace.integrations.gunicorn import GunicornIntegration
 from tp_trace.integrations.gunicorn.metrics import GunicornMetricsCollector
 from tp_trace.integrations.manager import IntegrationManager
 
@@ -98,7 +93,6 @@ def isolated_collector(monkeypatch):
     collector = GunicornMetricsCollector()
     for target in (
         "tp_trace.integrations.gunicorn.metrics.get_gunicorn_collector",
-        "tp_trace.integrations.gunicorn.hooks.get_gunicorn_collector",
         "tp_trace.integrations.gunicorn.integration.get_gunicorn_collector",
     ):
         monkeypatch.setattr(target, lambda: collector)
@@ -120,6 +114,9 @@ def test_statsd_logger_bridges_native_metrics(isolated_collector, monkeypatch):
     logger = TPTraceGunicornLogger(types.SimpleNamespace())
     logger.gauge("gunicorn.workers", 4)
     logger.error("Worker error")
+    logger.increment("gunicorn.active_connections", 3)
+    logger.decrement("gunicorn.active_connections", 1)
+    logger.decrement("gunicorn.balance", "2")
 
     resp = types.SimpleNamespace(status="200 OK")
     req = types.SimpleNamespace(method="GET", path="/")
@@ -131,6 +128,8 @@ def test_statsd_logger_bridges_native_metrics(isolated_collector, monkeypatch):
     counters = {dp.attributes["metric"]: dp.value for dp in metrics["gunicorn_statsd_counter"]}
     assert counters == {
         "gunicorn.log.error": 1,
+        "gunicorn.active_connections": 2,
+        "gunicorn.balance": -2,
         "gunicorn.requests": 1,
         "gunicorn.request.status.200": 1,
     }
@@ -139,26 +138,18 @@ def test_statsd_logger_bridges_native_metrics(isolated_collector, monkeypatch):
 
 
 def test_worker_busy_idle_tracks_concurrent_requests(isolated_collector):
-    _, reader = isolated_collector
-    worker = types.SimpleNamespace(pid=1234)
+    collector, reader = isolated_collector
 
-    post_fork(None, worker)
-    states = {
-        dp.attributes["state"]: dp.value
-        for dp in _collect_metrics(reader)["gunicorn_worker_state"]
-    }
-    assert states == {"busy": 0, "idle": 1}
-
-    pre_request(worker, None)
-    pre_request(worker, None)
-    post_request(worker, None, {}, None)
+    collector.on_request_started()
+    collector.on_request_started()
+    collector.on_request_finished()
     states = {
         dp.attributes["state"]: dp.value
         for dp in _collect_metrics(reader)["gunicorn_worker_state"]
     }
     assert states == {"busy": 1, "idle": 0}
 
-    post_request(worker, None, {}, None)
+    collector.on_request_finished()
     states = {
         dp.attributes["state"]: dp.value
         for dp in _collect_metrics(reader)["gunicorn_worker_state"]
@@ -169,9 +160,7 @@ def test_worker_busy_idle_tracks_concurrent_requests(isolated_collector):
 def test_disabled_sdk_is_noop(isolated_collector):
     collector, reader = isolated_collector
     collector.set_config(SDKConfig(disabled=True))
-    worker = types.SimpleNamespace(pid=1234)
-    post_fork(None, worker)
-    pre_request(worker, None)
+    collector.on_request_started()
     collector.record_counter("gunicorn.requests", 1)
 
     assert _collect_metrics(reader) == {}

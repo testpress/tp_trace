@@ -1,14 +1,10 @@
 """Gunicorn integration for tp_trace."""
 
-from tp_trace.integrations.gunicorn.hooks import post_fork, post_request, pre_request
 from tp_trace.integrations.gunicorn.integration import GunicornIntegration
 
 __all__ = [
     "GunicornIntegration",
     "TPTraceGunicornLogger",
-    "post_fork",
-    "post_request",
-    "pre_request",
 ]
 
 
