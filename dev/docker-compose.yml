@@ -309,6 +309,7 @@ services:
     volumes:
       - ./sample-app/api:/app/api
       - ./sample-app/config:/app/config
+      - ./sample-app/gunicorn.conf.py:/app/gunicorn.conf.py:ro
       - ../src:/app/src
     command: ["sh", "-c", "python manage.py setup_databases && exec gunicorn config.wsgi:application --config gunicorn.conf.py"]
     ports:
@@ -361,6 +362,7 @@ services:
     volumes:
       - ./sample-app/api:/app/api
       - ./sample-app/config:/app/config
+      - ./sample-app/gunicorn.conf.py:/app/gunicorn.conf.py:ro
       - ../src:/app/src
 
     command:
