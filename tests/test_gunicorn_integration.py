@@ -248,6 +248,44 @@ def test_wrap_handle_request_tracks_worker_state(isolated_collector, monkeypatch
     }
     assert states == {"busy": 0, "idle": 1}
 
+
+def test_statsd_logger_decrement_is_udp_only(isolated_collector, monkeypatch):
+    _install_fake_gunicorn(monkeypatch)
+    from tp_trace.integrations.gunicorn.logger import TPTraceGunicornLogger
+
+    udp_calls = []
+    logger = TPTraceGunicornLogger(types.SimpleNamespace())
+    logger.sock = object()
+    monkeypatch.setattr(
+        logger.__class__.__mro__[1],
+        "decrement",
+        lambda self, name, value, sampling_rate=1.0: udp_calls.append((name, value, sampling_rate)),
+    )
+
+    logger.increment("gunicorn.requests", 2)
+    logger.decrement("gunicorn.requests", 1)
+
+    metrics = _collect_metrics(isolated_collector[1])
+    counters = {dp.attributes["metric"]: dp.value for dp in metrics["gunicorn_statsd_counter"]}
+    assert counters == {"gunicorn.requests": 2}
+    assert udp_calls == [("gunicorn.requests", 1, 1.0)]
+
+
+def test_statsd_metric_name_cardinality_is_capped(isolated_collector, monkeypatch):
+    from tp_trace.integrations.gunicorn import metrics as gunicorn_metrics
+
+    monkeypatch.setattr(gunicorn_metrics, "_MAX_STATSD_METRICS", 2)
+    collector, reader = isolated_collector
+
+    collector.record_gauge("gunicorn.workers", 4)
+    collector.record_counter("gunicorn.requests", 1)
+    collector.record_duration("gunicorn.extra.dropped", 10.0)
+    collector.record_gauge("gunicorn.workers", 5)
+
+    collected = _collect_metrics(reader)
+    assert collected["gunicorn_statsd_gauge"][0].value == 5.0
+    assert "gunicorn_statsd_duration_ms" not in collected
+
     integration = GunicornIntegration(SDKConfig(disabled=False))
     assert integration.is_installed() is True
     assert integration.instrument() is True

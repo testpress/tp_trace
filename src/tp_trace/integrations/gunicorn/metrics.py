@@ -7,11 +7,16 @@ across workers with ``sum by (state)`` rather than tracking per-PID series.
 
 With ``threads > 1`` (e.g. ``gthread``), ``gunicorn_worker_state`` is boolean:
 any active request (``_active_requests > 0``) marks the worker ``busy``.
+
+``gunicorn_statsd_counter`` is a monotonic ``Counter`` (increments only;
+``decrement()`` is unsupported in OTel). The ``metric`` attribute is intended for
+Gunicorn's fixed native StatsD metric names and is capped at
+``_MAX_STATSD_METRICS`` distinct names per process to bound cardinality.
 """
 
 import os
 import threading
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Set
 
 from opentelemetry import metrics as otel_metrics
 from opentelemetry.metrics import Observation
@@ -21,6 +26,7 @@ from tp_trace.metrics import get_metrics_recorder, get_process_worker_identity
 from tp_trace.safety import attempt
 
 _DEFAULT_METER_NAME = "tp_trace.gunicorn"
+_MAX_STATSD_METRICS = 128
 
 
 class GunicornMetricsCollector:
@@ -33,6 +39,7 @@ class GunicornMetricsCollector:
         self._instruments_ready = False
         self._active_requests = 0
         self._gauges: Dict[str, float] = {}
+        self._metric_names: Set[str] = set()
 
         self._counter: Any = None
         self._duration: Any = None
@@ -139,6 +146,16 @@ class GunicornMetricsCollector:
         self._lock = threading.RLock()
         self._active_requests = 0
         self._gauges.clear()
+        self._metric_names.clear()
+
+    def _allow_metric_name(self, name: str) -> bool:
+        with self._lock:
+            if name in self._metric_names:
+                return True
+            if len(self._metric_names) >= _MAX_STATSD_METRICS:
+                return False
+            self._metric_names.add(name)
+            return True
 
     def on_request_started(self) -> None:
         def _run() -> None:
@@ -161,7 +178,7 @@ class GunicornMetricsCollector:
 
     def record_gauge(self, name: str, value: Any) -> None:
         def _run() -> None:
-            if not self._ensure_instruments():
+            if not self._ensure_instruments() or not self._allow_metric_name(name):
                 return
             with self._lock:
                 self._gauges[name] = float(value)
@@ -170,7 +187,7 @@ class GunicornMetricsCollector:
 
     def record_counter(self, name: str, value: Any) -> None:
         def _run() -> None:
-            if not self._ensure_instruments():
+            if not self._ensure_instruments() or not self._allow_metric_name(name):
                 return
             amount = int(value)
             if amount > 0:
@@ -180,7 +197,7 @@ class GunicornMetricsCollector:
 
     def record_duration(self, name: str, value: Any) -> None:
         def _run() -> None:
-            if not self._ensure_instruments():
+            if not self._ensure_instruments() or not self._allow_metric_name(name):
                 return
             val = float(value)
             if val >= 0:

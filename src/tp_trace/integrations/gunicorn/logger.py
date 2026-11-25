@@ -8,7 +8,12 @@ from tp_trace.integrations.gunicorn.metrics import get_gunicorn_collector
 
 
 class TPTraceGunicornLogger(Statsd):
-    """Bridges Gunicorn's native Statsd metrics into tp_trace OpenTelemetry instruments."""
+    """Bridges Gunicorn's native Statsd metrics into tp_trace OpenTelemetry instruments.
+
+    OpenTelemetry exports ``gunicorn_statsd_counter`` as a monotonic Counter
+    (increments only); ``decrement()`` is unsupported in OTel and is only
+    forwarded to UDP StatsD when ``self.sock`` is configured.
+    """
 
     def gauge(self, name: str, value: Any) -> None:
         get_gunicorn_collector().record_gauge(name, value)
@@ -21,7 +26,7 @@ class TPTraceGunicornLogger(Statsd):
             super().increment(name, value, sampling_rate=sampling_rate)
 
     def decrement(self, name: str, value: Any, sampling_rate: float = 1.0) -> None:
-        # OTel counter is monotonic; only forward decrements to UDP StatsD if configured.
+        # Unsupported in OTel (monotonic Counter); only forward to UDP StatsD if configured.
         if self.sock:
             super().decrement(name, value, sampling_rate=sampling_rate)
 
