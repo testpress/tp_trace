@@ -283,6 +283,8 @@ def test_statsd_metric_name_cardinality_is_capped(isolated_collector, monkeypatc
     collector, reader = isolated_collector
 
     collector.record_gauge("gunicorn.workers", 4)
+    collector.record_counter("gunicorn.noop.zero", 0)
+    collector.record_duration("gunicorn.noop.negative", -1.0)
     collector.record_counter("gunicorn.requests", 1)
     collector.record_duration("gunicorn.extra.dropped", 10.0)
     collector.record_gauge("gunicorn.workers", 5)

@@ -178,30 +178,29 @@ class GunicornMetricsCollector:
 
     def record_gauge(self, name: str, value: Any) -> None:
         def _run() -> None:
+            val = float(value)
             if not self._ensure_instruments() or not self._allow_metric_name(name):
                 return
             with self._lock:
-                self._gauges[name] = float(value)
+                self._gauges[name] = val
 
         attempt(_run, _label="gunicorn.statsd.gauge")
 
     def record_counter(self, name: str, value: Any) -> None:
         def _run() -> None:
-            if not self._ensure_instruments() or not self._allow_metric_name(name):
-                return
             amount = int(value)
-            if amount > 0:
-                self._counter.add(amount, {"metric": name})
+            if amount <= 0 or not self._ensure_instruments() or not self._allow_metric_name(name):
+                return
+            self._counter.add(amount, {"metric": name})
 
         attempt(_run, _label="gunicorn.statsd.counter")
 
     def record_duration(self, name: str, value: Any) -> None:
         def _run() -> None:
-            if not self._ensure_instruments() or not self._allow_metric_name(name):
-                return
             val = float(value)
-            if val >= 0:
-                self._duration.record(val, {"metric": name})
+            if val < 0 or not self._ensure_instruments() or not self._allow_metric_name(name):
+                return
+            self._duration.record(val, {"metric": name})
 
         attempt(_run, _label="gunicorn.statsd.duration")
 
