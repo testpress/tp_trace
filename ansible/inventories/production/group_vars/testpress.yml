@@ -1,6 +1,6 @@
 ---
 # Variables specific to the `testpress` group.
-# All hosts except `tpstreams_staging` belong here.
+# Hosts under `testpress` (clusters, staging, and celery) belong here.
 # Values here override or supplement `group_vars/app_servers.yml`.
 
 # Example: testpress-specific allowed hosts (replaces default empty list in app_servers.yml;

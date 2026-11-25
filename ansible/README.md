@@ -21,7 +21,7 @@ Target server prerequisites: SSH (`openssh-server`), `sudo`, `python3`,
 
 `site.yml` installs Docker if missing, `python3-docker`, and
 `iptables-persistent` when firewall management is enabled. The configured Docker
-users (default: `ubuntu`) must already exist.
+users (default: `ubuntu`) are added to the `docker` group.
 
 Add `-k -K` to the commands below if SSH and sudo require passwords.
 
@@ -84,7 +84,11 @@ app_servers
 │   │   └── staging1
 │   └── celery
 └── tpstreams
-    └── tpstreams_staging
+    ├── tpstreams_staging
+    ├── tpstreams_app1
+    ├── tpstreams_app2
+    ├── tpstreams_celery1
+    └── tpstreams_celery2
 ```
 
 Use a group or server name with `--limit`. Include `staging1` when adding servers.

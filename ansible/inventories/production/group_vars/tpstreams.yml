@@ -1,6 +1,6 @@
 ---
 # Variables specific to the `tpstreams` group.
-# Only `tpstreams_staging` belongs here.
+# Hosts under `tpstreams` (staging, apps, and celery workers) belong here.
 # Values here override or supplement `group_vars/app_servers.yml`.
 
 # Example: tpstreams-specific allowed hosts (replaces default empty list in app_servers.yml;
