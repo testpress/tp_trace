@@ -228,6 +228,11 @@ def test_integration_manager_registers_and_uninstruments_gunicorn(monkeypatch):
     manager = IntegrationManager()
     assert "gunicorn" in manager._registered_classes
 
+    integration = GunicornIntegration(SDKConfig(disabled=False))
+    assert integration.is_installed() is True
+    assert integration.instrument() is True
+    assert integration.uninstrument() is True
+
 
 def test_wrap_handle_request_tracks_worker_state(isolated_collector, monkeypatch):
     collector, reader = isolated_collector
@@ -285,8 +290,3 @@ def test_statsd_metric_name_cardinality_is_capped(isolated_collector, monkeypatc
     collected = _collect_metrics(reader)
     assert collected["gunicorn_statsd_gauge"][0].value == 5.0
     assert "gunicorn_statsd_duration_ms" not in collected
-
-    integration = GunicornIntegration(SDKConfig(disabled=False))
-    assert integration.is_installed() is True
-    assert integration.instrument() is True
-    assert integration.uninstrument() is True
