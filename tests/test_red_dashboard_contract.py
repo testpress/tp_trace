@@ -21,7 +21,12 @@ def panel(filename, panel_id):
 def expression(filename, panel_id, ref):
     expr = next(t["expr"] for t in panel(filename, panel_id)["targets"] if t["refId"] == ref)
     expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
-    return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m").replace("$__range", "1h")
+    return (
+        re.sub(r"\$\{[^}]+\}", ".*", expr)
+        .replace("$__rate_interval", "5m")
+        .replace("$__range_s", "3600")
+        .replace("$__range", "1h")
+    )
 
 
 def promtool():
@@ -51,11 +56,42 @@ def collector_fixture(series):
 
 
 def evaluate(tmp_path, expr, series, expected, interval="1m"):
+    rules = tmp_path / "recording_rules.yml"
+    rules.write_text(
+        yaml.safe_dump(
+            {
+                "groups": [
+                    {
+                        "name": "apm_1m_rollups",
+                        "interval": "1m",
+                        "rules": [
+                            {
+                                "record": "apm:calls:increase1m",
+                                "expr": "sum by (project_name, cluster_name, instance, normalized_service, span_kind, error, db_system, db_instance, db_connection_pool) (increase(apm_calls_total[2m]))",
+                            },
+                            {
+                                "record": "apm:duration_milliseconds_bucket:increase1m",
+                                "expr": "sum by (le, project_name, cluster_name, instance, normalized_service, span_kind, latency_profile, db_system, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_bucket[2m]))",
+                            },
+                            {
+                                "record": "apm:operation_calls:increase1m",
+                                "expr": "sum by (project_name, cluster_name, instance, normalized_service, normalized_operation, span_kind, error, db_instance, db_connection_pool) (increase(apm_calls_total[2m]))",
+                            },
+                            {
+                                "record": "apm:operation_duration_milliseconds_bucket:increase1m",
+                                "expr": "sum by (le, project_name, cluster_name, instance, normalized_service, normalized_operation, span_kind, latency_profile, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_bucket[2m]))",
+                            },
+                        ],
+                    }
+                ]
+            }
+        )
+    )
     fixture = tmp_path / "queries.yml"
     fixture.write_text(
         yaml.safe_dump(
             {
-                "rule_files": [],
+                "rule_files": [str(rules)],
                 "evaluation_interval": "1m",
                 "tests": [
                     {
@@ -251,7 +287,12 @@ def test_catalog_total_calls_handles_counter_resets(tmp_path):
 def test_service_overview_and_n_plus_one_total_calls_handle_new_workers(tmp_path):
     def prep_expr(filename, panel_id, ref):
         expr = next(t["expr"] for t in panel(filename, panel_id)["targets"] if t["refId"] == ref)
-        return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m").replace("$__range", "1h")
+        return (
+        re.sub(r"\$\{[^}]+\}", ".*", expr)
+        .replace("$__rate_interval", "5m")
+        .replace("$__range_s", "3600")
+        .replace("$__range", "1h")
+    )
 
     expr_overview = prep_expr("Supporting Dashboards/service_overview.json", 9, "B")
     expr_n1 = prep_expr("Supporting Dashboards/n_plus_one_detail.json", 10, "A")
@@ -890,7 +931,7 @@ def test_server_filter_uses_prometheus_escaping(tmp_path, selected):
                 expr = expr.replace("${server}", regex)
                 expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
                 expr = re.sub(r"\$\{[^}]+\}", ".*", expr)
-                expr = expr.replace("$__rate_interval", "5m").replace("$__range", "1h")
+                expr = expr.replace("$__rate_interval", "5m").replace("$__range_s", "3600").replace("$__range", "1h")
                 rules.append({"record": "server_filter_" + str(len(rules)), "expr": expr})
     assert rules
     fixture = tmp_path / "server_filters.yml"

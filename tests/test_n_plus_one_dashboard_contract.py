@@ -297,7 +297,7 @@ def test_dashboards_only_query_collector_red_metrics():
 
     for path in DASHBOARDS.rglob("*.json"):
         text = path.read_text()
-        assert not re.search(r"(?<!apm_)\bcalls_total\b|(?<!apm_)\bduration_milliseconds", text), path
+        assert not re.search(r"(?<!apm_)(?<!apm:)\bcalls_total\b|(?<!apm_)(?<!apm:)\bduration_milliseconds", text), path
         for _, target in _all_targets(json.loads(text)):
             if "apm_calls_total" in target.get("expr", ""):
                 assert "span_name" not in target["expr"], path
