@@ -137,6 +137,7 @@ def run_benchmark(
     wait_for_exports(delay)
     window = f"{max(1, round(elapsed * 1000))}ms"
     selector = f'project_name={json.dumps(project_name)}, normalized_service="django"'
+    latency_selector = selector + ', latency_profile="web"'
 
     def value(expr):
         return metric_value(query_prometheus(prom_url, expr, evaluation_time))
@@ -144,8 +145,8 @@ def run_benchmark(
     calls = value(f"sum(increase(apm_calls_total{{{selector}}}[{window}]))")
     server_rps = calls / elapsed if calls is not None else None
     ratio = calls / requests * 100 if calls is not None and requests > 0 else None
-    p50 = value(f"histogram_quantile(0.50, sum by (le) (rate(apm_duration_milliseconds_bucket{{{selector}}}[{window}])))")
-    p95 = value(f"histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{{{selector}}}[{window}])))")
+    p50 = value(f"histogram_quantile(0.50, sum by (le) (rate(apm_duration_milliseconds_bucket{{{latency_selector}}}[{window}])))")
+    p95 = value(f"histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{{{latency_selector}}}[{window}])))")
     print(f"APPROXIMATE BENCHMARK ({elapsed:.2f}s, evaluated at {evaluation_time:.3f})")
     print(
         format_table(
@@ -172,6 +173,7 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
     client = aggregate(locust)
     evaluation_time = time.time()
     selector = f'project_name={json.dumps(project_name)}, normalized_service="django"'
+    latency_selector = selector + ', latency_profile="web"'
 
     def value(expr):
         return metric_value(query_prometheus(prom_url, expr, evaluation_time))
@@ -192,7 +194,7 @@ def run_comparison(locust_url: str, prom_url: str, project_name: str, window: st
         (0.99, "response_time_percentile_0.99"),
     ]:
         latency = value(
-            f"histogram_quantile({quantile}, sum by (le) (rate(apm_duration_milliseconds_bucket{{{selector}}}[{window}])))"
+            f"histogram_quantile({quantile}, sum by (le) (rate(apm_duration_milliseconds_bucket{{{latency_selector}}}[{window}])))"
         )
         rows.append([f"P{int(quantile * 100)}", display(client.get(key), " ms"), display(latency, " ms")])
     print(format_table(["Metric", "Locust run", f"Prometheus [{window}] estimate"], rows))

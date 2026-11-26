@@ -31,15 +31,32 @@ def promtool():
     return executable
 
 
+def latency_profile(series_name):
+    """Mirror the Collector's profile classification for synthetic bucket series."""
+    if 'db_system="redis"' in series_name or 'normalized_service="redis"' in series_name:
+        return "fast"
+    if 'normalized_service="celery"' in series_name and 'span_kind="SPAN_KIND_PRODUCER"' in series_name:
+        return "fast"
+    db_labels = (
+        'db_system=~"postgresql|postgres"', 'db_system="postgresql"',
+        'normalized_service="postgres"', 'normalized_service="pgbouncer"',
+    )
+    if any(label in series_name for label in db_labels):
+        return "db"
+    return "web"
+
+
 def collector_fixture(series):
-    """Supply Collector identity/kind labels on synthetic RED populations."""
+    """Supply Collector identity/kind/profile labels on synthetic RED populations."""
     result = []
     for item in series:
         item = dict(item)
         name = item["series"]
         if name.startswith(("apm_calls_total{", "apm_duration_milliseconds")):
             labels = []
-            if 'instance=' not in name:
+            if name.startswith("apm_duration_milliseconds_bucket{") and "latency_profile=" not in name:
+                labels.append(f'latency_profile="{latency_profile(name)}"')
+            if not re.search(r'(?<![A-Za-z0-9_])instance=', name):
                 labels.append('instance="collector"')
             if 'normalized_service="django"' in name and 'span_kind=' not in name:
                 labels.append('span_kind="SPAN_KIND_SERVER"')
@@ -489,7 +506,11 @@ def test_operation_graphs_handle_one_minute_exports(tmp_path, panel_id, ref, exp
     series = [{"series": "apm_calls_total{" + labels + "}", "values": values}]
     for le in ["100", "+Inf"]:
         series.append({"series": "apm_duration_milliseconds_bucket{" + labels + ',le="' + le + '"}', "values": values})
-    result_labels = '{http_status_code="500",status_label="HTTP 500"}' if panel_id == 202 else "{}"
+    result_labels = (
+        '{http_status_code="500",status_label="HTTP 500"}' if panel_id == 202
+        else '{latency_profile="web"}' if panel_id == 203
+        else "{}"
+    )
     evaluate(
         tmp_path,
         "round((" + expr + "), 0.000001)",
@@ -668,16 +689,39 @@ def test_pgbouncer_detail_queries_exclude_direct_connections(tmp_path, filename,
 
 
 def test_pgbouncer_latency_is_scoped_to_pooled_queries(tmp_path):
-    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",normalized_operation="GET /test/",db_instance="defaultdb",span_kind="SPAN_KIND_CLIENT"'
+    labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",normalized_operation="GET /test/",db_instance="defaultdb",span_kind="SPAN_KIND_CLIENT",latency_profile="db"'
     series = []
     for pool, values in [(False, (60, 60, 60)), (True, (0, 120, 120))]:
         for bound, value in zip(("100", "200", "+Inf"), values):
             extra = ',db_connection_pool="pgbouncer"' if pool else ''
             series.append({"series": 'apm_duration_milliseconds_bucket{' + labels + extra + ',le="' + bound + '"}', "values": '0+' + str(value) + 'x31'})
     expr = expression("Supporting Dashboards/service_overview.json", 8, "A")
-    evaluate(tmp_path, expr.replace('db_connection_pool=~".*"', 'db_connection_pool=~"pgbouncer"'), series, [{"labels": "{}", "value": 150}])
+    result = [{"labels": '{latency_profile="db"}', "value": 150}]
+    evaluate(tmp_path, expr.replace('db_connection_pool=~".*"', 'db_connection_pool=~"pgbouncer"'), series, result)
     # The default All filter must retain direct connections without the new label.
-    evaluate(tmp_path, expr, series, [{"labels": "{}", "value": 125}])
+    evaluate(tmp_path, expr, series, [{"labels": '{latency_profile="db"}', "value": 125}])
+
+
+@pytest.mark.parametrize("ref,web_value,fast_value", [
+    ("D", 750, 0.25),
+    ("E", 975, 0.475),
+    ("F", 995, 0.495),
+])
+def test_operations_summary_uses_native_bucket_bounds_per_profile(tmp_path, ref, web_value, fast_value):
+    """The table must resolve sub-5ms fast spans and >500ms web spans."""
+    web_labels = 'project_name="test",cluster_name="dev",db_instance="",normalized_service="django",normalized_operation="GET /slow",latency_profile="web"'
+    fast_labels = 'project_name="test",cluster_name="dev",db_instance="",db_system="redis",normalized_service="redis",normalized_operation="redis.get",latency_profile="fast"'
+    web_counts = {"5": 0, "10": 0, "25": 0, "100": 0, "250": 0, "500": 0, "1000": 100, "2500": 100, "5000": 100, "+Inf": 100}
+    fast_counts = {"0.5": 100, "1": 100, "2": 100, "5": 100, "10": 100, "25": 100, "100": 100, "250": 100, "500": 100, "+Inf": 100}
+    series = [
+        {"series": f'apm_duration_milliseconds_bucket{{{labels},le="{le}"}}', "values": f"0+{value}x31"}
+        for labels, counts in ((web_labels, web_counts), (fast_labels, fast_counts))
+        for le, value in counts.items()
+    ]
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 9, ref), series, [
+        {"labels": '{normalized_operation="GET /slow"}', "value": web_value},
+        {"labels": '{normalized_operation="redis.get"}', "value": fast_value},
+    ])
 
 
 def test_service_overview_always_includes_all_operations(tmp_path):
