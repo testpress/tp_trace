@@ -9,26 +9,6 @@
   "links": [
     {
       "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "Projects Overview",
-      "type": "link",
-      "url": "/d/tp-trace-projects-overview"
-    },
-    {
-      "asDropdown": false,
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "targetBlank": false,
-      "title": "Infra & Cluster Monitoring",
-      "type": "link",
-      "url": "/d/tp-trace-infra-monitoring"
-    },
-    {
-      "asDropdown": false,
       "icon": "exclamation-triangle",
       "includeVars": true,
       "keepTime": true,

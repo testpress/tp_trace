@@ -11,7 +11,7 @@ import yaml
 
 
 DASHBOARDS = Path(__file__).resolve().parents[1] / "grafana/dashboards"
-FILES = ["Supporting Dashboards/service_catalog.json", "Supporting Dashboards/operational_issues.json"]
+FILES = ["service_catalog.json", "Supporting Dashboards/operational_issues.json"]
 
 
 def panel(filename, panel_id):
@@ -830,58 +830,33 @@ def test_service_server_selection_isolates_collectors(tmp_path, selected, expect
     )
 
 
-def _dashboard_variables(dashboard):
-    if "templating" in dashboard:
-        return dashboard.get("templating", {}).get("list", [])
-    result = []
-    for item in dashboard.get("spec", {}).get("variables", []):
-        spec = dict(item.get("spec", {}))
-        q = spec.get("query")
-        if isinstance(q, dict):
-            spec["query"] = q.get("spec", {}).get("__legacyStringValue") or spec.get("definition", "")
-        result.append(spec)
-    return result
-
-
-def _dashboard_panel_targets(dashboard):
-    if "panels" in dashboard:
-        for item in dashboard.get("panels", []):
-            for target in item.get("targets", []):
-                yield item, target
-        return
-    for element in dashboard.get("spec", {}).get("elements", {}).values():
-        spec = element.get("spec", {})
-        for q in spec.get("data", {}).get("spec", {}).get("queries", []):
-            qspec = q.get("spec", {}).get("query", {}).get("spec", {})
-            yield spec, qspec
-
-
 def test_apm_dashboards_scope_metrics_and_links_by_server():
     dashboards = []
     for path in DASHBOARDS.rglob("*.json"):
         dashboard = json.loads(path.read_text())
-        variables = _dashboard_variables(dashboard)
-        if not any(v.get("name") == "cluster" for v in variables):
+        variables = dashboard.get("templating", {}).get("list", [])
+        if not any(v["name"] == "cluster" for v in variables):
             continue
         dashboards.append(path)
-        server = next(v for v in variables if v.get("name") == "server")
+        server = next(v for v in variables if v["name"] == "server")
         assert server["label"] == "Server"
         assert server["multi"] and server["includeAll"] and server["allValue"] == ".*"
         assert "${project:regex}" in server["query"] and "${cluster:regex}" in server["query"]
         assert server["query"].endswith(", instance)")
         for variable in variables:
-            if variable.get("name") in ("project", "cluster", "server"):
+            if variable["name"] in ("project", "cluster", "server"):
                 assert "${server:" not in variable["query"]
-        for item, target in _dashboard_panel_targets(dashboard):
-            expr = target.get("expr", "")
-            if "apm_" in expr:
-                # Expand templates before splitting PromQL selectors at braces.
-                expanded = re.sub(r"\$\{[^}]+\}", ".*", expr)
-                selectors = re.findall(r"\bapm_\w+\{([^}]+)\}", expanded)
-                assert selectors
-                assert all('instance=~`.*`' in selector for selector in selectors)
-            if target.get("queryType") == "traceql":
-                assert "not filtered by Server" in item["description"]
+        for item in dashboard.get("panels", []):
+            for target in item.get("targets", []):
+                expr = target.get("expr", "")
+                if "apm_" in expr:
+                    # Expand templates before splitting PromQL selectors at braces.
+                    expanded = re.sub(r"\$\{[^}]+\}", ".*", expr)
+                    selectors = re.findall(r"\bapm_\w+\{([^}]+)\}", expanded)
+                    assert selectors
+                    assert all('instance=~`.*`' in selector for selector in selectors)
+                if target.get("queryType") == "traceql":
+                    assert "not filtered by Server" in item["description"]
         serialized = json.dumps(dashboard)
         # Issue links use the row's cluster rather than the dashboard-wide selection.
         row_cluster_links = serialized.count("${__data.fields.cluster_name:percentencode}")
@@ -892,7 +867,7 @@ def test_apm_dashboards_scope_metrics_and_links_by_server():
         assert serialized.count("${server:queryparam}") == (
             serialized.count("${cluster:queryparam}") + row_cluster_links + issue_helpers
         )
-    assert len(dashboards) == 7
+    assert len(dashboards) == 6
 
 
 @pytest.mark.parametrize("selected", [["37.27.120.204"], ["app.example.com:8000", "37.27.120.204"], None])
@@ -906,16 +881,17 @@ def test_server_filter_uses_prometheus_escaping(tmp_path, selected):
     rules = []
     for path in DASHBOARDS.rglob("*.json"):
         dashboard = json.loads(path.read_text())
-        for _, target in _dashboard_panel_targets(dashboard):
-            expr = target.get("expr", "")
-            if "${server" not in expr:
-                continue
-            expr = expr.replace("${server:regex}", regex)
-            expr = expr.replace("${server}", regex)
-            expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
-            expr = re.sub(r"\$\{[^}]+\}", ".*", expr)
-            expr = expr.replace("$__rate_interval", "5m").replace("$__range", "1h")
-            rules.append({"record": "server_filter_" + str(len(rules)), "expr": expr})
+        for item in dashboard.get("panels", []):
+            for target in item.get("targets", []):
+                expr = target.get("expr", "")
+                if "${server" not in expr:
+                    continue
+                expr = expr.replace("${server:regex}", regex)
+                expr = expr.replace("${server}", regex)
+                expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
+                expr = re.sub(r"\$\{[^}]+\}", ".*", expr)
+                expr = expr.replace("$__rate_interval", "5m").replace("$__range", "1h")
+                rules.append({"record": "server_filter_" + str(len(rules)), "expr": expr})
     assert rules
     fixture = tmp_path / "server_filters.yml"
     fixture.write_text(yaml.safe_dump({"groups": [{"name": "server_filters", "rules": rules}]}))

@@ -26,31 +26,13 @@ def hardcoded_uid_paths(value, path=""):
             yield from hardcoded_uid_paths(child, f"{path}[{index}]")
 
 
-def _datasource_variables(dashboard):
-    if "templating" in dashboard:
-        return [
-            (f".templating.list[{index}].current.value", item)
-            for index, item in enumerate(dashboard["templating"]["list"])
-            if item.get("type") == "datasource"
-        ]
-    return [
-        (f".spec.variables[{index}].spec.current.value", {
-            "name": item["spec"].get("name"),
-            "query": item["spec"].get("pluginId"),
-            "current": item["spec"].get("current", {}),
-        })
-        for index, item in enumerate(dashboard.get("spec", {}).get("variables", []))
-        if item.get("kind") == "DatasourceVariable"
-    ]
-
-
 def test_every_dashboard_defines_the_prometheus_datasource_variable():
     for path in dashboard_files():
         dashboard = json.loads(path.read_text())
         variables = [
             item
-            for _, item in _datasource_variables(dashboard)
-            if item.get("name") == "DS_PROMETHEUS"
+            for item in dashboard["templating"]["list"]
+            if item.get("name") == "DS_PROMETHEUS" and item.get("type") == "datasource"
         ]
         assert len(variables) == 1, f"{path}: expected one DS_PROMETHEUS datasource variable"
         assert variables[0]["query"] == "prometheus"
@@ -62,9 +44,9 @@ def test_dashboards_reference_prometheus_through_the_datasource_variable():
     for path in dashboard_files():
         dashboard = json.loads(path.read_text())
         allowed_defaults = {
-            uid_path
-            for uid_path, item in _datasource_variables(dashboard)
-            if item.get("query") == "prometheus"
+            f".templating.list[{index}].current.value"
+            for index, item in enumerate(dashboard["templating"]["list"])
+            if item.get("type") == "datasource" and item.get("query") == "prometheus"
         }
         hardcoded = set(hardcoded_uid_paths(dashboard))
         assert hardcoded <= allowed_defaults, f"{path}: hardcoded UID at {sorted(hardcoded - allowed_defaults)}"

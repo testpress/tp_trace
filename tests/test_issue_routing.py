@@ -10,12 +10,12 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize('relative', ['Supporting Dashboards/service_catalog.json', 'Supporting Dashboards/operational_issues.json'])
+@pytest.mark.parametrize('relative', ['service_catalog.json', 'Supporting Dashboards/operational_issues.json'])
 def test_issue_investigation_routes(relative):
     if shutil.which("node") is None:
         pytest.skip("Node.js is required to execute Grafana dashboard helpers")
     dashboard = json.loads((ROOT / 'grafana/dashboards' / relative).read_text())
-    panel = next(p for p in dashboard['panels'] if p.get('id') == (160 if relative == 'Supporting Dashboards/service_catalog.json' else 20))
+    panel = next(p for p in dashboard['panels'] if p.get('id') == (160 if relative == 'service_catalog.json' else 20))
     script = r"""
 const assert = require('node:assert/strict');
 const helpers = {};
