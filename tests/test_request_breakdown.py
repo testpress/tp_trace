@@ -167,12 +167,97 @@ def test_span_processor_evicts_oldest_when_capped():
     s2 = tracer.start_span("r2", kind=SpanKind.SERVER)
     s3 = tracer.start_span("r3", kind=SpanKind.SERVER)
     try:
-        assert len(proc._active_requests) == 2
-        assert s1.get_span_context().trace_id not in proc._active_requests
-        assert s2.get_span_context().trace_id in proc._active_requests
-        assert s3.get_span_context().trace_id in proc._active_requests
+        assert len(proc._server_buckets) == 2
+        assert s1.get_span_context().span_id not in proc._server_buckets
+        assert s2.get_span_context().span_id in proc._server_buckets
+        assert s3.get_span_context().span_id in proc._server_buckets
     finally:
         s1.end()
         s2.end()
         s3.end()
         provider.shutdown()
+
+
+def test_compute_request_breakdown_large_n_plus_one_is_fast():
+    import time
+
+    intervals = [(i * 100_000, i * 100_000 + 50_000, "postgres", "default", "") for i in range(5000)]
+    t0 = time.monotonic()
+    res = compute_request_breakdown(_ms(0), _ms(600), intervals)
+    elapsed = time.monotonic() - t0
+    assert elapsed < 0.25
+    assert abs(res[("postgres", "default", "")] - 250.0) < 1e-6
+    assert abs(res[("django", "", "")] - 350.0) < 1e-6
+
+
+def test_span_processor_caps_intervals_per_request():
+    proc = RequestBreakdownSpanProcessor(max_intervals_per_request=3)
+    provider = TracerProvider()
+    provider.add_span_processor(proc)
+    tracer = provider.get_tracer("test")
+
+    try:
+        with tracer.start_as_current_span("outer", kind=SpanKind.SERVER) as srv:
+            sid = srv.get_span_context().span_id
+            for _ in range(5):
+                with tracer.start_as_current_span(
+                    "q",
+                    kind=SpanKind.CLIENT,
+                    attributes={"normalized.service": "postgres", "db.instance": "default"},
+                ):
+                    pass
+            assert len(proc._server_buckets[sid].intervals) == 3
+    finally:
+        provider.shutdown()
+
+
+def test_span_processor_isolates_nested_server_spans_sharing_trace_id():
+    reader = InMemoryMetricReader()
+    cfg = SDKConfig(project_name="proj-nested", cluster_name="dev")
+    recorder = create_red_metrics_recorder(config=cfg, metric_readers=[reader])
+    set_metrics_recorder(recorder)
+
+    provider = TracerProvider()
+    proc = RequestBreakdownSpanProcessor()
+    provider.add_span_processor(proc)
+    tracer = provider.get_tracer("test")
+
+    try:
+        with tracer.start_as_current_span(
+            "GET /outer/",
+            kind=SpanKind.SERVER,
+            attributes={"normalized.service": "django", "normalized.operation": "GET /outer/"},
+        ):
+            with tracer.start_as_current_span(
+                "redis_call",
+                kind=SpanKind.CLIENT,
+                attributes={"normalized.service": "redis"},
+            ):
+                pass
+            # Inner SERVER span in the same trace (e.g. in-process test client or self-call)
+            with tracer.start_as_current_span(
+                "GET /inner/",
+                kind=SpanKind.SERVER,
+                attributes={"normalized.service": "django", "normalized.operation": "GET /inner/"},
+            ):
+                with tracer.start_as_current_span(
+                    "inner_pg",
+                    kind=SpanKind.CLIENT,
+                    attributes={"normalized.service": "postgres", "db.instance": "default"},
+                ):
+                    pass
+
+        metrics_data = reader.get_metrics_data()
+        breakdown_points = []
+        for rm in metrics_data.resource_metrics:
+            for sm in rm.scope_metrics:
+                for metric in sm.metrics:
+                    if metric.name == "apm_request_time_breakdown_milliseconds_total":
+                        breakdown_points.extend(metric.data.data_points)
+
+        deps = {dp.attributes["dependency"] for dp in breakdown_points}
+        assert deps == {"django", "redis", "postgres / default"}
+    finally:
+        provider.shutdown()
+        recorder.shutdown()
+        set_metrics_recorder(None)
