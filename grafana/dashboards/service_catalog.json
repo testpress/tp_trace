@@ -23,7 +23,7 @@
       "includeVars": true,
       "keepTime": true,
       "targetBlank": false,
-      "title": "Collector Health",
+      "title": "Telemetry Pipeline",
       "type": "link",
       "url": "/d/tp-trace-otel-collector-health"
     },

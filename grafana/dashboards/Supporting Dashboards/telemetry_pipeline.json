@@ -8963,7 +8963,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "OpenTelemetry Collector \u2014 Health, Resource Usage & Metrics",
+  "title": "Telemetry Pipeline \u2014 Collector, Tempo & Prometheus",
   "uid": "tp-trace-otel-collector-health",
   "version": 6
 }
