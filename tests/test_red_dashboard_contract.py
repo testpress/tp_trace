@@ -51,11 +51,46 @@ def collector_fixture(series):
 
 
 def evaluate(tmp_path, expr, series, expected, interval="1m"):
+    rules = tmp_path / "recording_rules.yml"
+    rules.write_text(
+        yaml.safe_dump(
+            {
+                "groups": [
+                    {
+                        "name": "apm_1m_rollups",
+                        "interval": "1m",
+                        "rules": [
+                            {
+                                "record": "apm:calls:increase1m",
+                                "expr": "sum by (project_name, cluster_name, instance, normalized_service, span_kind, error, db_system, db_instance, db_connection_pool) (increase(apm_calls_total[2m]))",
+                            },
+                            {
+                                "record": "apm:duration_milliseconds_bucket:increase1m",
+                                "expr": "sum by (le, project_name, cluster_name, instance, normalized_service, span_kind, latency_profile, db_system, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_bucket[2m]))",
+                            },
+                            {
+                                "record": "apm:operation_calls:increase1m",
+                                "expr": "sum by (project_name, cluster_name, instance, normalized_service, normalized_operation, span_kind, error, db_instance, db_connection_pool) (increase(apm_calls_total[2m]))",
+                            },
+                            {
+                                "record": "apm:operation_duration_milliseconds_bucket:increase1m",
+                                "expr": "sum by (le, project_name, cluster_name, instance, normalized_service, normalized_operation, span_kind, latency_profile, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_bucket[2m]))",
+                            },
+                            {
+                                "record": "apm:duration_milliseconds_sum:increase1m",
+                                "expr": 'sum by (project_name, cluster_name, instance, normalized_service, span_kind, db_system, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_sum{normalized_operation!~"^django\\\\.command\\\\..*"}[2m]))',
+                            },
+                        ],
+                    }
+                ]
+            }
+        )
+    )
     fixture = tmp_path / "queries.yml"
     fixture.write_text(
         yaml.safe_dump(
             {
-                "rule_files": [],
+                "rule_files": [str(rules)],
                 "evaluation_interval": "1m",
                 "tests": [
                     {
