@@ -290,7 +290,7 @@ processors:
     metric_statements:
       - context: datapoint
         statements:
-          - 'set(datapoint.attributes["http.route"], Split(datapoint.attributes["normalized.operation"], " ")[1]) where datapoint.attributes["latency.profile"] == "web" and datapoint.attributes["normalized.operation"] != nil and Len(Split(datapoint.attributes["normalized.operation"], " ")) > 1'
+          - 'set(datapoint.attributes["http.route"], Split(datapoint.attributes["normalized.operation"], " ")[1]) where datapoint.attributes["latency.profile"] == "web" and datapoint.attributes["http.method"] != "" and datapoint.attributes["normalized.operation"] != nil and Len(Split(datapoint.attributes["normalized.operation"], " ")) > 1'
 
   batch:
     timeout: ${env:OTEL_COLLECTOR_BATCH_TIMEOUT:-500ms}

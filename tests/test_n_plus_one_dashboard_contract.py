@@ -300,12 +300,13 @@ def test_shared_delta_pipeline_preserves_worker_streams():
     processors = cfg["service"]["pipelines"]["metrics"]["processors"]
     assert processors.index("memory_limiter") < processors.index("deltatocumulative") < processors.index("batch")
     assert cfg["processors"]["deltatocumulative"] == {"max_stale": "5m", "max_streams": 50000}
-    # The only metric transform derives http_route for web RED series. It must
+    # The only metric transform derives http_route for HTTP web RED series. It must
     # not strip the datapoint worker_id that isolates SDK writers.
     assert [name for name in processors if name.startswith("transform/")] == ["transform/derive_http_route"]
     statements = cfg["processors"]["transform/derive_http_route"]["metric_statements"][0]["statements"]
     assert len(statements) == 1
     assert 'set(datapoint.attributes["http.route"]' in statements[0]
+    assert 'datapoint.attributes["http.method"] != ""' in statements[0]
     assert 'Split(datapoint.attributes["normalized.operation"], " ")' in statements[0]
     assert "delete_key" not in statements[0]
     # Verify SDK version/language/name attributes are stripped from metric resources
