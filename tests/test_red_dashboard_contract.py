@@ -518,7 +518,7 @@ def test_service_graphs_preserve_recent_error_spike(tmp_path, panel_id, expected
 
 
 def test_collector_monitoring_breaks_down_components_without_inventing_budgets(tmp_path):
-    components = panel("Supporting Dashboards/collector_monitoring.json", 403)
+    components = panel("Supporting Dashboards/telemetry_pipeline.json", 403)
     assert components["title"] == "Cardinality Utilization by Collector"
     targets = {t["refId"] for t in components["targets"]}
     assert targets == {"Utilization"}
@@ -536,7 +536,7 @@ def test_collector_monitoring_breaks_down_components_without_inventing_budgets(t
     def result(service, collector, value):
         return {"labels": '{collector_alias="' + collector + '",normalized_service="' + service + '"}', "value": value}
 
-    evaluate(tmp_path, expression("Supporting Dashboards/collector_monitoring.json", 403, "Utilization"), series, [
+    evaluate(tmp_path, expression("Supporting Dashboards/telemetry_pipeline.json", 403, "Utilization"), series, [
         result("django", "c1", 0.04), result("postgres", "c1", 0.02), result("django", "c2", 0.02),
     ])
     transform_ids = [t["id"] for t in components["transformations"]]
@@ -551,7 +551,7 @@ def test_collector_monitoring_breaks_down_components_without_inventing_budgets(t
 
 def test_collector_monitoring_distinguishes_grouping_from_stream_cap_drops(tmp_path):
     """Verify Collector Monitoring distinguishes SDK grouping from collector drops."""
-    p10 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 10)
+    p10 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/telemetry_pipeline.json").read_text())["panels"] if p["id"] == 10)
     t_sdk = next(t for t in p10["targets"] if t.get("refId") == "SDK_Grouping")
     t_col = next(t for t in p10["targets"] if t.get("refId") == "Stream_Drops")
     expr_sdk = re.sub(r"\$\{[^}]+\}", ".*", t_sdk["expr"]).replace("$__rate_interval", "5m")
@@ -587,7 +587,7 @@ def test_collector_monitoring_distinguishes_grouping_from_stream_cap_drops(tmp_p
 
 def test_collector_status_reports_up_state(tmp_path):
     """Verify that a collector reports UP status based on healthy telemetry."""
-    p10 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())["panels"] if p["id"] == 10)
+    p10 = next(p for p in json.loads((DASHBOARDS / "Supporting Dashboards/telemetry_pipeline.json").read_text())["panels"] if p["id"] == 10)
     t_status = next(t for t in p10["targets"] if t.get("refId") == "Status")
     expr_status = re.sub(r"\$\{[^}]+\}", ".*", t_status["expr"]).replace("$__rate_interval", "5m")
 
@@ -618,7 +618,7 @@ def test_catalog_keeps_zero_error_rows_for_collector_only_services(tmp_path):
 
 
 def test_cardinality_project_filter_and_simple_columns(tmp_path):
-    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/telemetry_pipeline.json").read_text())
     project = next(v for v in dashboard["templating"]["list"] if v["name"] == "project")
     assert not any(p["id"] == 404 for p in dashboard["panels"])
     assert project["includeAll"] and project["multi"]
@@ -627,7 +627,7 @@ def test_cardinality_project_filter_and_simple_columns(tmp_path):
         if item["id"] != 403:
             continue
         assert all('project_name=~"${project:regex}"' in t["expr"] for t in item["targets"])
-    expr = expression("Supporting Dashboards/collector_monitoring.json", 403, "Utilization").replace('project_name=~".*"', 'project_name=~"testpress"')
+    expr = expression("Supporting Dashboards/telemetry_pipeline.json", 403, "Utilization").replace('project_name=~".*"', 'project_name=~"testpress"')
     series = [
         {"series": 'apm_calls_total{project_name="testpress",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
         {"series": 'apm_calls_total{project_name="other",collector_alias="dev",normalized_service="django"}', "values": "0+60x31"},
@@ -901,7 +901,7 @@ def test_server_filter_uses_prometheus_escaping(tmp_path, selected):
 
 @pytest.mark.parametrize("component", ["receiver", "processor", "exporter"])
 def test_collector_component_filter_discovers_selected_collectors(tmp_path, component):
-    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/telemetry_pipeline.json").read_text())
     variable = next(v for v in dashboard["templating"]["list"] if v["name"] == component)
     query = variable["query"]
     if isinstance(query, dict):
@@ -932,7 +932,7 @@ def test_collector_component_filter_discovers_selected_collectors(tmp_path, comp
 def test_collector_outage_keeps_identity_and_reports_missing_telemetry(tmp_path, values, expected):
     evaluate(
         tmp_path,
-        expression("Supporting Dashboards/collector_monitoring.json", 10, "Status"),
+        expression("Supporting Dashboards/telemetry_pipeline.json", 10, "Status"),
         [{"series": 'up{source="otelcol-telemetry",collector_alias="dev",net_host_name="127.0.0.1"}',
           "values": values}],
         [{"labels": '{collector_alias="dev",net_host_name="127.0.0.1"}', "value": expected}],
@@ -940,13 +940,13 @@ def test_collector_outage_keeps_identity_and_reports_missing_telemetry(tmp_path,
 
 
 def test_collector_selector_remembers_missing_instances(tmp_path):
-    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/collector_monitoring.json").read_text())
+    dashboard = json.loads((DASHBOARDS / "Supporting Dashboards/telemetry_pipeline.json").read_text())
     variable = next(v for v in dashboard["templating"]["list"] if v["name"] == "instance")
     query = variable["query"][len("query_result("):-1]
     evaluate(tmp_path, query,
              [{"series": 'up{source="otelcol-telemetry",collector_alias="gone"}', "values": "1 stale"}],
              [{"labels": '{collector_alias="gone"}', "value": 1}])
-    status = panel("Supporting Dashboards/collector_monitoring.json", 10)
+    status = panel("Supporting Dashboards/telemetry_pipeline.json", 10)
     override = next(o for o in status["fieldConfig"]["overrides"] if o["matcher"]["options"] == "Status")
     mappings = next(p["value"] for p in override["properties"] if p["id"] == "mappings")
     assert mappings[0]["options"]["-1"]["text"] == "Telemetry missing"

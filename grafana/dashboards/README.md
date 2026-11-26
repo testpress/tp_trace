@@ -55,7 +55,7 @@ If a service or time range shows no data:
 
 1. Verify the time range and filters are correct.
 2. Confirm the service is instrumented and the process is running.
-3. Open **OpenTelemetry Collector — Health, Resource Usage & Metrics** and check:
+3. Open **Telemetry Pipeline — Collector, Tempo & Prometheus** and check:
 
 | Symptom | Likely cause |
 |---|---|
