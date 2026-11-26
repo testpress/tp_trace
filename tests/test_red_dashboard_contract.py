@@ -81,6 +81,10 @@ def evaluate(tmp_path, expr, series, expected, interval="1m"):
                                 "record": "apm:operation_duration_milliseconds_bucket:increase1m",
                                 "expr": "sum by (le, project_name, cluster_name, instance, normalized_service, normalized_operation, span_kind, latency_profile, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_bucket[2m]))",
                             },
+                            {
+                                "record": "apm:duration_milliseconds_sum:increase1m",
+                                "expr": 'sum by (project_name, cluster_name, instance, normalized_service, span_kind, db_system, db_instance, db_connection_pool) (increase(apm_duration_milliseconds_sum{normalized_operation!~"^django\\\\.command\\\\..*"}[2m]))',
+                            },
                         ],
                     }
                 ]
