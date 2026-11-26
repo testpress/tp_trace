@@ -117,6 +117,11 @@ class RedMetricsRecorder:
             description="Total observations grouped into __other__ due to cardinality limits",
             unit="1",
         )
+        self.request_time_breakdown_ms: Counter = self.meter.create_counter(
+            name="apm_request_time_breakdown_milliseconds_total",
+            description="Exact per-request time breakdown across Django and downstream dependencies in milliseconds",
+            unit="1",
+        )
         try:
             self.cardinality_tracked_gauge = self.meter.create_observable_gauge(
                 name="apm_cardinality_tracked",
@@ -257,6 +262,49 @@ class RedMetricsRecorder:
             self.cardinality_grouping_total.add(1, attributes)
         except Exception as exc:
             logger.debug("Failed to record cardinality grouping diagnostic: %s", exc)
+
+    def record_request_time_breakdown(
+        self,
+        *,
+        breakdown: Dict[Tuple[str, str, str], float],
+        project_name: Optional[str] = None,
+        cluster_name: Optional[str] = None,
+    ) -> None:
+        """Record exact per-request time breakdown milliseconds per component."""
+        try:
+            if not breakdown:
+                return
+            cfg = self.config
+            resolved_project = str(project_name or (cfg.project_name if cfg else None) or "default")
+            resolved_cluster = str(cluster_name or (cfg.cluster_name if cfg else None) or "")
+
+            current_pid = os.getpid()
+            cached_ident = self._cached_identity
+            if cached_ident is not None and cached_ident[0] == current_pid:
+                worker_identity = cached_ident[1]
+            else:
+                worker_identity = get_process_worker_identity(prefix=self.worker_id_prefix)
+                self._cached_identity = (current_pid, worker_identity)
+
+            for (norm_service, db_instance, db_pool), duration_ms in breakdown.items():
+                if duration_ms <= 0:
+                    continue
+                svc = str(norm_service or "django")
+                inst = str(db_instance or "")
+                dependency = f"{svc} / {inst}" if inst else svc
+                attributes: Dict[str, Any] = {
+                    "project_name": resolved_project,
+                    "cluster_name": resolved_cluster,
+                    "normalized_service": svc,
+                    "db_instance": inst,
+                    "db_connection_pool": str(db_pool or ""),
+                    "dependency": dependency,
+                    "worker_id": worker_identity,
+                    "metric_source": "tp_trace_sdk",
+                }
+                self.request_time_breakdown_ms.add(float(duration_ms), attributes)
+        except Exception as exc:
+            logger.debug("Failed to record request time breakdown: %s", exc)
 
     def record_request(
         self,
@@ -448,6 +496,7 @@ def create_red_metrics_recorder(
     if view_kwargs:
         views.append(View(instrument_name="apm_repeated_query_affected_requests_total", **view_kwargs))
         views.append(View(instrument_name="apm_cardinality_grouping_total", **view_kwargs))
+        views.append(View(instrument_name="apm_request_time_breakdown_milliseconds_total", **view_kwargs))
 
     if resource is None:
         res_attrs: Dict[str, Any] = {}
@@ -639,6 +688,30 @@ def record_cardinality_grouping(
         service=service,
         scope=scope,
         cause=cause,
+        project_name=project_name,
+        cluster_name=cluster_name,
+    )
+
+
+def record_request_time_breakdown(
+    *,
+    breakdown: Dict[Tuple[str, str, str], float],
+    project_name: Optional[str] = None,
+    cluster_name: Optional[str] = None,
+) -> None:
+    """Record exact per-request time breakdown milliseconds using the active recorder.
+
+    Idempotent and safe: if no recorder is active or disabled, this is a no-op.
+    """
+    recorder = _ACTIVE_RECORDER
+    if recorder is None:
+        return
+
+    if recorder.config and recorder.config.disabled:
+        return
+
+    recorder.record_request_time_breakdown(
+        breakdown=breakdown,
         project_name=project_name,
         cluster_name=cluster_name,
     )
