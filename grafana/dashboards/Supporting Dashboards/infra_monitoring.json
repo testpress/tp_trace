@@ -1477,7 +1477,7 @@
         "kind": "Panel",
         "spec": {
           "id": 54,
-          "title": "Total Request Rate",
+          "title": "Total Request Rate (RPS)",
           "description": "Total Nginx upstream request rate across selected project/clusters.",
           "links": [
             {
@@ -1544,6 +1544,175 @@
               }
             }
           }
+        }
+      },
+      "panel-60": {
+        "kind": "Panel",
+        "spec": {
+          "id": 60,
+          "title": "Django Request Time Breakdown (estimated)",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Nginx Metrics Dashboard",
+              "url": "/d/nginx-vts-comprehensive?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "hidden": false,
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(100 * clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) / ((clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) + ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0)))) > 0)) and on () ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) > 0)",
+                        "legendFormat": "django"
+                      }
+                    },
+                    "refId": "H"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "hidden": false,
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(label_replace(label_replace(label_join(((100 * (sum by (normalized_service, db_instance) (rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval]))) / on () group_left() ((clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) + ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0)))) > 0)) and on (normalized_service, db_instance) (sum by (normalized_service, db_instance) (increase(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__range] @ end())) > 0)), \"dependency\", \" / \", \"normalized_service\", \"db_instance\"), \"dependency\", \"$1\", \"dependency\", \"(.*) / \"), \"dependency\", \"unknown client\", \"dependency\", \"^$\")) and on () ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) > 0)",
+                        "legendFormat": "{{dependency}}"
+                      }
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "hidden": false,
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(label_replace(label_replace(label_join(((100 * (sum by (normalized_service, db_instance) (rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"redis\"}[$__rate_interval]))) / on () group_left() ((clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) + ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0)))) > 0)) and on (normalized_service, db_instance) (sum by (normalized_service, db_instance) (increase(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"redis\"}[$__range] @ end())) > 0)), \"dependency\", \" / \", \"normalized_service\", \"db_instance\"), \"dependency\", \"$1\", \"dependency\", \"(.*) / \"), \"dependency\", \"unknown client\", \"dependency\", \"^$\")) and on () ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) > 0)",
+                        "legendFormat": "{{dependency}}"
+                      }
+                    },
+                    "refId": "B"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "hidden": false,
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(label_replace(label_replace(label_join(((100 * (sum by (normalized_service, db_instance) (rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"requests\"}[$__rate_interval]))) / on () group_left() ((clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) + ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0)))) > 0)) and on (normalized_service, db_instance) (sum by (normalized_service, db_instance) (increase(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"requests\"}[$__range] @ end())) > 0)), \"dependency\", \" / \", \"normalized_service\", \"db_instance\"), \"dependency\", \"$1\", \"dependency\", \"(.*) / \"), \"dependency\", \"unknown client\", \"dependency\", \"^$\")) and on () ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) > 0)",
+                        "legendFormat": "{{dependency}}"
+                      }
+                    },
+                    "refId": "C"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "hidden": false,
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(label_replace(label_replace(label_join(((100 * (sum by (normalized_service, db_instance) (rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=~\"aws-.*\"}[$__rate_interval]))) / on () group_left() ((clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) + ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0)))) > 0)) and on (normalized_service, db_instance) (sum by (normalized_service, db_instance) (increase(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=~\"aws-.*\"}[$__range] @ end())) > 0)), \"dependency\", \" / \", \"normalized_service\", \"db_instance\"), \"dependency\", \"$1\", \"dependency\", \"(.*) / \"), \"dependency\", \"unknown client\", \"dependency\", \"^$\")) and on () ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) > 0)",
+                        "legendFormat": "{{dependency}}"
+                      }
+                    },
+                    "refId": "D"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "hidden": false,
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(label_replace(label_replace(label_join(((100 * (sum by (normalized_service, db_instance) (rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|postgres|pgbouncer|redis|requests|aws-.*\"}[$__rate_interval]))) / on () group_left() ((clamp_min((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) - ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0))), 0) + ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service=\"postgres\"}[$__rate_interval])) or vector(0)) + (sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|pgbouncer|postgres\"}[$__rate_interval])) or vector(0)))) > 0)) and on (normalized_service, db_instance) (sum by (normalized_service, db_instance) (increase(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"django|celery|postgres|pgbouncer|redis|requests|aws-.*\"}[$__range] @ end())) > 0)), \"dependency\", \" / \", \"normalized_service\", \"db_instance\"), \"dependency\", \"$1\", \"dependency\", \"(.*) / \"), \"dependency\", \"unknown client\", \"dependency\", \"^$\")) and on () ((sum(rate(apm_duration_milliseconds_sum{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"django\",normalized_operation!~\"^django\\\\.command\\\\..*\",span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))) > 0)",
+                        "legendFormat": "{{dependency}}"
+                      }
+                    },
+                    "refId": "G"
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 70,
+                    "lineWidth": 1,
+                    "showPoints": "never",
+                    "stacking": {
+                      "group": "A",
+                      "mode": "normal"
+                    }
+                  },
+                  "max": 100,
+                  "min": 0,
+                  "unit": "percent"
+                },
+                "overrides": []
+              }
+            }
+          },
+          "description": "Estimated share of Django request time across Python/App, PostgreSQL, Redis, and HTTP/AWS dependencies."
         }
       }
     },
@@ -1648,6 +1817,15 @@
                         "element": {
                           "kind": "ElementReference",
                           "name": "panel-5"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-60"
                         }
                       }
                     }
