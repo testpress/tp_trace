@@ -21,7 +21,12 @@ def panel(filename, panel_id):
 def expression(filename, panel_id, ref):
     expr = next(t["expr"] for t in panel(filename, panel_id)["targets"] if t["refId"] == ref)
     expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
-    return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m").replace("$__range", "1h")
+    return (
+        re.sub(r"\$\{[^}]+\}", ".*", expr)
+        .replace("$__rate_interval", "5m")
+        .replace("$__range_s", "3600")
+        .replace("$__range", "1h")
+    )
 
 
 def promtool():
@@ -286,7 +291,12 @@ def test_catalog_total_calls_handles_counter_resets(tmp_path):
 def test_service_overview_and_n_plus_one_total_calls_handle_new_workers(tmp_path):
     def prep_expr(filename, panel_id, ref):
         expr = next(t["expr"] for t in panel(filename, panel_id)["targets"] if t["refId"] == ref)
-        return re.sub(r"\$\{[^}]+\}", ".*", expr).replace("$__rate_interval", "5m").replace("$__range", "1h")
+        return (
+        re.sub(r"\$\{[^}]+\}", ".*", expr)
+        .replace("$__rate_interval", "5m")
+        .replace("$__range_s", "3600")
+        .replace("$__range", "1h")
+    )
 
     expr_overview = prep_expr("Supporting Dashboards/service_overview.json", 9, "B")
     expr_n1 = prep_expr("Supporting Dashboards/n_plus_one_detail.json", 10, "A")
@@ -925,7 +935,7 @@ def test_server_filter_uses_prometheus_escaping(tmp_path, selected):
                 expr = expr.replace("${server}", regex)
                 expr = expr.replace("${operation:doublequote}", json.dumps("GET /test/"))
                 expr = re.sub(r"\$\{[^}]+\}", ".*", expr)
-                expr = expr.replace("$__rate_interval", "5m").replace("$__range", "1h")
+                expr = expr.replace("$__rate_interval", "5m").replace("$__range_s", "3600").replace("$__range", "1h")
                 rules.append({"record": "server_filter_" + str(len(rules)), "expr": expr})
     assert rules
     fixture = tmp_path / "server_filters.yml"
