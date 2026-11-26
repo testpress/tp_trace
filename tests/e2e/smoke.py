@@ -107,7 +107,7 @@ def main():
     for uid in ("tempo", "_IY366MMk"):
         assert request(grafana + "/api/datasources/uid/" + uid + "/health")["status"] == "OK"
     expected = {
-        json.loads(p.read_text())["uid"]
+        (d := json.loads(p.read_text())).get("uid") or d["metadata"]["name"]
         for p in (Path(__file__).resolve().parents[2] / "grafana/dashboards").rglob("*.json")
         if p.name != "_folder.json"
     }
