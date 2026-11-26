@@ -199,14 +199,17 @@ def test_span_processor_caps_intervals_per_request():
     try:
         with tracer.start_as_current_span("outer", kind=SpanKind.SERVER) as srv:
             sid = srv.get_span_context().span_id
-            for _ in range(5):
-                with tracer.start_as_current_span(
-                    "q",
-                    kind=SpanKind.CLIENT,
-                    attributes={"normalized.service": "postgres", "db.instance": "default"},
-                ):
-                    pass
+            with tracer.start_as_current_span("internal_step", kind=SpanKind.INTERNAL):
+                for _ in range(5):
+                    with tracer.start_as_current_span(
+                        "q",
+                        kind=SpanKind.CLIENT,
+                        attributes={"normalized.service": "postgres", "db.instance": "default"},
+                    ):
+                        pass
             assert len(proc._server_buckets[sid].intervals) == 3
+            assert proc._server_buckets[sid].dropped_intervals == 2
+        assert proc._span_parents == {}
     finally:
         provider.shutdown()
 
