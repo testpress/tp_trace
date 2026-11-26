@@ -31,7 +31,7 @@ def test_smoke_routes_ingestion_storage_and_dependencies_to_selected_hosts(monke
     urls = []
     calls_queries = []
     dashboards = [
-        {"uid": (d := json.loads(path.read_text())).get("uid") or d["metadata"]["name"]}
+        {"uid": json.loads(path.read_text())["uid"]}
         for path in (Path(__file__).parents[1] / "grafana/dashboards").rglob("*.json")
         if path.name != "_folder.json"
     ]
