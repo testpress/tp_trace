@@ -505,6 +505,15 @@
                         "text": "$1"
                       }
                     }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^(.+)-(.+)$",
+                      "result": {
+                        "text": "$1 ($2)"
+                      }
+                    }
                   }
                 ]
               }
@@ -710,6 +719,30 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "normalized_service"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "db_connection_pool"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
           }
         ]
       },
@@ -758,7 +791,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "label_join((100 * (sum by (normalized_service, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\",error=\"true\"}[$__range])) or 0 * sum by (normalized_service, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) / sum by (normalized_service, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_connection_pool\")",
+          "expr": "sum by (ServiceKey) (label_join((100 * (sum by (normalized_service, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\",error=\"true\"}[$__range])) or 0 * sum by (normalized_service, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])))) / sum by (normalized_service, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_connection_pool\"))",
           "format": "table",
           "instant": true,
           "legendFormat": "Error Rate",
@@ -771,7 +804,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "label_join(histogram_quantile(0.95, sum by (normalized_service, db_connection_pool, le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))), \"ServiceKey\", \"-\", \"normalized_service\", \"db_connection_pool\")",
+          "expr": "sum by (ServiceKey) (label_join(histogram_quantile(0.95, sum by (normalized_service, db_connection_pool, le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range]))), \"ServiceKey\", \"-\", \"normalized_service\", \"db_connection_pool\"))",
           "format": "table",
           "instant": true,
           "legendFormat": "P95 Latency",
@@ -784,7 +817,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "label_join(sum by (normalized_service, db_connection_pool) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_connection_pool\")",
+          "expr": "sum by (ServiceKey) (label_join(sum by (normalized_service, db_connection_pool) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!=\"SPAN_KIND_INTERNAL\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_connection_pool\"))",
           "format": "table",
           "instant": true,
           "legendFormat": "Total Calls",
@@ -820,9 +853,7 @@
               "Time 1": true,
               "Time 2": true,
               "Time 3": true,
-              "Time 4": true,
-              "normalized_service": true,
-              "db_connection_pool": true
+              "Time 4": true
             },
             "indexByName": {
               "ServiceKey": 0,
