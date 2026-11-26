@@ -702,20 +702,25 @@ def test_pgbouncer_latency_is_scoped_to_pooled_queries(tmp_path):
     evaluate(tmp_path, expr, series, [{"labels": '{latency_profile="db"}', "value": 125}])
 
 
-def test_operations_summary_uses_common_bucket_bounds_across_profiles(tmp_path):
-    """The one-row-per-operation table must not merge fast/web bucket boundaries."""
-    common = 'project_name="test",cluster_name="dev",db_instance="",normalized_operation="GET /web",'
-    web = common + 'normalized_service="django",latency_profile="web"'
-    fast = common + 'db_system="redis",normalized_service="redis",latency_profile="fast"'
-    web_counts = {"5": 0, "10": 0, "25": 0, "100": 100, "250": 100, "500": 100, "1000": 100, "2500": 100, "5000": 100, "+Inf": 100}
+@pytest.mark.parametrize("ref,web_value,fast_value", [
+    ("D", 750, 0.25),
+    ("E", 975, 0.475),
+    ("F", 995, 0.495),
+])
+def test_operations_summary_uses_native_bucket_bounds_per_profile(tmp_path, ref, web_value, fast_value):
+    """The table must resolve sub-5ms fast spans and >500ms web spans."""
+    web_labels = 'project_name="test",cluster_name="dev",db_instance="",normalized_service="django",normalized_operation="GET /slow",latency_profile="web"'
+    fast_labels = 'project_name="test",cluster_name="dev",db_instance="",db_system="redis",normalized_service="redis",normalized_operation="redis.get",latency_profile="fast"'
+    web_counts = {"5": 0, "10": 0, "25": 0, "100": 0, "250": 0, "500": 0, "1000": 100, "2500": 100, "5000": 100, "+Inf": 100}
     fast_counts = {"0.5": 100, "1": 100, "2": 100, "5": 100, "10": 100, "25": 100, "100": 100, "250": 100, "500": 100, "+Inf": 100}
     series = [
         {"series": f'apm_duration_milliseconds_bucket{{{labels},le="{le}"}}', "values": f"0+{value}x31"}
-        for labels, counts in ((web, web_counts), (fast, fast_counts))
+        for labels, counts in ((web_labels, web_counts), (fast_labels, fast_counts))
         for le, value in counts.items()
     ]
-    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 9, "D"), series, [
-        {"labels": '{normalized_operation="GET /web"}', "value": 5},
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 9, ref), series, [
+        {"labels": '{normalized_operation="GET /slow"}', "value": web_value},
+        {"labels": '{normalized_operation="redis.get"}', "value": fast_value},
     ])
 
 

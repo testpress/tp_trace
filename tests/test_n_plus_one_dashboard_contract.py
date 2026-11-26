@@ -196,7 +196,7 @@ def test_collector_spanmetrics_pipeline_and_filters():
     assert any('"web"' in statement for statement in profile_statements)
 
     profiles = {
-        "fast": (["0.5ms", "1ms", "2ms", "5ms", "10ms", "25ms", "100ms", "250ms", "500ms"], {"1s", "2.5s", "5s"}),
+        "fast": (["0.5ms", "1ms", "2ms", "5ms", "10ms", "25ms", "100ms", "250ms", "500ms", "1s", "2.5s"], {"5s"}),
         "db": (["1ms", "2ms", "5ms", "10ms", "25ms", "100ms", "250ms", "500ms", "1s", "2.5s"], {"0.5ms", "5s"}),
         "web": (["5ms", "10ms", "25ms", "100ms", "250ms", "500ms", "1s", "2.5s", "5s"], {"0.5ms", "1ms", "2ms"}),
     }
@@ -260,12 +260,7 @@ def test_profile_specific_bucket_queries_never_merge_histograms():
                 fields = [field.strip() for field in grouping.group(1).split(",")]
                 selectors = bucket_selectors(expr)
                 assert selectors, f"{path.name} panel {panel.get('id')} has no bucket selector"
-                common_bounds = r'le=~"5|10|25|100|250|500|\\+Inf"'
-                profile_safe = (
-                    "latency_profile" in fields
-                    or all("latency_profile=" in s for s in selectors)
-                    or all(common_bounds in s for s in selectors)
-                )
+                profile_safe = "latency_profile" in fields or all("latency_profile=" in s for s in selectors)
                 assert profile_safe, (
                     f"{path.name} panel {panel.get('id')} target {target.get('refId')} merges incompatible buckets"
                 )
@@ -277,8 +272,9 @@ def test_operations_summary_table_keeps_one_row_per_operation():
     for target in panel["targets"]:
         if "apm_duration_milliseconds_bucket" in target.get("expr", ""):
             assert "latency_profile=" not in target["expr"]
-            assert "latency_profile)" not in target["expr"]
-            assert r'le=~"5|10|25|100|250|500|\\+Inf"' in target["expr"]
+            assert "sum by (le, normalized_operation, latency_profile)" in target["expr"]
+            assert "max by (normalized_operation) (histogram_quantile(" in target["expr"]
+            assert "le=~" not in target["expr"]
     join = next(t for t in panel["transformations"] if t["id"] == "joinByField")
     assert join["options"]["byField"] == "normalized_operation"
 

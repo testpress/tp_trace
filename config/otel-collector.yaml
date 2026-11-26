@@ -52,6 +52,8 @@ connectors:
           - 100ms
           - 250ms
           - 500ms
+          - 1s
+          - 2.5s
     # Redis and Celery producers carry no HTTP or connection-pool context.
     dimensions:
       - name: db.system
