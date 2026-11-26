@@ -262,7 +262,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 1,
-          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (span.repeated_query.detected = true || span.n_plus_one.detected = true) && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && span.http.method =~ \"${method:regex}\" && span.http.route_template = \"${route:raw}\" } | { (span.repeated_query.detected = true || span.n_plus_one.detected = true) } | select(span.n_plus_one.dominant_query, span.n_plus_one.dominant_count, span.django.view, span.http.route_template, span.http.method, span.normalized.service)",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "spans"

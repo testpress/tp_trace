@@ -772,7 +772,7 @@
             "uid": "${DS_TEMPO}"
           },
           "limit": 50,
-          "query": "{ (\"${db_pool:raw}\" = \".*\" || span.db.connection.pool =~ \"${db_pool:regex}\") && resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" && (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) && (status = error || span.error = true) }",
+          "query": "{ resource.project_name =~ \"${project:regex}\" && resource.cluster_name =~ \"${cluster:regex}\" } | { (resource.service.name = ${service:doublequote} || span.normalized.service = ${service:doublequote}) } | { (status = error || span.error = true) } | { (\"${db_pool:raw}\" = \".*\" || span.db.connection.pool =~ \"${db_pool:regex}\") }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
