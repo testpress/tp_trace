@@ -1,0 +1,1938 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2alpha1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "tp-trace-infra-monitoring"
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "query": {
+            "kind": "grafana",
+            "spec": {}
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "builtIn": true,
+          "legacyOptions": {
+            "type": "dashboard"
+          }
+        }
+      }
+    ],
+    "cursorSync": "Crosshair",
+    "description": "tp_trace \u2014 Unified Infrastructure & Cluster Monitoring. Bridges tp_trace project/cluster/server filters with node_exporter host metrics.",
+    "editable": true,
+    "elements": {
+      "panel-11": {
+        "kind": "Panel",
+        "spec": {
+          "id": 11,
+          "title": "Servers",
+          "description": "Servers in the selected project/cluster from node_exporter.",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Servers Overview",
+              "url": "/d/testpress-servers-overview?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "avg by (host_ip) (label_replace(100 - (avg by (instance) (rate(node_cpu_seconds_total{instance=~`(${server:regex}):9100`,mode=\"idle\"}[5m])) * 100), \"host_ip\", \"$1\", \"instance\", \"([^:]+):9100\")) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "avg by (host_ip) (label_replace(100 * (1 - (node_memory_MemAvailable_bytes{instance=~`(${server:regex}):9100`} / node_memory_MemTotal_bytes{instance=~`(${server:regex}):9100`})), \"host_ip\", \"$1\", \"instance\", \"([^:]+):9100\")) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "B",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "max by (host_ip) (label_replace(100 * (1 - (node_filesystem_avail_bytes{instance=~`(${server:regex}):9100`,fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/mnt/disk.*\"} / node_filesystem_size_bytes{instance=~`(${server:regex}):9100`,fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/mnt/disk.*\"})), \"host_ip\", \"$1\", \"instance\", \"([^:]+):9100\")) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "C",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "avg by (host_ip) (label_replace(node_load1{instance=~`(${server:regex}):9100`}, \"host_ip\", \"$1\", \"instance\", \"([^:]+):9100\")) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "D",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "group by (host_ip, alias) (label_replace(node_uname_info{job!=\"TpStorage Node Exporters\",instance=~`(${server:regex}):9100`}, \"host_ip\", \"$1\", \"instance\", \"([^:]+):9100\")) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "E",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "merge",
+                  "spec": {
+                    "id": "merge",
+                    "options": {}
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "id": "groupBy",
+                    "options": {
+                      "fields": {
+                        "Value #A": {
+                          "aggregations": [
+                            "firstNotNull"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "Value #B": {
+                          "aggregations": [
+                            "firstNotNull"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "Value #C": {
+                          "aggregations": [
+                            "firstNotNull"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "Value #D": {
+                          "aggregations": [
+                            "firstNotNull"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "alias": {
+                          "aggregations": [
+                            "firstNotNull"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "host_ip": {
+                          "aggregations": [],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "Value #E": true
+                      },
+                      "indexByName": {
+                        "Value #A (firstNotNull)": 2,
+                        "Value #B (firstNotNull)": 3,
+                        "Value #C (firstNotNull)": 4,
+                        "Value #D (firstNotNull)": 5,
+                        "alias (firstNotNull)": 0,
+                        "host_ip": 1
+                      },
+                      "renameByName": {
+                        "Value #A (firstNotNull)": "CPU %",
+                        "Value #B (firstNotNull)": "Memory %",
+                        "Value #C (firstNotNull)": "Max Disk %",
+                        "Value #D (firstNotNull)": "Load 1m",
+                        "alias (firstNotNull)": "Alias",
+                        "host_ip": "Server"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "table",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Server"
+                    },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "targetBlank": false,
+                            "title": "Focus Server",
+                            "url": "/d/tp-trace-infra-monitoring?${project:queryparam}&var-server=${__data.fields.Server:percentencode}&${__url_time_range}"
+                          },
+                          {
+                            "targetBlank": false,
+                            "title": "Open Service Catalog for Server",
+                            "url": "/d/tp-trace-project-catalog?${project:queryparam}&var-server=${__data.fields.Server:percentencode}&${__url_time_range}"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "CPU %"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green"
+                            },
+                            {
+                              "color": "yellow",
+                              "value": 50
+                            },
+                            {
+                              "color": "orange",
+                              "value": 70
+                            },
+                            {
+                              "color": "red",
+                              "value": 90
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "basic",
+                          "type": "color-background"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Memory %"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green"
+                            },
+                            {
+                              "color": "yellow",
+                              "value": 50
+                            },
+                            {
+                              "color": "orange",
+                              "value": 75
+                            },
+                            {
+                              "color": "red",
+                              "value": 90
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "basic",
+                          "type": "color-background"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Max Disk %"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green"
+                            },
+                            {
+                              "color": "orange",
+                              "value": 75
+                            },
+                            {
+                              "color": "red",
+                              "value": 90
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "basic",
+                          "type": "color-background"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Load 1m"
+                    },
+                    "properties": [
+                      {
+                        "id": "decimals",
+                        "value": 2
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "panel-42": {
+        "kind": "Panel",
+        "spec": {
+          "id": 42,
+          "title": "Redis Hit Ratio by Server (%)",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Redis Health",
+              "url": "/d/testpress-redis-wow?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "(avg by (host_ip) (label_replace(rate(redis_keyspace_hits_total{instance=~`redis://(${server:regex}):6379.*`}[$__rate_interval]) / clamp_min(rate(redis_keyspace_hits_total{instance=~`redis://(${server:regex}):6379.*`}[$__rate_interval]) + rate(redis_keyspace_misses_total{instance=~`redis://(${server:regex}):6379.*`}[$__rate_interval]), 1e-9), \"host_ip\", \"$1\", \"instance\", \"redis://([^:]+):.*\")) * 100) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "legendFormat": "{{host_ip}}"
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "min"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "min": 0,
+                  "max": 100,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": null,
+                        "color": "red"
+                      },
+                      {
+                        "value": 75,
+                        "color": "yellow"
+                      },
+                      {
+                        "value": 90,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "thresholdsStyle": {
+                      "mode": "line"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-43": {
+        "kind": "Panel",
+        "spec": {
+          "id": 43,
+          "title": "Redis OPS by Server (Commands/sec)",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Redis Health",
+              "url": "/d/testpress-redis-wow?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "avg by (host_ip) (label_replace(rate(redis_commands_processed_total{instance=~`redis://(${server:regex}):6379.*`}[$__rate_interval]), \"host_ip\", \"$1\", \"instance\", \"redis://([^:]+):.*\")) * on(host_ip) group_left() group by (host_ip) (label_replace(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,span_kind=\"SPAN_KIND_SERVER\",instance!=\"\"}, \"host_ip\", \"$1\", \"instance\", \"(.+)\"))",
+                        "legendFormat": "{{host_ip}}"
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ops",
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Installed Services",
+          "description": "Dynamically detected services from telemetry. Click any service name to open its dedicated dashboard. Database display names end in db; drill-downs retain the original database identity. PgBouncer is the subset of PostgreSQL queries routed through the pool and remains included in database totals. Its row excludes connection-establishment spans and does not measure pool occupancy or waiting clients.",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Service Catalog (APM)",
+              "url": "/d/tp-trace-project-catalog?${project:queryparam}&${cluster:queryparam}&${server:queryparam}&${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": false,
+                        "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or (0 * (sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]))))) >= 0), \"Service\", \"Django\", \"\", \"\"), \"Type\", \"Web Framework\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=django&\", \"\", \"\") or label_replace(label_replace(label_replace(((sum by (db_instance) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])) or (0 * (sum by (db_instance) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))))) >= 0), \"Service\", \"$1\", \"db_instance\", \"(.*)\"), \"Type\", \"Database\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_instance=$1&\", \"db_instance\", \"(.*)\") or label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])) or (0 * (sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))))) >= 0), \"Service\", \"default\", \"\", \"\"), \"Type\", \"Database\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_instance=default&\", \"\", \"\") or label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]))) > 0), \"Service\", \"PgBouncer\", \"\", \"\"), \"Type\", \"Connection Pooler\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=postgres&var-db_pool=pgbouncer&\", \"\", \"\") or label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range])) or (0 * (sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range]))))) >= 0), \"Service\", \"Redis\", \"\", \"\"), \"Type\", \"Cache\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=redis&\", \"\", \"\") or label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])) or (0 * (sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]))))) >= 0), \"Service\", \"Requests\", \"\", \"\"), \"Type\", \"HTTP Client\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=requests&\", \"\", \"\") or label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range])) or (0 * (sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range]))))) >= 0), \"Service\", \"Celery\", \"\", \"\"), \"Type\", \"Task Queue\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=celery&\", \"\", \"\") or label_replace(label_replace(label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__range])) or (0 * (sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__range]))))) >= 0), \"Service\", \"AWS S3\", \"\", \"\"), \"Type\", \"Storage / Cloud\", \"\", \"\"), \"Dashboard\", \"/d/generic-service-overview?var-service=aws-s3&\", \"\", \"\"), \"ServiceDisplay\", \"$1\", \"Service\", \"(.*)\"), \"ServiceDisplay\", \"defaultdb\", \"Type\", \"Database\"), \"ServiceDisplay\", \"${1}db\", \"db_instance\", \"(.+)\"), \"ServiceDisplay\", \"$1\", \"db_instance\", \"(.*[dD][bB])\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "Throughput",
+                        "range": false
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": false,
+                        "expr": "sum by (Service, Error_Rate) ((label_replace((((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]))))))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]))) > 0)) * 100, \"Service\", \"Django\", \"\", \"\")) or (label_replace((((((sum by (db_instance) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",error=\"true\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])) or (0 * (sum by (db_instance) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))))))) or vector(0)) / ((sum by (db_instance) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))) > 0)) * 100, \"Service\", \"$1\", \"db_instance\", \"(.*)\")) or (label_replace((((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",error=\"true\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))))))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))) > 0)) * 100, \"Service\", \"default\", \"\", \"\")) or (label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) or rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range])) or vector(0)) / (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) or rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range])) > 0)) * 100, \"Service\", \"PgBouncer\", \"\", \"\")) or (label_replace((((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",error=\"true\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range]))))))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range]))) > 0)) * 100, \"Service\", \"Redis\", \"\", \"\")) or (label_replace((((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) or rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",error=\"true\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])) or vector(0)))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) or rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]))) > 0)) * 100, \"Service\", \"Requests\", \"\", \"\")) or (label_replace((((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range]))))))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range]))) > 0)) * 100, \"Service\", \"Celery\", \"\", \"\")) or (label_replace((((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[5m])) or (0 * (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[5m]))))))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[5m]))) > 0)) * 100, \"Service\", \"AWS S3\", \"\", \"\")))",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "Error Rate",
+                        "range": false
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "B",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": false,
+                        "expr": "sum by (Service, P95_Latency) (label_replace(((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range])))) > 0), \"Service\", \"Django\", \"\", \"\") or label_replace(((histogram_quantile(0.95, sum by (le, db_instance) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])))) > 0), \"Service\", \"$1\", \"db_instance\", \"(.*)\") or label_replace(((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])))) > 0), \"Service\", \"default\", \"\", \"\") or label_replace((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) or rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]))) > 0), \"Service\", \"PgBouncer\", \"\", \"\") or label_replace(((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range])))) > 0), \"Service\", \"Redis\", \"\", \"\") or label_replace(((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) or rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])))) > 0), \"Service\", \"Requests\", \"\", \"\") or label_replace(((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range])))) > 0), \"Service\", \"Celery\", \"\", \"\") or label_replace(((histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[5m])))) > 0), \"Service\", \"AWS S3\", \"\", \"\"))",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "P95 Latency",
+                        "range": false
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "C",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": false,
+                        "expr": "round(label_replace(((sum((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]))) > 0), \"Service\", \"Django\", \"\", \"\") or label_replace((sum by (db_instance) (((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))) > 0), \"Service\", \"$1\", \"db_instance\", \"(.*)\") or label_replace(((sum(((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range])))) > 0), \"Service\", \"default\", \"\", \"\") or label_replace(((sum(((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range])) or ((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range])))) > 0), \"Service\", \"PgBouncer\", \"\", \"\") or label_replace(((sum(((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range])))) > 0), \"Service\", \"Redis\", \"\", \"\") or label_replace(((sum(((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])) or ((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])))) > 0), \"Service\", \"Requests\", \"\", \"\") or label_replace(((sum(((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range])))) > 0), \"Service\", \"Celery\", \"\", \"\") or label_replace(((sum(((last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__range]) and (resets(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__range]) == 0) unless (apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"} offset $__range)) or increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__range])))) > 0), \"Service\", \"AWS S3\", \"\", \"\"))",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "Total Calls",
+                        "range": false
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "D",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": false,
+                        "expr": "sum by (Service, Status) (label_replace((label_replace(((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))) > 0)) * 100 >= 5, \"Service\", \"Django\", \"\", \"\") * 0 + 1), \"Status\", \"Critical\", \"\", \"\") or label_replace((label_replace(((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))) > 0)) * 100 >= 1, \"Service\", \"Django\", \"\", \"\") * 0 + 1) unless (label_replace(((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))) > 0)) * 100 >= 5, \"Service\", \"Django\", \"\", \"\") * 0 + 1), \"Status\", \"Warning\", \"\", \"\") or label_replace(((label_replace(((sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[$__range]))) > 0), \"Service\", \"Django\", \"\", \"\") * 0 + 1) unless (label_replace(((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))) or vector(0)) / ((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))) > 0)) * 100 >= 1, \"Service\", \"Django\", \"\", \"\") * 0 + 1)), \"Status\", \"Healthy\", \"\", \"\") or label_replace((label_replace(((sum by (db_instance) (last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance!=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))) > 0), \"Service\", \"$1\", \"db_instance\", \"(.*)\") * 0 + 1), \"Status\", \"Healthy\", \"\", \"\") or label_replace((label_replace(((sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_instance=\"\",db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\"}[$__range]))) > 0), \"Service\", \"default\", \"\", \"\") * 0 + 1), \"Status\", \"Healthy\", \"\", \"\") or label_replace((label_replace(((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[5m]) or rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[5m]))) > 0), \"Service\", \"PgBouncer\", \"\", \"\") * 0 + 1), \"Status\", \"Healthy\", \"\", \"\") or label_replace((label_replace(((sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__range]))) > 0), \"Service\", \"Redis\", \"\", \"\") * 0 + 1), \"Status\", \"Healthy\", \"\", \"\") or label_replace((label_replace(((sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])) or last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__range])) > 0), \"Service\", \"Requests\", \"\", \"\") * 0 + 1), \"Status\", \"Healthy\", \"\", \"\") or label_replace(((label_replace(((sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__range]))) > 0), \"Service\", \"Celery\", \"\", \"\") * 0 + 1) unless (label_replace((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[5m]))) or vector(0)) / (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[5m])) > 0)) * 100 >= 1, \"Service\", \"Celery\", \"\", \"\") * 0 + 1)), \"Status\", \"Healthy\", \"\", \"\") or label_replace(((label_replace(((sum(last_over_time(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__range]))) > 0), \"Service\", \"AWS S3\", \"\", \"\") * 0 + 1) unless (label_replace((((sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,error=\"true\",instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[5m]))) or vector(0)) / (sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[5m])) > 0)) * 100 >= 1, \"Service\", \"AWS S3\", \"\", \"\") * 0 + 1)), \"Status\", \"Healthy\", \"\", \"\"))",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "Status",
+                        "range": false
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "E",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "joinByField",
+                  "spec": {
+                    "id": "joinByField",
+                    "options": {
+                      "byField": "Service",
+                      "mode": "outer"
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Service": true,
+                        "Time 1": true,
+                        "Time 2": true,
+                        "Time 3": true,
+                        "Time 4": true,
+                        "Time 5": true,
+                        "Value #E": true,
+                        "db_instance": true
+                      },
+                      "indexByName": {
+                        "Dashboard": 7,
+                        "Error Rate": 4,
+                        "P95 Latency": 5,
+                        "RPS": 3,
+                        "Service": 0,
+                        "ServiceDisplay": 0,
+                        "Status": 6,
+                        "Throughput (Ops/s)": 3,
+                        "Total Calls": 2,
+                        "Type": 1,
+                        "Value #A": 3,
+                        "Value #B": 4,
+                        "Value #C": 5,
+                        "Value #D": 2
+                      },
+                      "renameByName": {
+                        "Error_Rate": "Error Rate",
+                        "P95_Latency": "P95 Latency",
+                        "RPS": "Throughput (Ops/s)",
+                        "ServiceDisplay": "Service",
+                        "Value #A": "Throughput (Ops/s)",
+                        "Value #B": "Error Rate",
+                        "Value #C": "P95 Latency",
+                        "Value #D": "Total Calls"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "id": "filterByValue",
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "greater",
+                            "options": {
+                              "value": 0
+                            }
+                          },
+                          "fieldName": "Total Calls"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {
+                "maxDataPoints": 100
+              }
+            }
+          },
+          "vizConfig": {
+            "kind": "table",
+            "spec": {
+              "pluginVersion": "10.4.1",
+              "options": {
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "mean"
+                  ],
+                  "show": false
+                },
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "desc": true,
+                    "displayName": "Throughput (Ops/s)"
+                  }
+                ]
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "noValue": "-",
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Service"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 180
+                      },
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "#38bdf8",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "Open ${__data.fields.Service} Dashboard",
+                            "url": "${__data.fields.Dashboard}${project:queryparam}&${cluster:queryparam}&${server:queryparam}&${__url_time_range}"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Type"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 160
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "Storage / Cloud": {
+                                "color": "#0284c7",
+                                "index": 1
+                              },
+                              "Task Queue": {
+                                "color": "#10b981",
+                                "index": 2
+                              },
+                              "Web Framework": {
+                                "color": "#2563eb",
+                                "index": 0
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "Database": {
+                                "color": "#8b5cf6",
+                                "index": 1
+                              },
+                              "Storage / Cloud": {
+                                "color": "#0284c7",
+                                "index": 1
+                              },
+                              "Task Queue": {
+                                "color": "#10b981",
+                                "index": 2
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "Cache": {
+                                "color": "#e11d48",
+                                "index": 2
+                              },
+                              "Storage / Cloud": {
+                                "color": "#0284c7",
+                                "index": 1
+                              },
+                              "Task Queue": {
+                                "color": "#10b981",
+                                "index": 2
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "HTTP Client": {
+                                "color": "#f59e0b",
+                                "index": 3
+                              },
+                              "Storage / Cloud": {
+                                "color": "#0284c7",
+                                "index": 1
+                              },
+                              "Task Queue": {
+                                "color": "#10b981",
+                                "index": 2
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "Connection Pooler": {
+                                "color": "#d97706",
+                                "index": 4
+                              },
+                              "Storage / Cloud": {
+                                "color": "#0284c7",
+                                "index": 1
+                              },
+                              "Task Queue": {
+                                "color": "#10b981",
+                                "index": 2
+                              }
+                            },
+                            "type": "value"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Total Calls"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "short"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 120
+                      },
+                      {
+                        "id": "custom.inspect",
+                        "value": true
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Throughput (Ops/s)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "reqps"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 3
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 160
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Error Rate"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 2
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "auto"
+                        }
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "#10b981"
+                            },
+                            {
+                              "color": "#ef4444",
+                              "value": 1
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "noValue",
+                        "value": "-"
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "match": "null+nan",
+                              "result": {
+                                "text": "-"
+                              }
+                            },
+                            "type": "special"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "P95 Latency"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "ms"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "noValue",
+                        "value": "-"
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "match": "null+nan",
+                              "result": {
+                                "text": "-"
+                              }
+                            },
+                            "type": "special"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Status"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 130
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "Healthy": {
+                                "color": "#064e3b",
+                                "index": 0
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "Warning": {
+                                "color": "#d97706",
+                                "index": 1
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "Degraded": {
+                                "color": "#d97706",
+                                "index": 2
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "Critical": {
+                                "color": "#7f1d1d",
+                                "index": 3
+                              }
+                            },
+                            "type": "value"
+                          },
+                          {
+                            "options": {
+                              "No data": {
+                                "color": "#374151",
+                                "index": 4
+                              }
+                            },
+                            "type": "value"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Dashboard"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.hidden",
+                        "value": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "panel-52": {
+        "kind": "Panel",
+        "spec": {
+          "id": 52,
+          "title": "Upstream Requests Rate (Cluster-wise)",
+          "description": "Upstream request rate per cluster (nginx-vts does not emit active connections per upstream cluster).",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Nginx Metrics Dashboard",
+              "url": "/d/nginx-vts-comprehensive?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "sum by (upstream) (rate(nginx_vts_upstream_requests_total{job=\"nginx-vts\",project=~\"${project:regex}\",upstream!=\"::nogroups\",upstream=~\"${cluster:regex}\",code=\"total\"}[$__rate_interval]))",
+                        "legendFormat": "{{upstream}}"
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "links": [
+                    {
+                      "targetBlank": false,
+                      "title": "Filter to Cluster",
+                      "url": "/d/tp-trace-infra-monitoring?${project:queryparam}&var-cluster=${__series.labels.upstream:percentencode}&${__url_time_range}"
+                    }
+                  ],
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-53": {
+        "kind": "Panel",
+        "spec": {
+          "id": 53,
+          "title": "Upstream Latency (Cluster-wise)",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Nginx Metrics Dashboard",
+              "url": "/d/nginx-vts-comprehensive?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "1000 * (sum by (upstream) (rate(nginx_vts_upstream_response_seconds_total{job=\"nginx-vts\",project=~\"${project:regex}\",upstream!=\"::nogroups\",upstream=~\"${cluster:regex}\"}[$__rate_interval])) / clamp_min(sum by (upstream) (rate(nginx_vts_upstream_requests_total{job=\"nginx-vts\",project=~\"${project:regex}\",upstream!=\"::nogroups\",upstream=~\"${cluster:regex}\",code=\"total\"}[$__rate_interval])), 1e-9))",
+                        "legendFormat": "{{upstream}}"
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ms",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": null,
+                        "color": "green"
+                      },
+                      {
+                        "value": 250,
+                        "color": "yellow"
+                      },
+                      {
+                        "value": 1000,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "links": [
+                    {
+                      "targetBlank": false,
+                      "title": "Filter to Cluster",
+                      "url": "/d/tp-trace-infra-monitoring?${project:queryparam}&var-cluster=${__series.labels.upstream:percentencode}&${__url_time_range}"
+                    }
+                  ],
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "thresholdsStyle": {
+                      "mode": "line"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-51": {
+        "kind": "Panel",
+        "spec": {
+          "id": 51,
+          "title": "Overall Request Latency",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Nginx Metrics Dashboard",
+              "url": "/d/nginx-vts-comprehensive?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "1000 * (sum(rate(nginx_vts_upstream_response_seconds_total{job=\"nginx-vts\",project=~\"${project:regex}\",upstream!=\"::nogroups\",upstream=~\"${cluster:regex}\"}[$__rate_interval])) / clamp_min(sum(rate(nginx_vts_upstream_requests_total{job=\"nginx-vts\",project=~\"${project:regex}\",upstream!=\"::nogroups\",upstream=~\"${cluster:regex}\",code=\"total\"}[$__rate_interval])), 1e-9))",
+                        "legendFormat": "Weighted Latency"
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ms",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": null,
+                        "color": "green"
+                      },
+                      {
+                        "value": 250,
+                        "color": "yellow"
+                      },
+                      {
+                        "value": 1000,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "thresholdsStyle": {
+                      "mode": "line"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          },
+          "description": "Overall Nginx upstream average latency (ms) across selected project/clusters."
+        }
+      },
+      "panel-54": {
+        "kind": "Panel",
+        "spec": {
+          "id": 54,
+          "title": "Total Request Rate",
+          "description": "Total Nginx upstream request rate across selected project/clusters.",
+          "links": [
+            {
+              "targetBlank": false,
+              "title": "Open Nginx Metrics Dashboard",
+              "url": "/d/nginx-vts-comprehensive?${__url_time_range}"
+            }
+          ],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "prometheus",
+                      "spec": {
+                        "expr": "sum(rate(nginx_vts_upstream_requests_total{job=\"nginx-vts\",project=~\"${project:regex}\",upstream!=\"::nogroups\",upstream=~\"${cluster:regex}\",code=\"total\"}[$__rate_interval]))",
+                        "legendFormat": "Total Requests"
+                      }
+                    },
+                    "datasource": {
+                      "type": "prometheus",
+                      "uid": "${DS_PROMETHEUS}"
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "timeseries",
+            "spec": {
+              "pluginVersion": "",
+              "options": {
+                "legend": {
+                  "calcs": [
+                    "mean",
+                    "max"
+                  ],
+                  "displayMode": "table",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "reqps",
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "RowsLayout",
+      "spec": {
+        "rows": [
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "Nginx Load Balancer",
+              "collapse": false,
+              "layout": {
+                "kind": "AutoGridLayout",
+                "spec": {
+                  "maxColumnCount": 2,
+                  "columnWidthMode": "standard",
+                  "rowHeightMode": "standard",
+                  "items": [
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-54"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-51"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-52"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-53"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "Server Resources (CPU, Memory & Disk)",
+              "collapse": false,
+              "layout": {
+                "kind": "AutoGridLayout",
+                "spec": {
+                  "maxColumnCount": 1,
+                  "columnWidthMode": "standard",
+                  "rowHeightMode": "standard",
+                  "items": [
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-11"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "Application Services (APM)",
+              "collapse": false,
+              "layout": {
+                "kind": "AutoGridLayout",
+                "spec": {
+                  "maxColumnCount": 1,
+                  "columnWidthMode": "standard",
+                  "rowHeightMode": "standard",
+                  "items": [
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-5"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "Cache Infrastructure (Redis)",
+              "collapse": false,
+              "layout": {
+                "kind": "AutoGridLayout",
+                "spec": {
+                  "maxColumnCount": 2,
+                  "columnWidthMode": "standard",
+                  "rowHeightMode": "standard",
+                  "items": [
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-43"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-42"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [
+      {
+        "title": "Projects Overview",
+        "type": "link",
+        "icon": "dashboard",
+        "tooltip": "",
+        "url": "/d/tp-trace-projects-overview",
+        "tags": [],
+        "asDropdown": false,
+        "targetBlank": false,
+        "includeVars": true,
+        "keepTime": true
+      },
+      {
+        "title": "Service Catalog",
+        "type": "link",
+        "icon": "apps",
+        "tooltip": "",
+        "url": "/d/tp-trace-project-catalog",
+        "tags": [],
+        "asDropdown": false,
+        "targetBlank": false,
+        "includeVars": true,
+        "keepTime": true
+      },
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "includeVars": false,
+        "keepTime": true,
+        "tags": [],
+        "targetBlank": false,
+        "title": "Nginx Metrics",
+        "tooltip": "Open full Nginx Metrics dashboard",
+        "type": "link",
+        "url": "/d/nginx-vts-comprehensive"
+      },
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "includeVars": false,
+        "keepTime": true,
+        "tags": [],
+        "targetBlank": false,
+        "title": "Servers Overview",
+        "tooltip": "Open Servers Overview dashboard",
+        "type": "link",
+        "url": "/d/testpress-servers-overview"
+      },
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "includeVars": false,
+        "keepTime": true,
+        "tags": [],
+        "targetBlank": false,
+        "title": "Redis Health",
+        "tooltip": "Open Redis Health dashboard",
+        "type": "link",
+        "url": "/d/testpress-redis-wow"
+      }
+    ],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "tp_trace",
+      "apm",
+      "infra",
+      "clusters",
+      "servers"
+    ],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-1h",
+      "to": "now",
+      "autoRefresh": "5m",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "Infra & Cluster Monitoring",
+    "variables": [
+      {
+        "kind": "DatasourceVariable",
+        "spec": {
+          "name": "DS_PROMETHEUS",
+          "pluginId": "prometheus",
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "current": {
+            "text": "Prometheus",
+            "value": "_IY366MMk"
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "label": "Datasource",
+          "hide": "hideVariable",
+          "skipUrlSync": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "DatasourceVariable",
+        "spec": {
+          "name": "DS_TEMPO",
+          "pluginId": "tempo",
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "current": {
+            "text": "Tempo",
+            "value": "tempo"
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "label": "Tracing Datasource",
+          "hide": "hideVariable",
+          "skipUrlSync": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "project",
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "label": "Project",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": {
+            "kind": "prometheus",
+            "spec": {
+              "__legacyStringValue": "label_values(apm_calls_total, project_name)"
+            }
+          },
+          "regex": "",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values(apm_calls_total, project_name)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "cluster",
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "label": "Cluster",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": {
+            "kind": "prometheus",
+            "spec": {
+              "__legacyStringValue": "label_values(apm_calls_total{project_name=~\"${project:regex}\"}, cluster_name)"
+            }
+          },
+          "regex": "",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\"}, cluster_name)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "server",
+          "current": {
+            "text": [
+              "All"
+            ],
+            "value": [
+              "$__all"
+            ]
+          },
+          "label": "Server",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "query": {
+            "kind": "prometheus",
+            "spec": {
+              "__legacyStringValue": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)"
+            }
+          },
+          "regex": "",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values(apm_calls_total{project_name=~\"${project:regex}\",cluster_name=~\"${cluster:regex}\",instance!=\"\"}, instance)",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "allowCustomValue": true
+        }
+      }
+    ]
+  }
+}
