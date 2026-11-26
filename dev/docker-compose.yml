@@ -232,6 +232,7 @@ services:
       - "--web.enable-lifecycle"
     volumes:
       - ./.observability-infra/config/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./.observability-infra/config/prometheus-rules.yaml:/etc/prometheus/prometheus-rules.yaml:ro
       - prometheus_data:/prometheus
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:9090:9090"
