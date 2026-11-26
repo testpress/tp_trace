@@ -141,12 +141,12 @@ def test_service_overview_graphs_use_export_aware_windows_for_sparse_counters():
         "Requests and Errors",
         "Error Rate Over Time",
         "Latency Percentiles (P50 / P95 / P99)",
-        "Request time breakdown (estimated)",
+        "Request time breakdown",
     ):
         expressions = [target.get("expr", "") for target in panels[title]["targets"]]
         assert expressions
         assert all("$__rate_interval" in expr for expr in expressions)
-        if title == "Request time breakdown (estimated)":
+        if title == "Request time breakdown":
             # Range-wide activity gates hide empty dependencies without removing
             # their zero intervals elsewhere in the displayed time range.
             assert all("[$__range] @ end()" in expr for expr in expressions[1:])

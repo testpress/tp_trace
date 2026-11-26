@@ -197,6 +197,14 @@ def init(
         except Exception as exc:
             logger.debug("tp_trace: Failed to register RouteEnrichingSpanProcessor: %s", exc)
 
+        if not config.disabled:
+            try:
+                from tp_trace.breakdown import RequestBreakdownSpanProcessor
+
+                provider.add_span_processor(RequestBreakdownSpanProcessor())
+            except Exception as exc:
+                logger.debug("tp_trace: Failed to register RequestBreakdownSpanProcessor: %s", exc)
+
         # Configure Exporter and Processor if not disabled
         if not config.disabled:
             if exporter is None:

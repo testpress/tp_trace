@@ -742,28 +742,27 @@ def test_service_overview_panels_use_producer_kind_for_celery(tmp_path):
 
 
 def test_dependency_share_excludes_celery_and_connection_setup(tmp_path):
-    """Keep estimated Django residual visible while excluding Celery and connection spans."""
+    """Exact breakdown shows Django self-time and dependencies summing to 100%."""
     item = panel("Supporting Dashboards/service_overview.json", 11)
-    assert item["title"] == "Request time breakdown (estimated)"
+    assert item["title"] == "Request time breakdown"
     assert item["fieldConfig"]["defaults"]["unit"] == "percent"
     assert item["fieldConfig"]["defaults"]["custom"]["stacking"]["mode"] == "normal"
     assert item["fieldConfig"]["defaults"]["max"] == 100
     assert {t["refId"] for t in item["targets"]} == {"A", "B", "C", "D", "G", "H"}
-    common = 'project_name="test",cluster_name="dev",instance="collector"'
+    common = 'project_name="test",cluster_name="dev",instance="collector",metric_source="tp_trace_sdk",worker_id="w1"'
 
-    def duration(service, kind, value, extra=""):
-        labels = common + f',normalized_service="{service}",span_kind="{kind}"' + extra
-        return {"series": "apm_duration_milliseconds_sum{" + labels + "}", "values": value}
+    def breakdown(service, value, db_instance="", dependency=None):
+        dep = dependency or (f"{service} / {db_instance}" if db_instance else service)
+        labels = (
+            common
+            + f',normalized_service="{service}",db_instance="{db_instance}",db_connection_pool="",dependency="{dep}"'
+        )
+        return {"series": "apm_request_time_breakdown_milliseconds_total{" + labels + "}", "values": value}
 
     series = [
-        duration("django", "SPAN_KIND_SERVER", "0+6000x31"),
-        duration("postgres", "SPAN_KIND_CLIENT", "0+3600x31", ',db_instance="default"'),
-        duration("redis", "SPAN_KIND_CLIENT", "0+900x31"),
-        duration("pgbouncer", "SPAN_KIND_CLIENT", "0+600x31", ',db_instance="default"'),
-        duration("celery", "SPAN_KIND_PRODUCER", "0+1000000x31"),
-        duration("celery", "SPAN_KIND_CONSUMER", "0+1000000x31"),
-        duration("celery", "SPAN_KIND_CLIENT", "0+1000000x31"),
-        duration("grpc-api", "SPAN_KIND_PRODUCER", "0+1000000x31"),
+        breakdown("django", "0+1500x31"),
+        breakdown("postgres", "0+3600x31", db_instance="default"),
+        breakdown("redis", "0+900x31"),
     ]
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "A"), series, [
         {"labels": '{db_instance="default",dependency="postgres / default",normalized_service="postgres"}', "value": 60},
@@ -775,38 +774,41 @@ def test_dependency_share_excludes_celery_and_connection_setup(tmp_path):
         evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, ref), series, [])
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "H"), series,
              [{"labels": "{}", "value": 25}])
-    # A request without dependency calls still shows the estimated Django residual.
+    # A request without dependency calls shows 100% Django self-time.
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "H"), series[:1],
              [{"labels": "{}", "value": 100}])
 
 
 def test_dependency_share_preserves_aliases_and_normalizes_overlapping_recorded_durations(tmp_path):
-    common = 'project_name="test",cluster_name="dev",instance="collector",span_kind="SPAN_KIND_CLIENT"'
-    series = []
-    for service, alias, value in [("postgres", "default", 4800), ("postgres", "slave1", 4800),
+    common = 'project_name="test",cluster_name="dev",instance="collector",metric_source="tp_trace_sdk",worker_id="w1"'
+    series = [
+        {"series": f'apm_request_time_breakdown_milliseconds_total{{{common},normalized_service="django",db_instance="",db_connection_pool="",dependency="django"}}', "values": "0+1200x31"},
+    ]
+    for service, alias, value in [("postgres", "default", 2400), ("postgres", "slave1", 2400),
                                   ("aws-s3", "", 600), ("aws-sqs", "", 300), ("grpc-api", "", 1200)]:
-        extra = ',db_instance="' + alias + '"' if alias else ""
-        labels = common + ',normalized_service="' + service + '"' + extra
-        series.append({"series": "apm_duration_milliseconds_sum{" + labels + "}", "values": f"0+{value}x31"})
-    # Overlapping child spans can exceed wall-clock request duration. Preserve
-    # their relative shares without treating them as parts of request wall time.
-    series.append({"series": 'apm_duration_milliseconds_sum{project_name="test",cluster_name="dev",instance="collector",span_kind="SPAN_KIND_SERVER",normalized_service="django"}', "values": "0+3000x31"})
+        dep = f"{service} / {alias}" if alias else service
+        labels = f'{common},normalized_service="{service}",db_instance="{alias}",db_connection_pool="",dependency="{dep}"'
+        series.append({"series": "apm_request_time_breakdown_milliseconds_total{" + labels + "}", "values": f"0+{value}x31"})
+
+    total = 1200 + 2400 + 2400 + 600 + 300 + 1200
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "A"), series, [
-        {"labels": '{db_instance="default",dependency="postgres / default",normalized_service="postgres"}', "value": 100 * 4800 / 11700},
-        {"labels": '{db_instance="slave1",dependency="postgres / slave1",normalized_service="postgres"}', "value": 100 * 4800 / 11700},
+        {"labels": '{db_instance="default",dependency="postgres / default",normalized_service="postgres"}', "value": 100 * 2400 / total},
+        {"labels": '{db_instance="slave1",dependency="postgres / slave1",normalized_service="postgres"}', "value": 100 * 2400 / total},
     ])
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "D"), series, [
-        {"labels": '{dependency="aws-s3",normalized_service="aws-s3"}', "value": 100 * 600 / 11700},
-        {"labels": '{dependency="aws-sqs",normalized_service="aws-sqs"}', "value": 100 * 300 / 11700},
+        {"labels": '{dependency="aws-s3",normalized_service="aws-s3"}', "value": 100 * 600 / total},
+        {"labels": '{dependency="aws-sqs",normalized_service="aws-sqs"}', "value": 100 * 300 / total},
     ])
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "G"), series, [
-        {"labels": '{dependency="grpc-api",normalized_service="grpc-api"}', "value": 100 * 1200 / 11700},
+        {"labels": '{dependency="grpc-api",normalized_service="grpc-api"}', "value": 100 * 1200 / total},
     ])
-    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "H"), series, [{"labels": "{}", "value": 0}])
+    evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "H"), series, [
+        {"labels": "{}", "value": 100 * 1200 / total},
+    ])
 
 
 def test_dependency_span_time_hides_inactive_series_without_fabricating_self_time(tmp_path):
-    series = [{"series": 'apm_duration_milliseconds_sum{project_name="test",cluster_name="dev",instance="collector",span_kind="SPAN_KIND_CLIENT",normalized_service="postgres",db_instance="idle"}', "values": "100+0x31"}]
+    series = [{"series": 'apm_request_time_breakdown_milliseconds_total{project_name="test",cluster_name="dev",instance="collector",metric_source="tp_trace_sdk",worker_id="w1",normalized_service="postgres",db_instance="idle",db_connection_pool="",dependency="postgres / idle"}', "values": "100+0x31"}]
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "A"), series, [])
     evaluate(tmp_path, expression("Supporting Dashboards/service_overview.json", 11, "B"), [], [])
 
