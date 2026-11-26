@@ -505,7 +505,7 @@
                   {
                     "type": "regex",
                     "options": {
-                      "pattern": "^postgres-([^-]+)-$",
+                      "pattern": "^postgres-(.+)-$",
                       "result": {
                         "text": "$1"
                       }
@@ -523,9 +523,9 @@
                   {
                     "type": "regex",
                     "options": {
-                      "pattern": "^([^-]+)-([^-]*)-(.+)$",
+                      "pattern": "^([^-]+)-.*-(.+)$",
                       "result": {
-                        "text": "$1 ($3)"
+                        "text": "$1 ($2)"
                       }
                     }
                   }
