@@ -610,9 +610,14 @@ def test_collector_status_reports_up_state(tmp_path):
 def test_catalog_keeps_zero_error_rows_for_collector_only_services(tmp_path):
     labels = 'project_name="test",cluster_name="dev",institute="demo",instance="collector",normalized_service="postgres",db_system="postgresql",db_instance="defaultdb",error="false",span_kind="SPAN_KIND_CLIENT"'
     evaluate(
+        tmp_path, expression(FILES[0], 5, "A"),
+        [{"series": "apm_calls_total{" + labels + "}", "values": "0+10x31"}],
+        [{"labels": '{ServiceKey="postgres-defaultdb-",normalized_service="postgres",db_instance="defaultdb"}', "value": 0.08333333333333333}],
+    )
+    evaluate(
         tmp_path, expression(FILES[0], 5, "B"),
         [{"series": "apm_calls_total{" + labels + "}", "values": "0+10x31"}],
-        [{"labels": '{ServiceKey="postgres-defaultdb-"}', "value": 0}],
+        [],
     )
 
 

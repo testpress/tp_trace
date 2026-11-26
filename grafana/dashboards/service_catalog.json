@@ -467,38 +467,51 @@
                         "text": "Postgres",
                         "index": 1
                       },
+                      "postgres--pgbouncer": {
+                        "text": "PgBouncer",
+                        "index": 2
+                      },
                       "redis--": {
                         "text": "Redis",
-                        "index": 2
+                        "index": 3
                       },
                       "celery--": {
                         "text": "Celery",
-                        "index": 3
+                        "index": 4
                       },
                       "requests--": {
                         "text": "Requests",
-                        "index": 4
+                        "index": 5
                       },
                       "aws-s3--": {
                         "text": "AWS S3",
-                        "index": 5
+                        "index": 6
                       },
                       "aws-cloudfront--": {
                         "text": "AWS CloudFront",
-                        "index": 6
+                        "index": 7
                       },
                       "aws-api--": {
                         "text": "AWS API",
-                        "index": 7
+                        "index": 8
                       }
                     }
                   },
                   {
                     "type": "regex",
                     "options": {
-                      "pattern": "^postgres-.*-pgbouncer$",
+                      "pattern": "^pgbouncer-.*$",
                       "result": {
                         "text": "PgBouncer"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^postgres-(.+)-pgbouncer$",
+                      "result": {
+                        "text": "PgBouncer ($1)"
                       }
                     }
                   },
@@ -611,7 +624,7 @@
               },
               {
                 "id": "noValue",
-                "value": "-"
+                "value": "0.00%"
               },
               {
                 "id": "mappings",
@@ -621,7 +634,7 @@
                     "options": {
                       "match": "null+nan",
                       "result": {
-                        "text": "-"
+                        "text": "0.00%"
                       }
                     }
                   }
@@ -724,8 +737,8 @@
                     "options": {
                       "match": "null+nan",
                       "result": {
-                        "text": "No data",
-                        "color": "#374151",
+                        "text": "Healthy",
+                        "color": "#064e3b",
                         "index": 3
                       }
                     }
@@ -817,10 +830,10 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (ServiceKey) (label_join((100 * (sum by (normalized_service, db_instance, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\",error=\"true\"}[$__range])) or 0 * sum by (normalized_service, db_instance, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range])))) / sum by (normalized_service, db_instance, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\", \"db_connection_pool\"))",
+          "expr": "sum by (ServiceKey) (label_join(sum by (normalized_service, db_instance, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\",error=\"true\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\", \"db_connection_pool\"))",
           "format": "table",
           "instant": true,
-          "legendFormat": "Error Rate",
+          "legendFormat": "Errors/s",
           "range": false,
           "refId": "B"
         },
@@ -863,11 +876,35 @@
         {
           "id": "calculateField",
           "options": {
-            "alias": "Status",
+            "alias": "ErrorRatio",
             "binary": {
               "left": "Value #B",
+              "operator": "/",
+              "right": "Value #A"
+            },
+            "mode": "binary"
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "Error Rate",
+            "binary": {
+              "left": "ErrorRatio",
               "operator": "*",
-              "right": "1"
+              "right": "100"
+            },
+            "mode": "binary"
+          }
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "Status",
+            "binary": {
+              "left": "ErrorRatio",
+              "operator": "*",
+              "right": "100"
             },
             "mode": "binary"
           }
@@ -879,20 +916,21 @@
               "Time 1": true,
               "Time 2": true,
               "Time 3": true,
-              "Time 4": true
+              "Time 4": true,
+              "Value #B": true,
+              "ErrorRatio": true
             },
             "indexByName": {
               "ServiceKey": 0,
               "Value #D": 1,
               "Value #A": 2,
-              "Value #B": 3,
+              "Error Rate": 3,
               "Value #C": 4,
               "Status": 5
             },
             "renameByName": {
               "ServiceKey": "Service",
               "Value #A": "Throughput (Ops/s)",
-              "Value #B": "Error Rate",
               "Value #C": "P95 Latency",
               "Value #D": "Total Calls"
             }
