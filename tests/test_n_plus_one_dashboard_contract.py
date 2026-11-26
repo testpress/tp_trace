@@ -73,7 +73,7 @@ def test_operational_issue_link_passes_method_and_route_separately():
 
 
 def test_dynamic_issue_cards_pass_route_and_method_independently():
-    for relative in ("Supporting Dashboards/operational_issues.json", "Supporting Dashboards/service_catalog.json"):
+    for relative in ("Supporting Dashboards/operational_issues.json", "service_catalog.json"):
         dashboard = _load(relative)
         panels = [p for p in dashboard["panels"] if p.get("options", {}).get("content")]
         assert panels
@@ -85,7 +85,7 @@ def test_dynamic_issue_cards_pass_route_and_method_independently():
 def test_n_plus_one_targets_use_primary_metric():
     dashboards = [
         _load("Supporting Dashboards/operational_issues.json"),
-        _load("Supporting Dashboards/service_catalog.json"),
+        _load("service_catalog.json"),
         _load("Supporting Dashboards/n_plus_one_detail.json"),
     ]
     n1_targets = [
@@ -100,7 +100,7 @@ def test_n_plus_one_targets_use_primary_metric():
 
 def test_service_catalog_django_queries_use_server_span_kind():
     """Ensure Django targets in service_catalog.json do not match internal spans."""
-    dashboard = _load("Supporting Dashboards/service_catalog.json")
+    dashboard = _load("service_catalog.json")
     for panel, target in _all_targets(dashboard):
         expr = target.get("expr", "")
         if 'normalized_service="django"' in expr:

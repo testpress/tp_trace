@@ -11,7 +11,7 @@ import yaml
 
 
 DASHBOARDS = Path(__file__).resolve().parents[1] / "grafana/dashboards"
-FILES = ["Supporting Dashboards/service_catalog.json", "Supporting Dashboards/operational_issues.json"]
+FILES = ["service_catalog.json", "Supporting Dashboards/operational_issues.json"]
 
 
 def panel(filename, panel_id):
@@ -892,7 +892,7 @@ def test_apm_dashboards_scope_metrics_and_links_by_server():
         assert serialized.count("${server:queryparam}") == (
             serialized.count("${cluster:queryparam}") + row_cluster_links + issue_helpers
         )
-    assert len(dashboards) == 7
+    assert len(dashboards) == 6
 
 
 @pytest.mark.parametrize("selected", [["37.27.120.204"], ["app.example.com:8000", "37.27.120.204"], None])
