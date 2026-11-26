@@ -204,7 +204,7 @@ def test_catalog_total_calls_handles_single_sample_and_flat_new_workers(tmp_path
                             {
                                 "expr": expr,
                                 "eval_time": "60m",
-                                "exp_samples": [{"labels": '{Service="Django"}', "value": 6}],
+                                "exp_samples": [{"labels": '{ServiceKey="django-"}', "value": 0}],
                             }
                         ],
                     }
@@ -236,7 +236,7 @@ def test_catalog_total_calls_handles_counter_resets(tmp_path):
                             {
                                 "expr": expr,
                                 "eval_time": "60m",
-                                "exp_samples": [{"labels": '{Service="Django"}', "value": 5}],
+                                "exp_samples": [{"labels": '{ServiceKey="django-"}', "value": 5.05}],
                             }
                         ],
                     }
@@ -612,7 +612,7 @@ def test_catalog_keeps_zero_error_rows_for_collector_only_services(tmp_path):
     evaluate(
         tmp_path, expression(FILES[0], 5, "B"),
         [{"series": "apm_calls_total{" + labels + "}", "values": "0+10x31"}],
-        [{"labels": '{Service="defaultdb"}', "value": 0}],
+        [{"labels": '{ServiceKey="postgres-"}', "value": 0}],
     )
 
 
@@ -643,11 +643,14 @@ def test_pgbouncer_catalog_counts_queries_without_connection_spans(tmp_path):
         {"series": "apm_calls_total{" + labels.replace('normalized_service="postgres"', 'normalized_service="pgbouncer"') + ',db_connection_pool="pgbouncer"}', "values": "0+5x31"},
     ]
     evaluate(tmp_path, expression(FILES[0], 5, "D"), series, [
-        {"labels": '{Service="PgBouncer"}', "value": 3600},
-        {"labels": '{Service="defaultdb",db_instance="defaultdb"}', "value": 5400},
+        {"labels": '{ServiceKey="postgres-pgbouncer"}', "value": 3600},
+        {"labels": '{ServiceKey="postgres-"}', "value": 1800},
+        {"labels": '{ServiceKey="pgbouncer-pgbouncer"}', "value": 150},
     ])
     catalog = panel(FILES[0], 5)
-    assert any('var-service=postgres&var-db_pool=pgbouncer' in t["expr"] for t in catalog["targets"])
+    service_override = next(o for o in catalog["fieldConfig"]["overrides"] if o["matcher"]["options"] == "Service")
+    links = next(p["value"] for p in service_override["properties"] if p["id"] == "links")
+    assert any("var-service=${__data.fields.normalized_service}&var-db_pool=${__data.fields.db_connection_pool}" in link["url"] for link in links)
 
 
 @pytest.mark.parametrize("filename,panel_id,ref,expected", [
