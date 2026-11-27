@@ -3,6 +3,7 @@
 from tp_trace.integrations.base import BaseIntegration
 from tp_trace.integrations.celery import CeleryIntegration
 from tp_trace.integrations.django import DjangoIntegration
+from tp_trace.integrations.gunicorn import GunicornIntegration
 from tp_trace.integrations.manager import IntegrationManager, get_integration_manager
 from tp_trace.integrations.postgres import PostgresIntegration
 from tp_trace.integrations.redis import RedisIntegration
@@ -12,6 +13,7 @@ __all__ = [
     "BaseIntegration",
     "CeleryIntegration",
     "DjangoIntegration",
+    "GunicornIntegration",
     "PostgresIntegration",
     "RedisIntegration",
     "RequestsIntegration",

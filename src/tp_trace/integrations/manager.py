@@ -18,6 +18,7 @@ _BUILTIN_INTEGRATIONS: Dict[str, str] = {
     "requests": "tp_trace.integrations.requests.RequestsIntegration",
     "boto": "tp_trace.integrations.boto.BotoIntegration",
     "celery": "tp_trace.integrations.celery.CeleryIntegration",
+    "gunicorn": "tp_trace.integrations.gunicorn.GunicornIntegration",
 }
 
 _INTEGRATION_DEFAULTS: Dict[str, bool] = {
