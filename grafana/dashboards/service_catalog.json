@@ -531,7 +531,7 @@
               },
               {
                 "id": "decimals",
-                "value": 0
+                "value": 2
               },
               {
                 "id": "custom.width",
@@ -627,7 +627,7 @@
               },
               {
                 "id": "decimals",
-                "value": 1
+                "value": 2
               },
               {
                 "id": "noValue",
