@@ -459,39 +459,39 @@
                   {
                     "type": "value",
                     "options": {
-                      "django--": {
+                      "django-": {
                         "text": "Django",
                         "index": 0
                       },
-                      "postgres--": {
+                      "postgres-": {
                         "text": "Postgres",
                         "index": 1
                       },
-                      "postgres--pgbouncer": {
+                      "PgBouncer": {
                         "text": "PgBouncer",
                         "index": 2
                       },
-                      "redis--": {
+                      "redis-": {
                         "text": "Redis",
                         "index": 3
                       },
-                      "celery--": {
+                      "celery-": {
                         "text": "Celery",
                         "index": 4
                       },
-                      "requests--": {
+                      "requests-": {
                         "text": "Requests",
                         "index": 5
                       },
-                      "aws-s3--": {
+                      "aws-s3-": {
                         "text": "AWS S3",
                         "index": 6
                       },
-                      "aws-cloudfront--": {
+                      "aws-cloudfront-": {
                         "text": "AWS CloudFront",
                         "index": 7
                       },
-                      "aws-api--": {
+                      "aws-api-": {
                         "text": "AWS API",
                         "index": 8
                       }
@@ -500,25 +500,7 @@
                   {
                     "type": "regex",
                     "options": {
-                      "pattern": "^pgbouncer-.*$",
-                      "result": {
-                        "text": "PgBouncer"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": "^postgres-(.+)-pgbouncer$",
-                      "result": {
-                        "text": "PgBouncer ($1)"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": "^postgres-(.+)-$",
+                      "pattern": "^postgres-(.+)$",
                       "result": {
                         "text": "$1"
                       }
@@ -527,18 +509,9 @@
                   {
                     "type": "regex",
                     "options": {
-                      "pattern": "^(.+)--$",
+                      "pattern": "^(.+)-$",
                       "result": {
                         "text": "$1"
-                      }
-                    }
-                  },
-                  {
-                    "type": "regex",
-                    "options": {
-                      "pattern": "^([^-]+)-.*-(.+)$",
-                      "result": {
-                        "text": "$1 ($2)"
                       }
                     }
                   }
@@ -817,7 +790,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "label_join(sum by (normalized_service, db_instance, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\", \"db_connection_pool\")",
+          "expr": "label_join(sum by (normalized_service, db_instance) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!~\"^$|pgbouncer\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\") or label_replace(label_replace(label_replace(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range])), \"ServiceKey\", \"PgBouncer\", \"\", \"\"), \"normalized_service\", \"postgres\", \"\", \"\"), \"db_connection_pool\", \"pgbouncer\", \"\", \"\")",
           "format": "table",
           "instant": true,
           "legendFormat": "Throughput",
@@ -830,7 +803,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (ServiceKey) (label_join(sum by (normalized_service, db_instance, db_connection_pool) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\",error=\"true\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\", \"db_connection_pool\"))",
+          "expr": "sum by (ServiceKey) (label_join(sum by (normalized_service, db_instance) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!~\"^$|pgbouncer\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\",error=\"true\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\")) or label_replace(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\",error=\"true\"}[$__range])), \"ServiceKey\", \"PgBouncer\", \"\", \"\")",
           "format": "table",
           "instant": true,
           "legendFormat": "Errors/s",
@@ -843,7 +816,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (ServiceKey) (label_join(histogram_quantile(0.95, sum by (normalized_service, db_instance, db_connection_pool, le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range]))), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\", \"db_connection_pool\"))",
+          "expr": "sum by (ServiceKey) (label_join(histogram_quantile(0.95, sum by (normalized_service, db_instance, le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!~\"^$|pgbouncer\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range]))), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\")) or label_replace(histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range]))), \"ServiceKey\", \"PgBouncer\", \"\", \"\")",
           "format": "table",
           "instant": true,
           "legendFormat": "P95 Latency",
@@ -856,7 +829,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum by (ServiceKey) (label_join(sum by (normalized_service, db_instance, db_connection_pool) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!=\"\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\", \"db_connection_pool\"))",
+          "expr": "sum by (ServiceKey) (label_join(sum by (normalized_service, db_instance) (increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!~\"^$|pgbouncer\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__range])), \"ServiceKey\", \"-\", \"normalized_service\", \"db_instance\")) or label_replace(sum(increase(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service=\"postgres\",db_connection_pool=\"pgbouncer\"}[$__range])), \"ServiceKey\", \"PgBouncer\", \"\", \"\")",
           "format": "table",
           "instant": true,
           "legendFormat": "Total Calls",
