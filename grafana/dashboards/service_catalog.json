@@ -985,7 +985,93 @@
           "decimals": 2,
           "min": 0,
           "unit": "reqps"
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "django"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Django (Web Requests)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "postgres"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "PostgreSQL (Database Queries)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "redis"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Redis (Cache Commands)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "External HTTP (Outbound Calls)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aws-s3"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "AWS S3 / Boto3 (Storage Operations)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aws-api"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "AWS API (Storage Operations)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "celery"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Celery (Background Tasks)"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -1020,71 +1106,10 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"django\",project_name=~\"${project:regex}\",span_kind=~\"SPAN_KIND_SERVER|^$\"}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "Django (Web Requests)",
+          "expr": "sum by (normalized_service) (rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",normalized_service!~\"^$|pgbouncer\",span_kind!~\"SPAN_KIND_INTERNAL|SPAN_KIND_PRODUCER\"}[$__rate_interval]))",
+          "legendFormat": "{{normalized_service}}",
           "range": true,
-          "refId": "A",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "PostgreSQL (Database Queries)",
-          "range": true,
-          "refId": "B",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "Redis (Cache Commands)",
-          "range": true,
-          "refId": "C",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval]) or rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"\",instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "External HTTP (Outbound Calls)",
-          "range": true,
-          "refId": "D",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "AWS S3 / Boto3 (Storage Operations)",
-          "range": true,
-          "refId": "E",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(apm_calls_total{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"celery\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CONSUMER\"}[$__rate_interval]))) or vector(0)",
-          "legendFormat": "Celery (Background Tasks)",
-          "range": true,
-          "refId": "F",
-          "exemplar": false
+          "refId": "A"
         }
       ],
       "title": "\u25c6 Throughput by Service (Operations / sec)",
@@ -1136,9 +1161,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "PostgreSQL (Database)"
+              "options": "postgres"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "PostgreSQL (Database)"
+              },
               {
                 "id": "color",
                 "value": {
@@ -1151,54 +1180,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "slave1"
+              "options": "redis"
             },
             "properties": [
               {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#eab308",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "slave2"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#06b6d4",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "slave3"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#a855f7",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Redis (Cache)"
-            },
-            "properties": [
+                "id": "displayName",
+                "value": "Redis (Cache)"
+              },
               {
                 "id": "color",
                 "value": {
@@ -1211,9 +1199,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "AWS S3 / Boto3 (Storage)"
+              "options": "aws-s3"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "AWS S3 / Boto3 (Storage)"
+              },
               {
                 "id": "color",
                 "value": {
@@ -1226,9 +1218,32 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "External HTTP"
+              "options": "aws-api"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "AWS API (Storage)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#06b6d4",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "requests"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "External HTTP"
+              },
               {
                 "id": "color",
                 "value": {
@@ -1269,47 +1284,10 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=~\"postgresql|postgres\",instance!=\"\",project_name=~\"${project:regex}\"}[$__rate_interval])))",
-          "legendFormat": "PostgreSQL (Database)",
+          "expr": "histogram_quantile(0.95, sum by (normalized_service, le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",project_name=~\"${project:regex}\",span_kind=\"SPAN_KIND_CLIENT\",normalized_service!~\"^$|pgbouncer\"}[$__rate_interval])))",
+          "legendFormat": "{{normalized_service}}",
           "range": true,
-          "refId": "A",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,db_system=\"redis\",instance!=\"\",project_name=~\"${project:regex}\"}[$__rate_interval])))",
-          "legendFormat": "Redis (Cache)",
-          "range": true,
-          "refId": "B",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=~\"aws-s3|aws-api\",project_name=~\"${project:regex}\"}[$__rate_interval])))",
-          "legendFormat": "AWS S3 / Boto3 (Storage)",
-          "range": true,
-          "refId": "C",
-          "exemplar": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(apm_duration_milliseconds_bucket{cluster_name=~\"${cluster:regex}\",instance=~`${server:regex}`,instance!=\"\",normalized_service=\"requests\",project_name=~\"${project:regex}\"}[$__rate_interval])))",
-          "legendFormat": "External HTTP",
-          "range": true,
-          "refId": "D",
-          "exemplar": false
+          "refId": "A"
         }
       ],
       "title": "Dependency P95 Latency (All Recorded Spans)",
